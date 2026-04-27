@@ -67,6 +67,7 @@ function applyTheme(t) {
 /* ─── MODAL ───────────────────────────────────────────── */
 function openModal(opts) {
   const box = document.getElementById('modalBox');
+  box.classList.toggle('wide', !!opts.wide);
   if (opts.html) {
     box.innerHTML = opts.html;
   } else {
@@ -113,7 +114,10 @@ function openConfirm({ title, msg, onConfirm }) {
   document.getElementById('mdOk').onclick = () => { closeModal(); onConfirm(); };
 }
 
-function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModal() { 
+  document.getElementById('modalOverlay').classList.remove('open'); 
+  document.getElementById('modalBox').classList.remove('wide');
+}
 
 /* ═══════════════════════════════════════════════════════
    SIDEBAR: COURSE PICKER
@@ -590,15 +594,18 @@ function renderGlobalManager() {
   container.innerHTML = `
     <div class="gm-container">
       <div class="gm-header">
-        <h1 class="gm-title">Gestor Maestro de Visuales</h1>
+        <div class="gm-title-area">
+          <h1 class="gm-title">Gestor Maestro de Visuales</h1>
+          <p class="gm-subtitle">Configuración global de layouts, dinámicos y motores de renderizado</p>
+        </div>
         <button class="gm-add-btn" onclick="openEditTypeModal()">
           <span>+</span> Nuevo Tipo de Pantalla
         </button>
       </div>
 
       <div class="gm-tabs">
-        <div class="gm-tab ${GM.activeTab === 'types' ? 'active' : ''}" onclick="switchGmTab('types')">Tipos de Pantalla</div>
-        <div class="gm-tab ${GM.activeTab === 'remotion' ? 'active' : ''}" onclick="switchGmTab('remotion')">Templates Remotion</div>
+        <button class="gm-tab ${GM.activeTab === 'types' ? 'active' : ''}" onclick="switchGmTab('types')">Tipos de Pantalla</button>
+        <button class="gm-tab ${GM.activeTab === 'remotion' ? 'active' : ''}" onclick="switchGmTab('remotion')">Templates Remotion</button>
       </div>
 
       <div id="gmGrid" class="gm-grid"></div>
@@ -611,6 +618,7 @@ function switchGmTab(tab) {
   GM.activeTab = tab;
   renderGlobalManager();
 }
+
 
 function renderGmGrid() {
   const grid = document.getElementById('gmGrid');
@@ -684,17 +692,17 @@ function openEditTypeModal(t = null) {
         <div class="gm-form-grid">
           <div class="gm-form-row">
             <label class="gm-form-label">Nombre (ID)</label>
-            <input type="text" name="name" value="${t ? t.name : ''}" placeholder="Ej: SPLIT_LEFT" required ${t ? 'readonly' : ''}>
+            <input type="text" name="name" class="gm-input" value="${t ? t.name : ''}" placeholder="Ej: SPLIT_LEFT" required ${t ? 'readonly' : ''}>
           </div>
           <div class="gm-form-row">
             <label class="gm-form-label">Etiqueta (UI)</label>
-            <input type="text" name="label" value="${t ? t.label : ''}" placeholder="Ej: Split Izquierda" required>
+            <input type="text" name="label" class="gm-input" value="${t ? t.label : ''}" placeholder="Ej: Split Izquierda" required>
           </div>
         </div>
         <div class="gm-form-grid">
           <div class="gm-form-row">
             <label class="gm-form-label">Categoría</label>
-            <select name="category">
+            <select name="category" class="gm-input">
               <option value="layout" ${t?.category === 'layout' ? 'selected' : ''}>Layout</option>
               <option value="dynamic" ${t?.category === 'dynamic' ? 'selected' : ''}>Dynamic</option>
               <option value="rendering" ${t?.category === 'rendering' ? 'selected' : ''}>Rendering Engine</option>
@@ -702,40 +710,40 @@ function openEditTypeModal(t = null) {
           </div>
           <div class="gm-form-row">
             <label class="gm-form-label">Icono (Emoji)</label>
-            <input type="text" name="icon" value="${t ? t.icon : '📝'}">
+            <input type="text" name="icon" class="gm-input" value="${t ? t.icon : '📝'}">
           </div>
         </div>
         <div class="gm-form-row">
           <label class="gm-form-label">Descripción</label>
-          <textarea name="description" rows="2">${t ? t.description : ''}</textarea>
+          <textarea name="description" class="gm-input" rows="2">${t ? t.description : ''}</textarea>
         </div>
-        <div class="gm-form-grid" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="gm-form-grid-3">
           <div class="gm-form-row">
             <label class="gm-form-label">Max Items</label>
-            <input type="number" name="max_items" value="${t?.max_items || ''}" placeholder="Ej: 6">
+            <input type="number" name="max_items" class="gm-input" value="${t?.max_items || ''}" placeholder="6">
           </div>
           <div class="gm-form-row">
             <label class="gm-form-label">Max Words</label>
-            <input type="number" name="max_words" value="${t?.max_words || ''}" placeholder="Ej: 15">
+            <input type="number" name="max_words" class="gm-input" value="${t?.max_words || ''}" placeholder="15">
           </div>
           <div class="gm-form-row">
             <label class="gm-form-label">Max Chars</label>
-            <input type="number" name="max_chars" value="${t?.max_chars || ''}" placeholder="Ej: 80">
+            <input type="number" name="max_chars" class="gm-input" value="${t?.max_chars || ''}" placeholder="80">
           </div>
         </div>
         <div class="gm-form-grid">
           <div class="gm-form-row">
             <label class="gm-form-label">Prefijo Asset</label>
-            <input type="text" name="asset_prefix" value="${t ? t.asset_prefix : ''}" placeholder="Ej: S">
+            <input type="text" name="asset_prefix" class="gm-input" value="${t ? t.asset_prefix : ''}" placeholder="S">
           </div>
           <div class="gm-form-row">
             <label class="gm-form-label">Extensión</label>
-            <input type="text" name="asset_ext" value="${t ? t.asset_ext : ''}" placeholder="Ej: png">
+            <input type="text" name="asset_ext" class="gm-input" value="${t ? t.asset_ext : ''}" placeholder="png">
           </div>
         </div>
         <div class="gm-form-row">
           <label class="gm-form-label">Sintaxis Parámetros</label>
-          <input type="text" name="params_syntax" value="${t ? t.params_syntax : ''}" placeholder="Ej: // @ Título // Item 1">
+          <input type="text" name="params_syntax" class="gm-input" value="${t ? t.params_syntax : ''}" placeholder="// @ Título">
         </div>
         <div class="modal-foot" style="padding-top:20px">
           <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -744,7 +752,7 @@ function openEditTypeModal(t = null) {
       </form>
     </div>
   `;
-  openModal({ html });
+  openModal({ html, wide: true });
 }
 
 async function saveScreenType(e, id) {
@@ -785,24 +793,24 @@ function openEditTemplateModal(t = null) {
         <div class="gm-form-grid">
           <div class="gm-form-row">
             <label class="gm-form-label">Nombre (ID)</label>
-            <input type="text" name="name" value="${t ? t.name : ''}" placeholder="Ej: TypeWriter" required ${t ? 'readonly' : ''}>
+            <input type="text" name="name" class="gm-input" value="${t ? t.name : ''}" placeholder="Ej: TypeWriter" required ${t ? 'readonly' : ''}>
           </div>
           <div class="gm-form-row">
             <label class="gm-form-label">Etiqueta (UI)</label>
-            <input type="text" name="label" value="${t ? t.label : ''}" placeholder="Ej: Terminal" required>
+            <input type="text" name="label" class="gm-input" value="${t ? t.label : ''}" placeholder="Ej: Terminal" required>
           </div>
         </div>
         <div class="gm-form-row">
           <label class="gm-form-label">Descripción</label>
-          <textarea name="description" rows="2">${t ? t.description : ''}</textarea>
+          <textarea name="description" class="gm-input" rows="2">${t ? t.description : ''}</textarea>
         </div>
         <div class="gm-form-row">
           <label class="gm-form-label">Límites / Guía</label>
-          <input type="text" name="limits" value="${t ? t.limits : ''}" placeholder="Ej: min 3 - max 6">
+          <input type="text" name="limits" class="gm-input" value="${t ? t.limits : ''}" placeholder="Ej: min 3 - max 6">
         </div>
         <div class="gm-form-row">
           <label class="gm-form-label">Data Schema (JSON)</label>
-          <textarea name="data_schema" rows="4" style="font-family:monospace">${t ? t.data_schema : ''}</textarea>
+          <textarea name="data_schema" class="gm-input" rows="4" style="font-family:monospace">${t ? t.data_schema : ''}</textarea>
         </div>
         <div class="modal-foot" style="padding-top:20px">
           <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -811,7 +819,7 @@ function openEditTemplateModal(t = null) {
       </form>
     </div>
   `;
-  openModal({ html });
+  openModal({ html, wide: true });
 }
 
 async function saveRemotionTemplate(e, id) {
