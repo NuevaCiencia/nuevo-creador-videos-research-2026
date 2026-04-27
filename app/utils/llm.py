@@ -13,7 +13,7 @@ def get_client():
         client = OpenAI(api_key=api_key)
     return client
 
-def call_llm(prompt: str, system: str, temperature: float = 0.5, model: str = "gpt-4o-mini") -> dict:
+def call_llm(prompt: str, system: str, temperature: float = 0.5, model: str = "gpt-5.4-mini") -> dict:
     """Call OpenAI and return parsed JSON."""
     try:
         response = get_client().chat.completions.create(

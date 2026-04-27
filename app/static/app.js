@@ -12,6 +12,7 @@ const S = {
   expandedSections: new Set(),
   activeClass: null,
   activePhase: 'guion',
+  guionRightTab: 'research',  // 'research' | 'screens'
   saveStatus: 'saved',
   saveTimer: null,
 };
@@ -293,11 +294,12 @@ function switchPhase(phase) {
 }
 
 function renderPhase(phase) {
+  _clearAudioPoll();
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
   switch(phase) {
     case 'guion':    renderGuion(area);    break;
-    case 'audio':    renderPlaceholder(area, '🎙️', 'Fase: Audio', 'Aquí podrás cargar el audio y ejecutar la transcripción con Whisper.'); break;
+    case 'audio':    renderAudio(area);    break;
     case 'visuales': renderPlaceholder(area, '🧠', 'Fase: Visuales', 'Aquí se generará el guion visual enriquecido con IA.'); break;
     case 'video':    renderPlaceholder(area, '🎬', 'Fase: Video', 'Aquí se configurará y lanzará el render final con FFmpeg.'); break;
   }
@@ -330,6 +332,8 @@ function renderContent(type) {
 function renderGuion(area) {
   const cls = S.activeClass;
   S.saveStatus = 'saved';
+  const tab = S.guionRightTab;
+
   area.innerHTML = `
     <div class="guion-view">
       <div class="guion-main">
@@ -339,8 +343,7 @@ function renderGuion(area) {
             <span id="guionStats" class="guion-stats">0 palabras · 0 caracteres</span>
           </div>
           <div class="guion-toolbar-actions">
-            <button class="btn btn-sm btn-ghost" onclick="runResearch()">🔍 Verificar con IA (Tavily)</button>
-            <button class="btn btn-sm btn-primary" onclick="doSave(false)">Guardar Guion</button>
+            <button class="btn btn-sm btn-ghost" onclick="doSave(false)">Guardar Guion</button>
           </div>
         </div>
         <div class="guion-editor-wrap">
@@ -349,15 +352,48 @@ function renderGuion(area) {
             oninput="onGuionInput(this)">${esc(cls.raw_narration || '')}</textarea>
         </div>
       </div>
-      <div class="guion-research-panel" id="researchPanel">
-        <div class="rp-head">Investigación y Sustento</div>
-        <div class="rp-body" id="researchBody">
-          <div class="rp-empty">Pulsa "Verificar con IA" para analizar el contenido.</div>
+
+      <div class="guion-research-panel" id="rightPanel">
+        <div class="rp-tabs">
+          <button class="rp-tab ${tab === 'research' ? 'active' : ''}" onclick="switchGuionTab('research')">🔍 Investigación</button>
+          <button class="rp-tab ${tab === 'screens'  ? 'active' : ''}" onclick="switchGuionTab('screens')">🎬 Pantallas</button>
+        </div>
+
+        <div id="researchSection" class="${tab === 'research' ? '' : 'hidden'}">
+          <div class="rp-tab-toolbar">
+            <button class="btn btn-sm btn-ghost" style="width:100%" onclick="runResearch()">🔍 Verificar con Tavily</button>
+          </div>
+          <div class="rp-body" id="researchBody">
+            <div class="rp-empty">Pulsa el botón para analizar el guion.</div>
+          </div>
+        </div>
+
+        <div id="screensSection" class="${tab === 'screens' ? '' : 'hidden'}">
+          <div class="rp-tab-toolbar">
+            <button class="btn btn-sm btn-primary" style="width:100%" onclick="runSegmentation()">✦ Segmentar con IA</button>
+          </div>
+          <div class="rp-body" id="screensBody">
+            <div class="rp-empty">Pulsa el botón para que la IA divida el guion en pantallas.</div>
+          </div>
         </div>
       </div>
     </div>`;
+
   onGuionInput(document.getElementById('guionTA'));
-  renderResearchItems();
+  if (tab === 'research') renderResearchItems();
+  else renderSegmentCards();
+}
+
+function switchGuionTab(tab) {
+  S.guionRightTab = tab;
+  document.querySelectorAll('.rp-tab').forEach(b => b.classList.toggle('active', b.textContent.includes(tab === 'research' ? 'Investigación' : 'Pantallas')));
+  const rs = document.getElementById('researchSection');
+  const ss = document.getElementById('screensSection');
+  if (!rs || !ss) return;
+  rs.classList.toggle('hidden', tab !== 'research');
+  ss.classList.toggle('hidden', tab !== 'screens');
+  if (tab === 'research') renderResearchItems();
+  else renderSegmentCards();
 }
 
 async function runResearch() {
@@ -394,12 +430,17 @@ async function renderResearchItems(providedItems = null) {
     return;
   }
   
+  const reexaminable = s => s === 'disputed' || s === 'not_found' || s === 'error';
+
   body.innerHTML = items.map(i => `
-    <div class="research-item status-${i.status}">
+    <div class="research-item status-${i.status}" id="ri_${i.id}">
       <div class="ri-head">
         <span class="ri-badge">${i.status.toUpperCase()}</span>
         ${i.confidence ? `<span class="ri-conf" title="Confianza: ${i.confidence}%">${i.confidence}%</span>` : ''}
-        <button class="ri-del" onclick="deleteResearchItem(${i.id})">×</button>
+        <div style="display:flex;gap:4px;margin-left:auto">
+          ${reexaminable(i.status) ? `<button class="ri-reexamine" id="rex_${i.id}" onclick="reexamineItem(${i.id})">↻ Actualizar</button>` : ''}
+          <button class="ri-del" onclick="deleteResearchItem(${i.id})">×</button>
+        </div>
       </div>
       <div class="ri-claim">${esc(i.claim)}</div>
       ${i.source_url ? `
@@ -412,12 +453,145 @@ async function renderResearchItems(providedItems = null) {
   `).join('');
 }
 
+async function reexamineItem(id) {
+  const btn = document.getElementById(`rex_${id}`);
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Buscando…'; }
+  try {
+    const updated = await api('POST', `/api/research-items/${id}/reexamine`);
+    toast(updated.status === 'verified' ? '✓ Verificado con fuentes actualizadas' : `Re-examinado: ${updated.status}`);
+    renderResearchItems();
+  } catch(e) {
+    toast('Error al re-examinar', false);
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Actualizar'; }
+  }
+}
+
 async function deleteResearchItem(id) {
   if (!confirm('¿Eliminar este hallazgo?')) return;
   await api('DELETE', `/api/research-items/${id}`);
   renderResearchItems();
 }
 
+
+/* ─── SCREEN SEGMENTATION ─────────────────────────────── */
+async function runSegmentation() {
+  const cls = S.activeClass;
+  if (!(cls.raw_narration || '').trim() && !document.getElementById('guionTA')?.value.trim()) {
+    return toast('Pega un guion primero', false);
+  }
+
+  const body = document.getElementById('screensBody');
+  if (!body) return;
+  body.innerHTML = '<div class="rp-loading">✦ Segmentando con IA…</div>';
+
+  try {
+    const segments = await api('POST', `/api/classes/${cls.id}/segment`);
+    toast(`${segments.length} pantallas generadas`);
+    renderSegmentCards(segments);
+  } catch(e) {
+    toast('Error al segmentar', false);
+    renderSegmentCards();
+  }
+}
+
+async function renderSegmentCards(providedSegs = null) {
+  const body = document.getElementById('screensBody');
+  if (!body) return;
+
+  let segs = providedSegs;
+  if (!segs) {
+    try { segs = await api('GET', `/api/classes/${S.activeClass.id}/segments`); }
+    catch(e) { segs = []; }
+  }
+
+  if (!segs || segs.length === 0) {
+    body.innerHTML = '<div class="rp-empty">Sin pantallas todavía.<br>Pulsa "Segmentar con IA" para generar.</div>';
+    return;
+  }
+
+  if (!GM.screenTypes.length) await loadGmData();
+  const typeMap = {};
+  GM.screenTypes.forEach(t => { typeMap[t.name] = t; });
+
+  // Store for export functions
+  window._currentSegs = segs;
+  window._currentClassName = S.activeClass?.title || 'guion';
+
+  const cards = segs.map(seg => {
+    const st = typeMap[seg.screen_type] || {};
+    const color = st.color || '#666';
+    const icon  = st.icon  || '▪';
+    const label = st.label || seg.screen_type;
+    return `
+      <div class="seg-card">
+        <div class="seg-card-head">
+          <span class="seg-order">${seg.order + 1}</span>
+          <span class="seg-type-badge" style="background:${color}22;color:${color};border-color:${color}44">
+            ${icon} ${esc(seg.screen_type)}
+          </span>
+          <span class="seg-type-label">${esc(label)}</span>
+        </div>
+        <div class="seg-narration">${esc(seg.narration)}</div>
+        ${seg.params ? `<div class="seg-params"><span class="seg-params-label">params</span>${esc(seg.params)}</div>` : ''}
+        ${seg.notes  ? `<div class="seg-notes">${esc(seg.notes)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="seg-actions-bar">
+      <button class="seg-action-btn" onclick="showTaggedScript()">📄 Ver etiquetado</button>
+      <button class="seg-action-btn" onclick="copyTaggedScript()">📋 Copiar</button>
+      <button class="seg-action-btn" onclick="exportTaggedScript()">⬇ .txt</button>
+    </div>
+    ${cards}`;
+}
+
+function buildTaggedScript(segs) {
+  return segs.map(seg => {
+    const tag = seg.params
+      ? `<!-- type:${seg.screen_type} // ${seg.params} -->`
+      : `<!-- type:${seg.screen_type} -->`;
+    return `${tag}\n${seg.narration}`;
+  }).join('\n\n');
+}
+
+function showTaggedScript() {
+  const script = buildTaggedScript(window._currentSegs || []);
+  openModal({
+    wide: true,
+    html: `
+      <div class="modal-title">Guion Etiquetado — ${esc(window._currentClassName || '')}</div>
+      <div class="modal-body">
+        <textarea class="tagged-script-ta" readonly>${esc(script)}</textarea>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+        <button class="btn btn-ghost" onclick="copyTaggedScript()">📋 Copiar</button>
+        <button class="btn btn-primary" onclick="exportTaggedScript()">⬇ Exportar .txt</button>
+      </div>`
+  });
+}
+
+async function copyTaggedScript() {
+  const script = buildTaggedScript(window._currentSegs || []);
+  try {
+    await navigator.clipboard.writeText(script);
+    toast('Copiado al portapapeles');
+  } catch(e) {
+    toast('Error al copiar', false);
+  }
+}
+
+function exportTaggedScript() {
+  const script = buildTaggedScript(window._currentSegs || []);
+  const name   = (window._currentClassName || 'guion').replace(/[^a-z0-9_\-]/gi, '_');
+  const blob   = new Blob([script], { type: 'text/plain;charset=utf-8' });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href = url; a.download = `${name}_etiquetado.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function onGuionInput(el) {
   // update stats
@@ -454,6 +628,251 @@ async function doSave(silent = false) {
     setStatus(undefined, '⚠ Error al guardar', 'sb-unsaved');
     if (!silent) toast('Error al guardar', false);
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   AUDIO PHASE
+═══════════════════════════════════════════════════════ */
+let _audioPollTimer = null;
+const RUNNING_STATUSES = new Set(['loading_model', 'transcribing', 'aligning', 'saving']);
+
+function _clearAudioPoll() {
+  if (_audioPollTimer) { clearInterval(_audioPollTimer); _audioPollTimer = null; }
+}
+
+async function renderAudio(area) {
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estado del audio…</div></div>`;
+  let state = null;
+  try { state = await api('GET', `/api/classes/${S.activeClass.id}/audio`); } catch(e) { /* no audio yet */ }
+  _buildAudioUI(area, state);
+  if (state && RUNNING_STATUSES.has(state.tx_status)) _startAudioPoll();
+}
+
+function _buildAudioUI(area, state) {
+  const running = state && RUNNING_STATUSES.has(state.tx_status);
+  const done    = state?.tx_status === 'done';
+  const hasErr  = state?.tx_error;
+
+  const modelOptions = ['tiny','base','small','medium','large-v3'].map(m =>
+    `<option value="${m}" ${(state?.whisper_model || 'large-v3') === m ? 'selected' : ''}>${m}</option>`
+  ).join('');
+
+  area.innerHTML = `<div class="audio-phase">
+
+    <!-- ① Audio Source Card -->
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🎵 Archivo de Audio</span>
+        ${state ? `<button class="audio-ghost-btn" onclick="deleteAudio()" ${running ? 'disabled' : ''}>✕ Quitar</button>` : ''}
+      </div>
+      <div class="audio-card-body">
+        ${state ? `
+          <div class="audio-file-info">
+            <div class="audio-filename">${esc(state.filename)}</div>
+            <div class="audio-meta">
+              <span>⏱ ${_fmtDuration(state.duration)}</span>
+              <span>·</span>
+              <span>📦 ${_fmtSize(state.size_bytes)}</span>
+            </div>
+          </div>
+          <audio controls src="${esc(state.file_url)}" class="audio-player" preload="metadata"></audio>
+        ` : `
+          <label class="audio-upload-zone" for="audioFileInput">
+            <div class="audio-upload-icon">🎵</div>
+            <div class="audio-upload-label">Seleccionar archivo de audio</div>
+            <div class="audio-upload-sub">MP3, WAV, M4A, AAC, FLAC, OGG</div>
+            <input type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.mp4,.aac,.ogg,.flac" style="display:none"/>
+          </label>
+        `}
+      </div>
+    </div>
+
+    <!-- ② Transcripción Card -->
+    ${state ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🎙️ Transcripción con Whisper</span>
+      </div>
+      <div class="audio-card-body">
+        <div class="audio-tx-controls">
+          <div class="audio-model-row">
+            <label class="audio-model-label">Modelo</label>
+            <select id="whisperModel" class="audio-model-select" ${running ? 'disabled' : ''}>
+              ${modelOptions}
+            </select>
+            <span class="audio-device-badge" id="deviceBadge">CPU</span>
+          </div>
+          <button class="btn btn-primary audio-att-btn" onclick="startWhisperATT()" ${running || !state ? 'disabled' : ''}>
+            ${running ? '⏳ Transcribiendo…' : '🎙️ ATT con Whisper'}
+          </button>
+        </div>
+
+        <!-- Progress -->
+        <div class="audio-progress-wrap" id="audioProgressWrap" style="${running || done ? '' : 'display:none'}">
+          <div class="audio-progress-bar">
+            <div class="audio-progress-fill ${running ? 'running' : ''}"
+                 id="audioProgressFill"
+                 style="width:${state.tx_progress || 0}%"></div>
+          </div>
+          <div class="audio-progress-foot">
+            <span id="audioPhaseLabel" class="audio-phase-label">${esc(state.tx_phase || '')}</span>
+            <span id="audioProgressPct" class="audio-progress-pct">${state.tx_progress || 0}%</span>
+          </div>
+        </div>
+
+        <!-- Error box -->
+        ${hasErr ? `
+        <div class="audio-error-box" id="audioErrorBox">
+          <div class="audio-error-title">⚠️ Error de transcripción</div>
+          <pre class="audio-error-pre">${esc(state.tx_error)}</pre>
+        </div>` : '<div id="audioErrorBox" style="display:none"></div>'}
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- ③ Result Card -->
+    ${done ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">📄 Transcripción</span>
+        <div style="display:flex;gap:6px">
+          <button class="seg-action-btn" onclick="copyTranscription()">📋 Copiar</button>
+          <button class="seg-action-btn" onclick="exportTranscription()">⬇ .txt</button>
+        </div>
+      </div>
+      <div class="audio-card-body">
+        <pre class="tx-result-pre" id="txResultPre">${esc(state.tx_raw_text || '')}</pre>
+      </div>
+    </div>
+    ` : ''}
+
+  </div>`;
+
+  // Wire up file input
+  const fi = document.getElementById('audioFileInput');
+  if (fi) fi.addEventListener('change', e => { if (e.target.files[0]) uploadAudio(e.target.files[0]); });
+}
+
+function _fmtDuration(secs) {
+  if (!secs) return '—';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function _fmtSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(1)} KB`;
+  return `${(bytes/1024/1024).toFixed(1)} MB`;
+}
+
+async function uploadAudio(file) {
+  setStatus(undefined, '⬆ Subiendo audio…', 'sb-saving');
+  const area = document.getElementById('contentArea');
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">⬆ Subiendo ${esc(file.name)}…</div></div>`;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/classes/${S.activeClass.id}/audio`, { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Error al subir');
+    }
+    const state = await res.json();
+    toast('Audio cargado');
+    _buildAudioUI(area, state);
+  } catch(e) {
+    toast(e.message, false);
+    _buildAudioUI(area, null);
+  }
+  setStatus(undefined, '✓ Listo', 'sb-saved');
+}
+
+async function deleteAudio() {
+  if (!confirm('¿Eliminar el audio y la transcripción?')) return;
+  try {
+    await api('DELETE', `/api/classes/${S.activeClass.id}/audio`);
+    toast('Audio eliminado');
+    _clearAudioPoll();
+    _buildAudioUI(document.getElementById('contentArea'), null);
+  } catch(e) { toast(e.message, false); }
+}
+
+async function startWhisperATT() {
+  const model = document.getElementById('whisperModel')?.value || 'large-v3';
+  try {
+    const fd = new FormData();
+    fd.append('model', model);
+    const res = await fetch(`/api/classes/${S.activeClass.id}/transcription`, { method: 'POST', body: fd });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+    toast(`Transcripción iniciada con ${model}`);
+    // Re-fetch state and start polling
+    const state = await api('GET', `/api/classes/${S.activeClass.id}/audio`);
+    _buildAudioUI(document.getElementById('contentArea'), state);
+    _startAudioPoll();
+  } catch(e) { toast(e.message, false); }
+}
+
+function _startAudioPoll() {
+  _clearAudioPoll();
+  const classId = S.activeClass?.id;
+  _audioPollTimer = setInterval(async () => {
+    if (S.activeClass?.id !== classId || S.activePhase !== 'audio') { _clearAudioPoll(); return; }
+    try {
+      const s = await api('GET', `/api/classes/${classId}/audio/status`);
+
+      // Update progress bar and labels without full re-render
+      const fill  = document.getElementById('audioProgressFill');
+      const phase = document.getElementById('audioPhaseLabel');
+      const pct   = document.getElementById('audioProgressPct');
+      const wrap  = document.getElementById('audioProgressWrap');
+      const errBox= document.getElementById('audioErrorBox');
+      const attBtn= document.querySelector('.audio-att-btn');
+
+      if (wrap)  wrap.style.display = '';
+      if (fill)  { fill.style.width = `${s.tx_progress}%`; }
+      if (phase) phase.textContent = s.tx_phase || '';
+      if (pct)   pct.textContent   = `${s.tx_progress}%`;
+
+      if (s.tx_error && errBox) {
+        errBox.style.display = '';
+        errBox.innerHTML = `<div class="audio-error-title">⚠️ Error de transcripción</div><pre class="audio-error-pre">${esc(s.tx_error)}</pre>`;
+      }
+
+      if (!RUNNING_STATUSES.has(s.tx_status)) {
+        _clearAudioPoll();
+        if (fill) fill.classList.remove('running');
+        if (attBtn) { attBtn.disabled = false; attBtn.textContent = '🎙️ ATT con Whisper'; }
+        if (s.tx_status === 'done') {
+          // Full re-render to show result card
+          const full = await api('GET', `/api/classes/${classId}/audio`);
+          _buildAudioUI(document.getElementById('contentArea'), full);
+          toast('✅ Transcripción completada');
+        } else if (s.tx_status === 'error') {
+          toast('Error en transcripción — revisa el panel', false);
+        }
+      }
+    } catch(e) { /* network blip — keep polling */ }
+  }, 2000);
+}
+
+function copyTranscription() {
+  const pre = document.getElementById('txResultPre');
+  if (!pre) return;
+  navigator.clipboard.writeText(pre.textContent).then(() => toast('Copiado'));
+}
+
+function exportTranscription() {
+  const pre = document.getElementById('txResultPre');
+  if (!pre) return;
+  const name = (S.activeClass?.title || 'transcripcion').replace(/[^a-z0-9_\-]/gi, '_');
+  const blob = new Blob([pre.textContent], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${name}_whisper.txt`;
+  a.click(); URL.revokeObjectURL(url);
 }
 
 /* ─── PLACEHOLDER PHASES ──────────────────────────────── */

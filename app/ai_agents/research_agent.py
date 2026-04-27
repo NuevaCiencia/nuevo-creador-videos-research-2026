@@ -53,6 +53,43 @@ Responde en este formato JSON:
   "source_snippet": "Fragmento de evidencia directa"
 }"""
 
+SYSTEM_QUERY_REFINER = """Eres un especialista en búsqueda académica avanzada.
+
+Una afirmación fue buscada anteriormente y el resultado fue insatisfactorio (estado: {prev_status}).
+Las fuentes encontradas no tenían suficiente rigor o estaban desactualizadas.
+
+Tu misión es generar UN NUEVO QUERY de búsqueda que:
+1. Reformule la afirmación con sinónimos o desde otro ángulo.
+2. Incluya explícitamente filtros de recencia: añade "2023 OR 2024 OR 2025" al query.
+3. Mantenga filtros de dominio de alta confianza: site:.edu OR site:.gov OR dominios científicos indexados.
+4. Sea sustancialmente diferente al query original para explorar nuevas vías.
+
+Query original que falló: {prev_query}
+
+Responde ÚNICAMENTE en JSON:
+{{
+  "query": "El nuevo query mejorado con filtro de recencia"
+}}"""
+
+
+def reexamine_claim(claim_obj: dict, prev_status: str) -> dict:
+    """Re-examine a disputed/not_found claim with a refined query focused on recent sources."""
+    system = SYSTEM_QUERY_REFINER.format(
+        prev_status=prev_status,
+        prev_query=claim_obj.get("query", claim_obj["claim"]),
+    )
+    prompt = f"AFIRMACIÓN: {claim_obj['claim']}\nQUERY ANTERIOR: {claim_obj.get('query', '')}"
+    try:
+        refined = call_llm(prompt, system, temperature=0.4)
+        new_query = refined.get("query") or claim_obj.get("query", claim_obj["claim"])
+    except Exception:
+        new_query = claim_obj.get("query", claim_obj["claim"]) + " 2023 OR 2024 OR 2025"
+
+    result = verify_claim({**claim_obj, "query": new_query})
+    result["_new_query"] = new_query
+    return result
+
+
 def extract_claims(text: str) -> list:
     """Extract verifiable claims from text."""
     prompt = f"GUION:\n{text}"

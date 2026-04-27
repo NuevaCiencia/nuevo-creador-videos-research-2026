@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -51,7 +51,16 @@ class Class(Base):
     updated_at    = Column(DateTime, default=datetime.utcnow)
 
     section = relationship("Section", back_populates="classes")
-    research_items = relationship("ResearchItem", back_populates="class_obj", cascade="all, delete-orphan")
+    research_items  = relationship("ResearchItem",  back_populates="class_obj", cascade="all, delete-orphan")
+    screen_segments = relationship(
+        "ScreenSegment",
+        back_populates="class_obj",
+        cascade="all, delete-orphan",
+        order_by="ScreenSegment.order",
+    )
+    audio            = relationship("ClassAudio",           back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    spell_correction = relationship("ClassSpellCorrection", back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    guion_base       = relationship("ClassGuionBase",       back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
 
 
 class ResearchItem(Base):
@@ -70,6 +79,98 @@ class ResearchItem(Base):
     created_at          = Column(DateTime, default=datetime.utcnow)
     
     class_obj           = relationship("Class", back_populates="research_items")
+
+
+# ── Per-class: Audio + Transcription ──────────────────────────────────────────
+# One row per class. Stores audio metadata and the full transcription state
+# so the frontend can poll for live progress without a separate job queue.
+
+class ClassAudio(Base):
+    __tablename__ = "class_audio"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    class_id   = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # Audio file metadata
+    filename   = Column(String(255), nullable=False)
+    file_path  = Column(String(500), nullable=False)   # relative to app/
+    duration   = Column(Float,  nullable=True)          # seconds
+    size_bytes = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Transcription state (updated in-place by background thread)
+    whisper_model = Column(String(50),  nullable=True)
+    tx_status     = Column(String(30),  default="idle")  # idle | loading_model | transcribing | aligning | saving | done | error
+    tx_progress   = Column(Integer,     default=0)        # 0-100
+    tx_phase      = Column(String(255), default="")       # human-readable current step
+    tx_error      = Column(Text,        nullable=True)    # full error/traceback
+    tx_raw_text   = Column(Text,        nullable=True)    # [start.xxx - end.xxx]: text per block (spell-checker input)
+    tx_srt        = Column(Text,        nullable=True)    # SRT format for video production
+    tx_segments   = Column(Text,        nullable=True)    # JSON [{start, end, text}] blocks — aligner input
+    tx_updated_at = Column(DateTime,    nullable=True)
+
+    class_obj = relationship("Class", back_populates="audio")
+
+
+# ── Per-class: Spell Correction ───────────────────────────────────────────────
+# Stores the spell-corrected transcription blocks (FASE 2 of pipeline).
+# Input:  ClassAudio.tx_segments  +  Class.raw_narration (as reference)
+# Output: same [{start, end, text}] format, text corrected via GPT
+
+class ClassSpellCorrection(Base):
+    __tablename__ = "class_spell_corrections"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    class_id   = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True)
+    status     = Column(String(30),  default="idle")   # idle | running | done | error
+    progress   = Column(Integer,     default=0)
+    phase      = Column(String(255), default="")
+    error      = Column(Text,        nullable=True)
+    segments_json = Column(Text,     nullable=True)    # JSON [{start, end, text}] corrected
+    raw_text      = Column(Text,     nullable=True)    # [start.xxx - end.xxx]: text per line
+    created_at = Column(DateTime,    default=datetime.utcnow)
+    updated_at = Column(DateTime,    nullable=True)
+
+    class_obj = relationship("Class", back_populates="spell_correction")
+
+
+# ── Per-class: Guion Base (aligned output) ────────────────────────────────────
+# Stores the result of SegmentAligner + GuionFormatter (FASE 3a of pipeline).
+# Input:  ClassSpellCorrection.segments_json  +  ScreenSegment rows (tagged script)
+# Output: timed segments with tipo/params + guion_base.txt content
+
+class ClassGuionBase(Base):
+    __tablename__ = "class_guion_base"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    class_id   = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True)
+    status     = Column(String(30),  default="idle")
+    phase      = Column(String(255), default="")
+    error      = Column(Text,        nullable=True)
+    segments_json = Column(Text,     nullable=True)    # JSON [{inicio,fin,duracion,texto,tipo,params}]
+    content       = Column(Text,     nullable=True)    # guion_base.txt format
+    created_at = Column(DateTime,    default=datetime.utcnow)
+
+    class_obj = relationship("Class", back_populates="guion_base")
+
+
+# ── Per-class: Screen Segments ────────────────────────────────────────────────
+# Result of GPT segmentation: each row is one screen block for a class.
+
+class ScreenSegment(Base):
+    __tablename__ = "screen_segments"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    class_id         = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False)
+    order            = Column(Integer, default=0)
+    screen_type      = Column(String(50), nullable=False)       # matches ScreenType.name
+    narration        = Column(Text, default="")                 # exact narration fragment
+    params           = Column(Text, default="")                 # inline params string
+    remotion_template= Column(String(100), nullable=True)       # only for REMOTION type
+    notes            = Column(Text, default="")                 # AI reasoning
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    class_obj = relationship("Class", back_populates="screen_segments")
 
 
 # ── GLOBAL: Screen Types ───────────────────────────────────────────────────────
