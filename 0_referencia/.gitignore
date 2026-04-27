@@ -1,0 +1,43 @@
+# ── Entorno ───────────────────────────────────────────────────────────────────
+venv/
+**/__pycache__/
+*.pyc
+.DS_Store
+**/.DS_Store
+
+# ── Deprecated y temporales ───────────────────────────────────────────────────
+deprecated/
+
+# ── Output raíz (legacy) ──────────────────────────────────────────────────────
+output/
+
+# ── Assets multimedia raíz (legacy) ──────────────────────────────────────────
+assets/images/
+assets/videos/
+assets/MANIM/media/
+
+# ── Fuentes tipográficas (siempre en git, nunca ignorar) ─────────────────────
+!fonts/
+
+# ── Proyectos: output generado y assets pesados ───────────────────────────────
+# Se rastrean: original_speech.md, video_config.yaml (ADN del video)
+# Se ignoran:  output/, assets/images|videos|AUDIO, video_final.mp4
+proyectos/*/output/
+proyectos/*/assets/
+proyectos/*/video_final.mp4
+proyectos/*/*session.json
+proyectos/*/backups/
+
+# ── Video final exportado (raíz legacy) ──────────────────────────────────────
+*.mp4
+*.mp3
+
+# ── Otros formatos de medios ──────────────────────────────────────────────────
+*.srt
+*.ass
+*.png
+*.jpg
+*.jpeg
+*.tmp
+*.log
+*.wav

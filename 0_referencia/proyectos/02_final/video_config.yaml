@@ -1,0 +1,19 @@
+# Configuración de video para CREADOR-VIDEOS
+# Proyecto: 02
+# Creado:   2026-04-10
+
+FILES_FOLDER: assets
+TITLE: "AGENTES DE IA - PARTE 2: La Revolución Moderna y el Mercado"
+MAIN_AUDIO: "assets/AUDIO/AGENTES DE IA-CLASE2-SCRIPTV3-AUP3-RAW-44100-enhanced-v2.mp3"
+GUION_COMPLETO: "output/03_guion/guion_consolidado.txt"
+FPS: 30
+RESOLUTION: "1920x1080"
+MAIN_FONT: Inter
+BACKGROUND_COLOR: "#fefefe"
+MAIN_TEXT_COLOR: "#bd0505"
+HIGHLIGHT_TEXT_COLOR: "#e3943b"
+COVER_ASSET: "videos/portada.mp4"
+COVER_NOTES: "AGENTES DE IA - PARTE 2: La Revolución Moderna y el Mercado"
+
+USE_TRANSITIONS: true
+TRANSITION_DURATION: 0.5

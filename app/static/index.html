@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Creator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+<div id="app">
+
+  <!-- ① TOP BAR -->
+  <header id="topbar" class="topbar">
+    <div class="tb-left">
+      <span class="app-brand">🎬 <strong>VideoCreator</strong></span>
+    </div>
+    <div class="tb-breadcrumb" id="breadcrumb"></div>
+    <div class="tb-right">
+      <button class="tb-btn" onclick="openSettings()" title="Configuración">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ② MAIN LAYOUT -->
+  <div class="workspace">
+
+    <!-- LEFT SIDEBAR: Navigator -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Sidebar top: course selector -->
+      <div class="sidebar-head" id="sidebarHead">
+        <span class="sidebar-title">Proyectos</span>
+        <button class="ib" onclick="showCourseList()" title="Cambiar proyecto">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+      </div>
+
+      <!-- Course selector dropdown (visible when no course active) -->
+      <div class="course-picker" id="coursePicker">
+        <div class="picker-list" id="pickerList"></div>
+        <button class="picker-new" onclick="createCourse()">+ Nuevo Proyecto</button>
+      </div>
+
+      <!-- Tree navigator (visible when course is open) -->
+      <div class="nav-tree hidden" id="navTree">
+        <div class="tree-course-hdr" id="treeCourseHdr"></div>
+        <div class="tree-body" id="treeBody"></div>
+        <div class="tree-footer">
+          <button class="tree-add-btn" onclick="createSection()">+ Nueva sección</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Phase workspace -->
+    <div class="main-area" id="mainArea">
+      <!-- Phase Tabs (shown when a class is selected) -->
+      <div class="phase-bar hidden" id="phaseBar">
+        <button class="phase-tab active" data-phase="guion" onclick="switchPhase('guion')">📝 Guion</button>
+        <button class="phase-tab" data-phase="audio" onclick="switchPhase('audio')">🎙️ Audio</button>
+        <button class="phase-tab" data-phase="visuales" onclick="switchPhase('visuales')">🧠 Visuales</button>
+        <button class="phase-tab" data-phase="video" onclick="switchPhase('video')">🎬 Video</button>
+      </div>
+
+      <!-- Content area -->
+      <div class="content-area" id="contentArea">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ STATUS BAR -->
+  <footer class="statusbar" id="statusbar">
+    <span id="sbLeft">Video Creator</span>
+    <span id="sbRight" class="sb-saved">✓ Listo</span>
+  </footer>
+
+  <!-- Settings Panel -->
+  <div id="settingsBackdrop" class="overlay-backdrop" onclick="closeSettings()"></div>
+  <div id="settingsPanel" class="settings-panel">
+    <div class="sp-head">
+      <span>Configuración</span>
+      <button class="ib" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="sp-body">
+      <div class="sp-row"><span class="sp-label">Tema</span>
+        <div class="theme-row">
+          <button class="theme-btn" data-t="dark" onclick="applyTheme('dark')">🌙 Oscuro</button>
+          <button class="theme-btn" data-t="light" onclick="applyTheme('light')">☀️ Claro</button>
+        </div>
+      </div>
+      <div class="sp-divider"></div>
+      <div class="sp-info">🗄️ &nbsp;video_creator.db &nbsp;·&nbsp; SQLite</div>
+      <div class="sp-info">⌨️ &nbsp;Ctrl+S — Guardar &nbsp;·&nbsp; Esc — Cerrar modal</div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+    <div id="modalBox" class="modal-box"></div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toasts"></div>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

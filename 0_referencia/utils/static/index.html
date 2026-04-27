@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador Maestro de Video</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=2">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="icon">🎬</span>
+            <h1>Visualizador Maestro</h1>
+        </div>
+        <div class="header-actions">
+            <div class="project-selector-wrapper">
+                <label for="project-selector">Proyecto:</label>
+                <select id="project-selector">
+                    <option value="" disabled selected>Selecciona...</option>
+                </select>
+            </div>
+            
+            <button id="save-btn" disabled>Guardar Todo</button>
+        </div>
+    </header>
+
+    <main id="app">
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Cargando datos maestros...</p>
+        </div>
+        
+        <div id="scenes-container">
+            <!-- Las tarjetas se cargarán aquí -->
+            <div class="empty-state">
+                <p>Selecciona un proyecto para comenzar la edición unificada.</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="draft-modal" class="draft-modal-overlay hidden">
+        <div class="draft-modal-box">
+            <div class="draft-modal-icon">📋</div>
+            <h2>Borrador pendiente</h2>
+            <p>Se encontró un borrador sin guardar para este proyecto.<br>¿Qué deseas hacer?</p>
+            <div class="draft-modal-actions">
+                <button id="draft-btn-recover" class="draft-btn draft-btn-primary">✅ Recuperar borrador</button>
+                <button id="draft-btn-discard" class="draft-btn draft-btn-danger">🗑 Eliminar borrador</button>
+                <button id="draft-btn-cancel" class="draft-btn draft-btn-secondary">✕ Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sync-warning" class="sync-banner hidden">
+        <div class="sync-content">
+            <span class="warn-icon">⚠</span>
+            <div class="sync-text">
+                <strong>Cambios de diseño detectados:</strong> Has modificado el tipo de pantalla. Para ver estos cambios en el video final, después de guardar deberás ejecutar:
+                <code id="sync-command">python 01_preparacion.py -p [ID] --desde-fase 3</code>
+            </div>
+            <button id="close-sync-btn" class="close-banner">✕</button>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=2"></script>
+</body>
+</html>

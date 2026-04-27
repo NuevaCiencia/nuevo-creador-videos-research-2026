@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Project-specific: generated outputs & large assets
+0_referencia/proyectos/*/output/
+0_referencia/proyectos/*/assets/AUDIO/
+0_referencia/proyectos/*/assets/images/
+0_referencia/proyectos/*/assets/videos/
+0_referencia/proyectos/*/video_final.mp4
+0_referencia/deprecated/
+app/storage/
+
+# Whisper / AI model cache
+*.pt
+*.bin
+models/
+.cache/
