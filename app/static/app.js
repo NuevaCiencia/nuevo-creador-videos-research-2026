@@ -65,34 +65,39 @@ function applyTheme(t) {
 }
 
 /* ─── MODAL ───────────────────────────────────────────── */
-function openModal({ title, fields, confirmLabel = 'Guardar', danger = false, onConfirm }) {
+function openModal(opts) {
   const box = document.getElementById('modalBox');
-  box.innerHTML = `
-    <div class="modal-title">${esc(title)}</div>
-    <div class="modal-body">
-      ${fields.map(f => `
-        <div class="field">
-          <label>${esc(f.label)}</label>
-          ${f.textarea
-            ? `<textarea id="mf_${f.key}" rows="3">${esc(f.value || '')}</textarea>`
-            : `<input id="mf_${f.key}" type="text" value="${escA(f.value || '')}"/>`}
-        </div>`).join('')}
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="mdOk">${esc(confirmLabel)}</button>
-    </div>`;
+  if (opts.html) {
+    box.innerHTML = opts.html;
+  } else {
+    const { title, fields, confirmLabel = 'Guardar', danger = false, onConfirm } = opts;
+    box.innerHTML = `
+      <div class="modal-title">${esc(title)}</div>
+      <div class="modal-body">
+        ${fields.map(f => `
+          <div class="field">
+            <label>${esc(f.label)}</label>
+            ${f.textarea
+              ? `<textarea id="mf_${f.key}" rows="3">${esc(f.value || '')}</textarea>`
+              : `<input id="mf_${f.key}" type="text" value="${escA(f.value || '')}"/>`}
+          </div>`).join('')}
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="mdOk">${esc(confirmLabel)}</button>
+      </div>`;
+    document.getElementById('mdOk').onclick = async () => {
+      const v = {};
+      for (const f of fields) {
+        v[f.key] = document.getElementById(`mf_${f.key}`).value;
+        if (f.required && !v[f.key].trim()) { document.getElementById(`mf_${f.key}`).focus(); return; }
+      }
+      await onConfirm(v);
+    };
+  }
   document.getElementById('modalOverlay').classList.add('open');
-  const first = box.querySelector('input,textarea');
-  if (first) setTimeout(() => { first.focus(); first.select(); }, 40);
-  document.getElementById('mdOk').onclick = async () => {
-    const v = {};
-    for (const f of fields) {
-      v[f.key] = document.getElementById(`mf_${f.key}`).value;
-      if (f.required && !v[f.key].trim()) { document.getElementById(`mf_${f.key}`).focus(); return; }
-    }
-    await onConfirm(v);
-  };
+  const first = box.querySelector('input,textarea,select');
+  if (first) setTimeout(() => { first.focus(); if(first.select) first.select(); }, 40);
 }
 
 function openConfirm({ title, msg, onConfirm }) {
@@ -296,13 +301,24 @@ function renderPhase(phase) {
 
 function renderContent(type) {
   const area = document.getElementById('contentArea');
+  
+  // Update topbar button active state
+  const gmBtn = document.getElementById('globalManagerBtn');
+  if (gmBtn) gmBtn.classList.toggle('active', type === 'global_manager');
+
   if (type === 'welcome') {
     area.innerHTML = `
-      <div class="welcome">
-        <div class="welcome-icon">✏️</div>
-        <div class="welcome-title">Selecciona una clase</div>
-        <p class="welcome-sub">Elige una clase del panel izquierdo para empezar a trabajar.</p>
+      <div class="welcome-screen">
+        <div class="welcome-icon">🎥</div>
+        <h2>Selecciona una clase para comenzar</h2>
+        <p>Crea un nuevo proyecto o elige uno existente del panel lateral para gestionar su guion, audio y producción de video.</p>
       </div>`;
+    document.getElementById('phaseBar').classList.add('hidden');
+  } else if (type === 'global_manager') {
+    document.getElementById('phaseBar').classList.add('hidden');
+    S.activeClass = null;
+    updateBreadcrumb();
+    loadGmData().then(() => renderGlobalManager());
   }
 }
 
@@ -548,6 +564,282 @@ function deleteClass(id) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   GLOBAL MANAGER — Tipos de Pantalla & Templates Remotion
+═══════════════════════════════════════════════════════ */
+const GM = {
+  screenTypes: [],
+  remotionTemplates: [],
+  activeTab: 'types',
+};
+
+async function loadGmData() {
+  try {
+    const [types, tpls] = await Promise.all([
+      api('GET', '/api/screen-types'),
+      api('GET', '/api/remotion-templates')
+    ]);
+    GM.screenTypes = types;
+    GM.remotionTemplates = tpls;
+  } catch(e) {
+    toast('Error cargando datos del gestor', false);
+  }
+}
+
+function renderGlobalManager() {
+  const container = document.getElementById('contentArea');
+  container.innerHTML = `
+    <div class="gm-container">
+      <div class="gm-header">
+        <h1 class="gm-title">Gestor Maestro de Visuales</h1>
+        <button class="gm-add-btn" onclick="openEditTypeModal()">
+          <span>+</span> Nuevo Tipo de Pantalla
+        </button>
+      </div>
+
+      <div class="gm-tabs">
+        <div class="gm-tab ${GM.activeTab === 'types' ? 'active' : ''}" onclick="switchGmTab('types')">Tipos de Pantalla</div>
+        <div class="gm-tab ${GM.activeTab === 'remotion' ? 'active' : ''}" onclick="switchGmTab('remotion')">Templates Remotion</div>
+      </div>
+
+      <div id="gmGrid" class="gm-grid"></div>
+    </div>
+  `;
+  renderGmGrid();
+}
+
+function switchGmTab(tab) {
+  GM.activeTab = tab;
+  renderGlobalManager();
+}
+
+function renderGmGrid() {
+  const grid = document.getElementById('gmGrid');
+  if (GM.activeTab === 'types') renderGmTypes(grid);
+  else renderGmTemplates(grid);
+}
+
+function renderGmTypes(grid) {
+  grid.innerHTML = GM.screenTypes.map(t => `
+    <div class="gm-card">
+      <div class="gm-card-head">
+        <div class="gm-card-icon" style="background:${t.color}22;color:${t.color}">${t.icon || '📝'}</div>
+        <div class="gm-card-info">
+          <div class="gm-card-name">${esc(t.label)}</div>
+          <span class="gm-card-tag">${esc(t.name)}</span>
+        </div>
+      </div>
+      <div class="gm-card-desc">${esc(t.description || 'Sin descripción')}</div>
+      
+      <div class="gm-limits-row">
+        ${t.max_items ? `<span class="gm-limit-badge">📦 Max Items: ${t.max_items}</span>` : ''}
+        ${t.max_words ? `<span class="gm-limit-badge">💬 Max Words: ${t.max_words}</span>` : ''}
+        ${t.max_chars ? `<span class="gm-limit-badge">🔤 Max Chars: ${t.max_chars}</span>` : ''}
+      </div>
+
+      <div class="gm-card-meta">Format: ${esc(t.tag_format || '<!-- type:' + t.name + ' -->')}</div>
+      ${t.has_params ? `<div class="gm-card-meta">Params: ${esc(t.params_syntax)}</div>` : ''}
+      
+      <div class="gm-card-actions">
+        <button class="gm-btn-sm gm-btn-edit" onclick='openEditTypeModal(${JSON.stringify(t).replace(/'/g, "&apos;")})'>Editar</button>
+        ${t.category === 'rendering' ? `<button class="gm-btn-sm" style="background:var(--accent);color:#fff" onclick="switchGmTab('remotion')">Configurar Sub-tipos</button>` : ''}
+        <button class="gm-btn-sm gm-btn-del" onclick="deleteScreenType(${t.id})">Eliminar</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderGmTemplates(grid) {
+  grid.innerHTML = `
+    <div style="grid-column: 1/-1; margin-bottom: 12px">
+      <button class="gm-add-btn" style="background:var(--bg3);color:var(--tx1)" onclick="openEditTemplateModal()">+ Nuevo Template</button>
+    </div>
+  ` + GM.remotionTemplates.map(t => `
+    <div class="gm-card">
+      <div class="gm-card-head">
+        <div class="gm-card-icon" style="background:var(--bg3);color:var(--accent)">🎬</div>
+        <div class="gm-card-info">
+          <div class="gm-card-name">${esc(t.label)}</div>
+          <span class="gm-card-tag">$${esc(t.name)}</span>
+        </div>
+      </div>
+      <div class="gm-card-desc">${esc(t.description || 'Sin descripción')}</div>
+      <div class="gm-card-meta">Limits: ${esc(t.limits || 'No definidos')}</div>
+      <div class="gm-card-actions">
+        <button class="gm-btn-sm gm-btn-edit" onclick='openEditTemplateModal(${JSON.stringify(t).replace(/'/g, "&apos;")})'>Editar</button>
+        <button class="gm-btn-sm gm-btn-del" onclick="deleteRemotionTemplate(${t.id})">Eliminar</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ─── Screen Type Actions ─────────────────────────── */
+
+function openEditTypeModal(t = null) {
+  const isNew = !t;
+  const title = isNew ? 'Nuevo Tipo de Pantalla' : 'Editar Tipo';
+  const html = `
+    <div class="modal-title">${esc(title)}</div>
+    <div class="modal-body">
+      <form id="typeForm" class="gm-form" onsubmit="saveScreenType(event, ${t ? t.id : 'null'})">
+        <div class="gm-form-grid">
+          <div class="gm-form-row">
+            <label class="gm-form-label">Nombre (ID)</label>
+            <input type="text" name="name" value="${t ? t.name : ''}" placeholder="Ej: SPLIT_LEFT" required ${t ? 'readonly' : ''}>
+          </div>
+          <div class="gm-form-row">
+            <label class="gm-form-label">Etiqueta (UI)</label>
+            <input type="text" name="label" value="${t ? t.label : ''}" placeholder="Ej: Split Izquierda" required>
+          </div>
+        </div>
+        <div class="gm-form-grid">
+          <div class="gm-form-row">
+            <label class="gm-form-label">Categoría</label>
+            <select name="category">
+              <option value="layout" ${t?.category === 'layout' ? 'selected' : ''}>Layout</option>
+              <option value="dynamic" ${t?.category === 'dynamic' ? 'selected' : ''}>Dynamic</option>
+              <option value="rendering" ${t?.category === 'rendering' ? 'selected' : ''}>Rendering Engine</option>
+            </select>
+          </div>
+          <div class="gm-form-row">
+            <label class="gm-form-label">Icono (Emoji)</label>
+            <input type="text" name="icon" value="${t ? t.icon : '📝'}">
+          </div>
+        </div>
+        <div class="gm-form-row">
+          <label class="gm-form-label">Descripción</label>
+          <textarea name="description" rows="2">${t ? t.description : ''}</textarea>
+        </div>
+        <div class="gm-form-grid" style="grid-template-columns: repeat(3, 1fr)">
+          <div class="gm-form-row">
+            <label class="gm-form-label">Max Items</label>
+            <input type="number" name="max_items" value="${t?.max_items || ''}" placeholder="Ej: 6">
+          </div>
+          <div class="gm-form-row">
+            <label class="gm-form-label">Max Words</label>
+            <input type="number" name="max_words" value="${t?.max_words || ''}" placeholder="Ej: 15">
+          </div>
+          <div class="gm-form-row">
+            <label class="gm-form-label">Max Chars</label>
+            <input type="number" name="max_chars" value="${t?.max_chars || ''}" placeholder="Ej: 80">
+          </div>
+        </div>
+        <div class="gm-form-grid">
+          <div class="gm-form-row">
+            <label class="gm-form-label">Prefijo Asset</label>
+            <input type="text" name="asset_prefix" value="${t ? t.asset_prefix : ''}" placeholder="Ej: S">
+          </div>
+          <div class="gm-form-row">
+            <label class="gm-form-label">Extensión</label>
+            <input type="text" name="asset_ext" value="${t ? t.asset_ext : ''}" placeholder="Ej: png">
+          </div>
+        </div>
+        <div class="gm-form-row">
+          <label class="gm-form-label">Sintaxis Parámetros</label>
+          <input type="text" name="params_syntax" value="${t ? t.params_syntax : ''}" placeholder="Ej: // @ Título // Item 1">
+        </div>
+        <div class="modal-foot" style="padding-top:20px">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">${isNew ? 'Crear' : 'Guardar'}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  openModal({ html });
+}
+
+async function saveScreenType(e, id) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+  data.has_params = !!data.params_syntax;
+
+  try {
+    if (id) await api('PUT', `/api/screen-types/${id}`, data);
+    else await api('POST', '/api/screen-types', data);
+    toast('Tipo guardado');
+    closeModal();
+    await loadGmData();
+    renderGlobalManager();
+  } catch(e) { toast('Error al guardar', false); }
+}
+
+async function deleteScreenType(id) {
+  if (!confirm('¿Eliminar este tipo de pantalla? Esto puede afectar guiones existentes.')) return;
+  try {
+    await api('DELETE', `/api/screen-types/${id}`);
+    toast('Tipo eliminado');
+    await loadGmData();
+    renderGlobalManager();
+  } catch(e) { toast('Error al eliminar', false); }
+}
+
+/* ─── Remotion Template Actions ────────────────────── */
+
+function openEditTemplateModal(t = null) {
+  const isNew = !t;
+  const title = isNew ? 'Nuevo Template Remotion' : 'Editar Template';
+  const html = `
+    <div class="modal-title">${esc(title)}</div>
+    <div class="modal-body">
+      <form id="templateForm" class="gm-form" onsubmit="saveRemotionTemplate(event, ${t ? t.id : 'null'})">
+        <div class="gm-form-grid">
+          <div class="gm-form-row">
+            <label class="gm-form-label">Nombre (ID)</label>
+            <input type="text" name="name" value="${t ? t.name : ''}" placeholder="Ej: TypeWriter" required ${t ? 'readonly' : ''}>
+          </div>
+          <div class="gm-form-row">
+            <label class="gm-form-label">Etiqueta (UI)</label>
+            <input type="text" name="label" value="${t ? t.label : ''}" placeholder="Ej: Terminal" required>
+          </div>
+        </div>
+        <div class="gm-form-row">
+          <label class="gm-form-label">Descripción</label>
+          <textarea name="description" rows="2">${t ? t.description : ''}</textarea>
+        </div>
+        <div class="gm-form-row">
+          <label class="gm-form-label">Límites / Guía</label>
+          <input type="text" name="limits" value="${t ? t.limits : ''}" placeholder="Ej: min 3 - max 6">
+        </div>
+        <div class="gm-form-row">
+          <label class="gm-form-label">Data Schema (JSON)</label>
+          <textarea name="data_schema" rows="4" style="font-family:monospace">${t ? t.data_schema : ''}</textarea>
+        </div>
+        <div class="modal-foot" style="padding-top:20px">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">${isNew ? 'Crear' : 'Guardar'}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  openModal({ html });
+}
+
+async function saveRemotionTemplate(e, id) {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData.entries());
+
+  try {
+    if (id) await api('PUT', `/api/remotion-templates/${id}`, data);
+    else await api('POST', '/api/remotion-templates', data);
+    toast('Template guardado');
+    closeModal();
+    await loadGmData();
+    renderGlobalManager();
+  } catch(e) { toast('Error al guardar', false); }
+}
+
+async function deleteRemotionTemplate(id) {
+  if (!confirm('¿Eliminar este template?')) return;
+  try {
+    await api('DELETE', `/api/remotion-templates/${id}`);
+    toast('Template eliminado');
+    await loadGmData();
+    renderGlobalManager();
+  } catch(e) { toast('Error al eliminar', false); }
+}
+
+/* ═══════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -569,3 +861,122 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderContent('welcome');
   updateBreadcrumb();
 });
+
+/* ═══════════════════════════════════════════════════════
+   GLOBAL CONFIG — Tipos de Pantalla & Templates Remotion
+═══════════════════════════════════════════════════════ */
+const GC = { screenTypes: [], remotionTemplates: [], activeTab: 'types' };
+
+async function openGlobalConfig() {
+  document.getElementById('globalConfigPanel').classList.add('open');
+  document.getElementById('globalConfigBackdrop').classList.add('open');
+  document.getElementById('globalConfigBtn').classList.add('active');
+  if (!GC.screenTypes.length) {
+    try { GC.screenTypes = await api('GET', '/api/screen-types'); } catch(e) {}
+  }
+  if (!GC.remotionTemplates.length) {
+    try { GC.remotionTemplates = await api('GET', '/api/remotion-templates'); } catch(e) {}
+  }
+  renderGcTab(GC.activeTab);
+}
+
+function closeGlobalConfig() {
+  document.getElementById('globalConfigPanel').classList.remove('open');
+  document.getElementById('globalConfigBackdrop').classList.remove('open');
+  document.getElementById('globalConfigBtn').classList.remove('active');
+}
+
+function switchGcTab(tab) {
+  GC.activeTab = tab;
+  document.querySelectorAll('.gc-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  renderGcTab(tab);
+}
+
+function renderGcTab(tab) {
+  const container = document.getElementById('gcContent');
+  if (tab === 'types') renderGcTypes(container);
+  else renderGcRemotionTemplates(container);
+}
+
+function renderGcTypes(container) {
+  const gr = {};
+  for (const t of GC.screenTypes) {
+    if (!gr[t.category]) gr[t.category] = [];
+    gr[t.category].push(t);
+  }
+  container.innerHTML = '<div class="gc-list" id="gcTypeList"></div>';
+  const list = document.getElementById('gcTypeList');
+  const CAT_LABELS = { layout: '📐 Layout', dynamic: '⚡ Dynamic', rendering: '🎬 Rendering Engine' };
+  for (const cat of ['layout', 'dynamic', 'rendering']) {
+    if (!gr[cat]) continue;
+    list.insertAdjacentHTML('beforeend', `<div class="gc-category">${CAT_LABELS[cat]}</div>`);
+    for (const t of gr[cat]) {
+      list.insertAdjacentHTML('beforeend', `
+        <div class="gc-row ${t.enabled ? '' : 'disabled'}" id="gcType_${t.id}">
+          <div class="gc-badge" style="background:${t.color}22;color:${t.color}">${t.icon}</div>
+          <div class="gc-row-info">
+            <div class="gc-row-name">${esc(t.label)} <span class="gc-row-tag">${esc(t.name)}</span></div>
+            <div class="gc-row-desc">${esc(t.description)}</div>
+            ${t.has_params ? `<div class="gc-row-params">${esc(t.params_syntax)}</div>` : ''}
+          </div>
+          <label class="toggle">
+            <input type="checkbox" ${t.enabled ? 'checked' : ''} onchange="toggleScreenType(${t.id}, this.checked)"/>
+            <span class="toggle-track"></span>
+          </label>
+        </div>`);
+    }
+  }
+}
+
+async function toggleScreenType(id, enabled) {
+  try {
+    const u = await api('PUT', `/api/screen-types/${id}`, { enabled });
+    const t = GC.screenTypes.find(x => x.id === id);
+    if (t) t.enabled = u.enabled;
+    const row = document.getElementById(`gcType_${id}`);
+    if (row) row.classList.toggle('disabled', !u.enabled);
+    toast(u.enabled ? `${u.label} activado` : `${u.label} desactivado`);
+  } catch(e) { toast('Error al actualizar tipo', false); }
+}
+
+function renderGcRemotionTemplates(container) {
+  const gr = {};
+  for (const t of GC.remotionTemplates) {
+    const c = t.category || 'otros';
+    if (!gr[c]) gr[c] = [];
+    gr[c].push(t);
+  }
+  container.innerHTML = '<div class="gc-list" id="gcTplList"></div>';
+  const list = document.getElementById('gcTplList');
+  const REM_CAT = { narrativo: '🎭 Narrativos', flujo: '🔀 Flujo / Proceso', datos: '📊 Datos', clasificacion: '🗂 Clasificación' };
+  for (const cat of ['narrativo', 'flujo', 'datos', 'clasificacion']) {
+    if (!gr[cat]) continue;
+    list.insertAdjacentHTML('beforeend', `<div class="gc-tpl-cat">${REM_CAT[cat] || cat}<span></span></div>`);
+    for (const t of gr[cat]) {
+      list.insertAdjacentHTML('beforeend', `
+        <div class="gc-tpl-row ${t.enabled ? '' : 'disabled'}" id="gcTpl_${t.id}">
+          <div class="gc-tpl-info">
+            <div class="gc-tpl-name">${esc(t.name)} <span class="gc-row-tag" style="font-size:9px">$${esc(t.name)}</span></div>
+            <div class="gc-tpl-desc">${esc(t.description)}</div>
+            ${t.limits ? `<div class="gc-tpl-limits">📏 ${esc(t.limits)}</div>` : ''}
+          </div>
+          <label class="toggle">
+            <input type="checkbox" ${t.enabled ? 'checked' : ''} onchange="toggleRemotionTemplate(${t.id}, this.checked)"/>
+            <span class="toggle-track"></span>
+          </label>
+        </div>`);
+    }
+  }
+}
+
+async function toggleRemotionTemplate(id, enabled) {
+  try {
+    const u = await api('PUT', `/api/remotion-templates/${id}`, { enabled });
+    const t = GC.remotionTemplates.find(x => x.id === id);
+    if (t) t.enabled = u.enabled;
+    const row = document.getElementById(`gcTpl_${id}`);
+    if (row) row.classList.toggle('disabled', !u.enabled);
+    toast(u.enabled ? `${u.name} activado` : `${u.name} desactivado`);
+  } catch(e) { toast('Error al actualizar template', false); }
+}
+

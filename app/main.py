@@ -48,6 +48,60 @@ class ClassUpdate(BaseModel):
     title: Optional[str] = None
     raw_narration: Optional[str] = None
 
+class ScreenTypeIn(BaseModel):
+    name: str
+    label: str
+    category: str
+    description: Optional[str] = ""
+    icon: Optional[str] = ""
+    color: Optional[str] = "#666666"
+    asset_prefix: Optional[str] = ""
+    asset_ext: Optional[str] = ""
+    has_params: Optional[bool] = False
+    params_syntax: Optional[str] = ""
+    tag_format: Optional[str] = ""
+    sort_order: Optional[int] = 0
+    max_items: Optional[int] = None
+    max_words: Optional[int] = None
+    max_chars: Optional[int] = None
+
+class ScreenTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    label: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    asset_prefix: Optional[str] = None
+    asset_ext: Optional[str] = None
+    has_params: Optional[bool] = None
+    params_syntax: Optional[str] = None
+    tag_format: Optional[str] = None
+    enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
+    max_items: Optional[int] = None
+    max_words: Optional[int] = None
+    max_chars: Optional[int] = None
+
+class RemotionTemplateIn(BaseModel):
+    name: str
+    label: str
+    category: Optional[str] = ""
+    description: Optional[str] = ""
+    limits: Optional[str] = ""
+    data_schema: Optional[str] = ""
+    sort_order: Optional[int] = 0
+
+class RemotionTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    label: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    limits: Optional[str] = None
+    data_schema: Optional[str] = None
+    enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
+
 
 # ── Serializers ────────────────────────────────────────────────────────────────
 
@@ -220,4 +274,122 @@ def delete_class(class_id: int, db: Session = Depends(get_db)):
     if not cls:
         raise HTTPException(404, "Clase no encontrada")
     db.delete(cls)
+    db.commit()
+
+
+# ── Global: Screen Types ────────────────────────────────────────────────────────────────────────────────
+
+def ser_screen_type(st: models.ScreenType):
+    return {
+        "id":           st.id,
+        "name":         st.name,
+        "label":        st.label,
+        "description":  st.description or "",
+        "category":     st.category,
+        "icon":         st.icon or "",
+        "color":        st.color or "#666",
+        "asset_prefix": st.asset_prefix or "",
+        "asset_ext":    st.asset_ext or "",
+        "has_params":   st.has_params,
+        "params_syntax":st.params_syntax or "",
+        "tag_format":    st.tag_format or "",
+        "enabled":       st.enabled,
+        "sort_order":    st.sort_order,
+        "max_items":     st.max_items,
+        "max_words":     st.max_words,
+        "max_chars":     st.max_chars,
+    }
+
+
+@app.get("/api/screen-types")
+def list_screen_types(db: Session = Depends(get_db)):
+    rows = db.query(models.ScreenType).order_by(models.ScreenType.sort_order).all()
+    return [ser_screen_type(r) for r in rows]
+
+
+@app.post("/api/screen-types", status_code=201)
+def create_screen_type(data: ScreenTypeIn, db: Session = Depends(get_db)):
+    st = models.ScreenType(**data.dict())
+    db.add(st)
+    db.commit()
+    db.refresh(st)
+    return ser_screen_type(st)
+
+
+@app.put("/api/screen-types/{st_id}")
+def update_screen_type(st_id: int, data: ScreenTypeUpdate, db: Session = Depends(get_db)):
+    st = db.query(models.ScreenType).filter(models.ScreenType.id == st_id).first()
+    if not st:
+        raise HTTPException(404, "Tipo no encontrado")
+    
+    update_data = data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(st, key, value)
+        
+    db.commit()
+    db.refresh(st)
+    return ser_screen_type(st)
+
+
+@app.delete("/api/screen-types/{st_id}", status_code=204)
+def delete_screen_type(st_id: int, db: Session = Depends(get_db)):
+    st = db.query(models.ScreenType).filter(models.ScreenType.id == st_id).first()
+    if not st:
+        raise HTTPException(404, "Tipo no encontrado")
+    db.delete(st)
+    db.commit()
+
+
+# ── Global: Remotion Templates ─────────────────────────────────────────────────────────────────────
+
+def ser_remotion_template(rt: models.RemotionTemplate):
+    return {
+        "id":          rt.id,
+        "name":        rt.name,
+        "label":       rt.label,
+        "category":    rt.category or "",
+        "description": rt.description or "",
+        "limits":      rt.limits or "",
+        "data_schema": rt.data_schema or "",
+        "enabled":     rt.enabled,
+        "sort_order":  rt.sort_order,
+    }
+
+
+@app.get("/api/remotion-templates")
+def list_remotion_templates(db: Session = Depends(get_db)):
+    rows = db.query(models.RemotionTemplate).order_by(models.RemotionTemplate.sort_order).all()
+    return [ser_remotion_template(r) for r in rows]
+
+
+@app.post("/api/remotion-templates", status_code=201)
+def create_remotion_template(data: RemotionTemplateIn, db: Session = Depends(get_db)):
+    rt = models.RemotionTemplate(**data.dict())
+    db.add(rt)
+    db.commit()
+    db.refresh(rt)
+    return ser_remotion_template(rt)
+
+
+@app.put("/api/remotion-templates/{rt_id}")
+def update_remotion_template(rt_id: int, data: RemotionTemplateUpdate, db: Session = Depends(get_db)):
+    rt = db.query(models.RemotionTemplate).filter(models.RemotionTemplate.id == rt_id).first()
+    if not rt:
+        raise HTTPException(404, "Template no encontrado")
+    
+    update_data = data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(rt, key, value)
+        
+    db.commit()
+    db.refresh(rt)
+    return ser_remotion_template(rt)
+
+
+@app.delete("/api/remotion-templates/{rt_id}", status_code=204)
+def delete_remotion_template(rt_id: int, db: Session = Depends(get_db)):
+    rt = db.query(models.RemotionTemplate).filter(models.RemotionTemplate.id == rt_id).first()
+    if not rt:
+        raise HTTPException(404, "Template no encontrado")
+    db.delete(rt)
     db.commit()
