@@ -1,0 +1,117 @@
+================================================================================
+NOTAS DE VERSIÓN — creador-libros-2026
+================================================================================
+
+--------------------------------------------------------------------------------
+VERSIÓN: commit 17f703d — 2026-04-23
+RAMA: main
+--------------------------------------------------------------------------------
+
+RESUMEN
+-------
+Sesión de trabajo enfocada en la Fase 11 (Cohesión). Se incorporó la API de
+Anthropic (Claude) como segunda IA disponible en el sistema, se rediseñó el
+flujo de evaluación editorial y se centralizó toda la configuración de prompts
+en config.py.
+
+
+NUEVAS FUNCIONALIDADES
+----------------------
+
+1. BOTÓN "REGENERAR SEGÚN SUGERENCIAS" (Fase 11 - Cohesión)
+   - Después de evaluar un capítulo, aparece un nuevo botón que manda
+     el texto original + la evaluación a la IA para que corrija
+     específicamente los errores detectados.
+   - Al regenerar: el texto reemplaza al anterior y la evaluación se borra
+     para permitir un nuevo ciclo de evaluación.
+   - Manejo de errores explícito: si falla, muestra caja roja con detalles
+     técnicos. No intenta alternativas silenciosas.
+
+2. INTEGRACIÓN DE ANTHROPIC CLAUDE
+   - Librería: anthropic >= 0.97.0 (añadida a requirements.txt).
+   - Clave: CLAUDE_API_KEY — cargada automáticamente desde el Registro de
+     Windows, variables de entorno, o archivo .env (mismo sistema que
+     OPENAI_API_KEY y TAVILY_API_KEY).
+   - Modelo por defecto: claude-sonnet-4-6 (configurable en config.py).
+   - Función call_claude() en agents/base.py:
+     * max_tokens = 16000 (para capítulos completos sin corte abrupto).
+     * Limpieza automática de bloques markdown (```json) que Claude puede
+       añadir aunque se le pida JSON puro.
+     * Normalización de literales \n a saltos de línea reales.
+     * Rescate de JSON con regex si el parseo directo falla.
+
+3. SELECTORES DE MODELO EN COHESIÓN (Fase 11)
+   - Dentro de cada expander de capítulo aparecen dos selectores:
+     a) "Modelo para generar versión pulida" → por defecto GPT.
+     b) "Modelo para regenerar según sugerencias" → por defecto Claude.
+   - El spinner indica explícitamente qué modelo está procesando.
+   - Ambas selecciones son independientes entre sí.
+
+
+MEJORAS Y CORRECCIONES
+-----------------------
+
+4. PROMPTS SEPARADOS POR MODELO (GPT vs Claude)
+   - GPT y Claude tienen System Prompts distintos para:
+     * polish_full_chapter (POLISH_SYSTEM_GPT / POLISH_SYSTEM_CLAUDE)
+     * regenerate_consolidated_chapter (REGEN_SYSTEM_GPT / REGEN_SYSTEM_CLAUDE)
+   - El prompt de Claude enfatiza explícitamente "FUSIÓN TOTAL": debe
+     disolver los separadores de partes (━━━ PARTE X ━━━) en un único
+     bloque de prosa continua, sin subtítulos ni divisiones visibles.
+     Esto corrige el problema donde Claude reproducía la estructura de partes
+     en lugar de cohesionar el texto.
+
+5. CENTRALIZACIÓN DE PROMPTS EN config.py
+   - Todos los System Prompts del agente de cohesión viven ahora en config.py:
+     * POLISH_SYSTEM_GPT
+     * POLISH_SYSTEM_CLAUDE
+     * REGEN_SYSTEM_GPT
+     * REGEN_SYSTEM_CLAUDE
+     * EVALUATION_SYSTEM
+   - agents/cohesion_agent.py los importa desde config. El agente ya no
+     contiene prompts hardcodeados.
+   - Para ajustar el comportamiento de una IA basta editar config.py.
+
+6. EVALUACIÓN EDITORIAL REDISEÑADA
+   - Se reemplazó el tono de veredicto ("EL PEOR ERROR") por un enfoque
+     de editor de mesa profesional.
+   - Nuevo formato: scores + OBSERVACIÓN EDITORIAL (máx. 100 palabras).
+   - La observación señala el problema con precisión (sin hipérboles) y
+     termina siempre con una instrucción accionable concreta:
+     qué párrafo recortar, qué ideas fusionar, qué frase eliminar.
+   - El spinner de evaluación muestra el modelo en uso (EVALUATION_LLM_MODEL).
+
+7. CORRECCIÓN: PREFILL DE CLAUDE
+   - Claude Sonnet 4.6 no soporta "assistant message prefill". Se eliminó
+     la técnica de forzar JSON con un mensaje inicial {"role":"assistant",
+     "content":"{"}, que causaba error 400.
+   - La respuesta JSON se fuerza ahora exclusivamente via el System Prompt.
+
+8. LIMPIEZA GENERAL
+   - app.db eliminado del repositorio (era un archivo de base de datos de
+     desarrollo que no debía versionarse).
+   - Importación de regenerate_consolidated_chapter movida al header de
+     app.py (antes era una importación inline que causaba ImportError).
+
+
+ARCHIVOS MODIFICADOS
+--------------------
+- agents/base.py           → call_claude(), imports re y Anthropic
+- agents/cohesion_agent.py → Refactorizado completo, usa prompts de config
+- config.py                → Todos los prompts + CLAUDE_MODEL
+- requirements.txt         → + anthropic
+- utils/keys.py            → + CLAUDE_API_KEY en la carga automática
+- app.py                   → Selectores, botón regenerar, spinners dinámicos
+- app.db                   → Eliminado del repositorio
+
+
+PENDIENTES / PRÓXIMOS PASOS
+----------------------------
+- Evaluar si Claude necesita ajuste adicional en los prompts de cohesión
+  tras las primeras pruebas reales con capítulos completos.
+- Considerar agregar Claude como opción también en otras fases
+  (ej. Escritura, Revisión de Estilo).
+- El modelo EVALUATION_LLM_MODEL sigue siendo GPT; valorar si tiene sentido
+  ofrecer selector de modelo también en la evaluación editorial.
+
+================================================================================

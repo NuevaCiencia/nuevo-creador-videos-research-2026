@@ -1,0 +1,384 @@
+# =============================================================================
+# SCHEMA DE REFERENCIA — Pipeline de Videos Educativos
+# =============================================================================
+# Cada entrada en `videos:` produce UN archivo MP4 independiente.
+#
+# Campos obligatorios por entrada:
+#   template  — nombre exacto del template (ver catálogo abajo)
+#   output    — nombre del archivo MP4 de salida (sin ruta)
+#   duration  — duración total en formato "mm:ss" o segundos enteros
+#   data      — contenido del video (texto, cantidades). Sin diseño.
+#
+# La animación de entrada dura ~3-5 segundos. El resto del tiempo el
+# template se queda estático para que corra la locución en off.
+#
+# Colores: los templates usan paletas internas automáticas.
+# No se especifican colores en el YAML.
+# =============================================================================
+
+videos:
+
+  # ---------------------------------------------------------------------------
+  # FLOW-LinearSteps
+  # Pasos secuenciales con flechas de izquierda a derecha.
+  # min: 2 pasos  |  max: 6 pasos  |  recomendado: 3-4
+  # ---------------------------------------------------------------------------
+  - template: LinearSteps
+    output: metodologia_pasos.mp4
+    duration: "1:30"
+    data:
+      title: "Los 3 pasos del método científico"   # opcional
+      steps:
+        - title: "Observar"
+          description: "Identificar y registrar el fenómeno de interés"
+        - title: "Hipotetizar"
+          description: "Formular una explicación tentativa y verificable"
+        - title: "Experimentar"
+          description: "Diseñar pruebas controladas para validar la hipótesis"
+
+  # ---------------------------------------------------------------------------
+  # FLOW-CycleLoop
+  # Ciclo cerrado de N elementos alrededor de un nodo central.
+  # min: 3 items  |  max: 6 items  |  recomendado: 4
+  # center.icon: emoji  |  items[].icon: emoji
+  # ---------------------------------------------------------------------------
+  - template: CycleLoop
+    output: ciclo_aprendizaje.mp4
+    duration: "2:00"
+    data:
+      title: "El ciclo del aprendizaje"             # opcional
+      center:
+        icon: "🧠"
+        label: "Aprendizaje"
+      items:
+        - icon: "👁️"
+          title: "Experiencia"
+          description: "Vivir o observar un evento concreto"
+        - icon: "🔍"
+          title: "Reflexión"
+          description: "Analizar qué ocurrió y por qué"
+        - icon: "💡"
+          title: "Conceptualización"
+          description: "Extraer principios y generalizar"
+        - icon: "⚗️"
+          title: "Experimentación"
+          description: "Aplicar lo aprendido en nuevos contextos"
+
+  # ---------------------------------------------------------------------------
+  # FLOW-MindMap
+  # Nodo central con N nodos satélite distribuidos radialmente.
+  # min: 3 nodos  |  max: 8 nodos  |  recomendado: 4-6
+  # sub: texto secundario bajo el texto principal (opcional)
+  # ---------------------------------------------------------------------------
+  - template: MindMap
+    output: mapa_conceptual.mp4
+    duration: "1:45"
+    data:
+      center: "Inteligencia Artificial"
+      nodes:
+        - text: "Machine Learning"
+          sub: "Aprendizaje automático"
+        - text: "Redes Neuronales"
+          sub: "Deep Learning"
+        - text: "NLP"
+          sub: "Procesamiento de lenguaje"
+        - text: "Visión Artificial"
+          sub: "Computer Vision"
+        - text: "Robótica"
+
+  # ---------------------------------------------------------------------------
+  # CLASS-FlipCards
+  # Tarjetas que se voltean: frente (ícono + etiqueta) → reverso (concepto).
+  # min: 2 items  |  max: 6 items  |  recomendado: 3-4
+  # icon: emoji
+  # ---------------------------------------------------------------------------
+  - template: FlipCards
+    output: conceptos_clave.mp4
+    duration: "2:00"
+    data:
+      title: "Conceptos clave"                      # opcional
+      items:
+        - icon: "📊"
+          label: "¿Qué es?"
+          title: "Estadística descriptiva"
+          description: "Resume y describe las características principales de un conjunto de datos"
+        - icon: "🎲"
+          label: "¿Para qué?"
+          title: "Inferencia estadística"
+          description: "Permite sacar conclusiones sobre una población a partir de una muestra"
+        - icon: "📈"
+          label: "¿Cómo?"
+          title: "Regresión"
+          description: "Modela la relación entre variables para predecir valores futuros"
+
+  # ---------------------------------------------------------------------------
+  # FLOW-Funnel
+  # Embudo de etapas de arriba (ancho) hacia abajo (estrecho).
+  # min: 2 etapas  |  max: 7 etapas  |  recomendado: 3-5
+  # value: número que aparece a la derecha de cada capa
+  # unit: sufijo del valor (opcional, ej. "%", "mil", "usd")
+  # ---------------------------------------------------------------------------
+  - template: FunnelDiagram
+    output: embudo_conversion.mp4
+    duration: "1:30"
+    data:
+      title: "Embudo de aprendizaje"
+      subtitle: "De la exposición al dominio"        # opcional
+      stages:
+        - label: "Exposición"
+          value: 100
+          unit: "%"
+        - label: "Comprensión"
+          value: 72
+          unit: "%"
+        - label: "Aplicación"
+          value: 45
+          unit: "%"
+        - label: "Dominio"
+          value: 18
+          unit: "%"
+
+  # ---------------------------------------------------------------------------
+  # DATA-HorizontalBars
+  # Barras horizontales animadas con etiqueta y valor.
+  # min: 2 barras  |  max: 10 barras  |  recomendado: 4-6
+  # value: número que anima la barra  |  maxValue: tope de la barra (opcional, default: max del set)
+  # suffix: texto tras el valor (opcional, ej. "%", " hrs")
+  # ---------------------------------------------------------------------------
+  - template: HorizontalBars
+    output: comparativa_metodos.mp4
+    duration: "1:30"
+    data:
+      title: "Efectividad por método de estudio"
+      subtitle: "Retención a 7 días"                # opcional
+      bars:
+        - label: "Práctica de recuperación"
+          value: 77
+          suffix: "%"
+        - label: "Práctica espaciada"
+          value: 71
+          suffix: "%"
+        - label: "Elaboración"
+          value: 55
+          suffix: "%"
+        - label: "Lectura repetida"
+          value: 28
+          suffix: "%"
+
+  # ---------------------------------------------------------------------------
+  # DATA-WaveTrend
+  # Línea de tendencia animada con puntos etiquetados.
+  # min: 2 puntos  |  max: 12 puntos  |  recomendado: 5-8
+  # value: 0–100 (el template escala automáticamente al alto del gráfico)
+  # note: etiqueta flotante sobre el punto (opcional)
+  # yLabel: etiqueta del eje Y (opcional)
+  # ---------------------------------------------------------------------------
+  - template: WaveTrend
+    output: tendencia_rendimiento.mp4
+    duration: "1:30"
+    data:
+      title: "Evolución del rendimiento"             # opcional
+      yLabel: "Puntaje"                              # opcional
+      points:
+        - label: "Sem 1"
+          value: 30
+        - label: "Sem 2"
+          value: 45
+        - label: "Sem 3"
+          value: 38
+        - label: "Sem 4"
+          value: 60
+          note: "Punto de inflexión"
+        - label: "Sem 5"
+          value: 72
+        - label: "Sem 6"
+          value: 88
+
+  # ---------------------------------------------------------------------------
+  # DATA-PieDonut
+  # Donut chart con leyenda lateral.
+  # min: 2 segmentos  |  max: 8 segmentos  |  recomendado: 3-5
+  # value: valor absoluto (el template calcula los porcentajes automáticamente)
+  # unit: sufijo para los valores en la leyenda (opcional, ej. "%", "hrs")
+  # ---------------------------------------------------------------------------
+  - template: PieDonut
+    output: distribucion_tiempo.mp4
+    duration: "1:15"
+    data:
+      title: "Distribución del tiempo de estudio"
+      unit: "%"                                      # opcional
+      slices:
+        - label: "Lectura activa"
+          value: 35
+        - label: "Práctica de problemas"
+          value: 30
+        - label: "Revisión espaciada"
+          value: 20
+        - label: "Discusión en grupo"
+          value: 15
+
+  # ---------------------------------------------------------------------------
+  # DATA-StatCounter
+  # Tarjetas con cifras grandes que cuentan desde cero.
+  # min: 1 stat  |  max: 4 stats  |  recomendado: 2-3
+  # suffix: texto tras el número (opcional, ej. "%", "x", "M")
+  # sublabel: línea secundaria bajo el label (opcional)
+  # ---------------------------------------------------------------------------
+  - template: StatCounter
+    output: cifras_clave.mp4
+    duration: "1:00"
+    data:
+      title: "El impacto de la práctica espaciada"
+      stats:
+        - value: 80
+          suffix: "%"
+          label: "Más retención"
+          sublabel: "a largo plazo"
+        - value: 3
+          suffix: "x"
+          label: "Más eficiente"
+          sublabel: "que releer"
+        - value: 7
+          label: "Días óptimos"
+          sublabel: "entre repasos"
+
+  # ---------------------------------------------------------------------------
+  # CLASS-VennDiagram
+  # Diagrama de Venn de DOS círculos (estructura fija: left / overlap / right).
+  # Cada zona acepta lista de ítems de texto libre.
+  # left.items: min 1, max 6  |  right.items: min 1, max 6
+  # overlap.items: min 1, max 4
+  # ---------------------------------------------------------------------------
+  - template: VennDiagram
+    output: venn_aprendizaje.mp4
+    duration: "1:30"
+    data:
+      title: "Aprendizaje activo vs pasivo"         # opcional
+      left:
+        label: "Aprendizaje Activo"
+        items:
+          - "Práctica de recuperación"
+          - "Resolución de problemas"
+          - "Enseñar a otros"
+      overlap:
+        items:
+          - "Comprensión profunda"
+          - "Transferencia del conocimiento"
+      right:
+        label: "Aprendizaje Pasivo"
+        items:
+          - "Lectura"
+          - "Escuchar clase"
+          - "Ver videos"
+
+  # ---------------------------------------------------------------------------
+  # DATA-RadarChart
+  # Gráfico araña para comparar N dimensiones de 0 a 100.
+  # min: 3 ejes  |  max: 8 ejes  |  recomendado: 5-6
+  # value: 0–100
+  # ---------------------------------------------------------------------------
+  - template: RadarChart
+    output: perfil_competencias.mp4
+    duration: "1:30"
+    data:
+      title: "Perfil de competencias"
+      subtitle: "Evaluación inicial"                # opcional
+      fillColor: "#6366F1"                          # único campo de color permitido
+      axes:
+        - label: "Análisis"
+          value: 75
+        - label: "Síntesis"
+          value: 60
+        - label: "Evaluación"
+          value: 45
+        - label: "Aplicación"
+          value: 80
+        - label: "Comprensión"
+          value: 90
+        - label: "Recuerdo"
+          value: 95
+
+  # ---------------------------------------------------------------------------
+  # FLOW-OrgChart
+  # Árbol jerárquico. Conectar nodos con parentId.
+  # El nodo raíz no tiene parentId.
+  # Sin límite rígido de nodos, pero recomendado: máximo 12.
+  # sub: texto secundario bajo el label (opcional)
+  # ---------------------------------------------------------------------------
+  - template: OrgChart
+    output: estructura_curricular.mp4
+    duration: "1:30"
+    data:
+      title: "Estructura del currículo"
+      nodes:
+        - id: "root"
+          label: "Programa"
+        - id: "m1"
+          label: "Módulo 1"
+          sub: "Fundamentos"
+          parentId: "root"
+        - id: "m2"
+          label: "Módulo 2"
+          sub: "Aplicación"
+          parentId: "root"
+        - id: "m3"
+          label: "Módulo 3"
+          sub: "Evaluación"
+          parentId: "root"
+        - id: "t1"
+          label: "Tema 1.1"
+          parentId: "m1"
+        - id: "t2"
+          label: "Tema 1.2"
+          parentId: "m1"
+
+  # ---------------------------------------------------------------------------
+  # NAR-Timeline
+  # Línea de tiempo horizontal con eventos.
+  # min: 2 eventos  |  max: 6 eventos  |  recomendado: 4-5
+  # year: puede ser año, período, etapa — es texto libre
+  # accent: color de la línea y puntos (hex). Es el único color del YAML aquí.
+  # ---------------------------------------------------------------------------
+  - template: TimelineSlide
+    output: historia_pedagogia.mp4
+    duration: "1:45"
+    data:
+      title: "Hitos de la pedagogía moderna"
+      accent: "#6366F1"                             # único campo de color permitido
+      events:
+        - year: "1916"
+          title: "Dewey"
+          description: "Aprendizaje por experiencia y educación democrática"
+        - year: "1956"
+          title: "Bloom"
+          description: "Taxonomía de objetivos educativos"
+        - year: "1983"
+          title: "Gardner"
+          description: "Teoría de las inteligencias múltiples"
+        - year: "1996"
+          title: "Mayer"
+          description: "Principios del aprendizaje multimedia"
+
+  # ---------------------------------------------------------------------------
+  # CLASS-PyramidLevels
+  # Pirámide de N niveles de base a cima (el orden es de abajo hacia arriba).
+  # min: 2 niveles  |  max: 7 niveles  |  recomendado: 4-6
+  # ---------------------------------------------------------------------------
+  - template: PyramidLevels
+    output: taxonomia_bloom.mp4
+    duration: "1:30"
+    data:
+      title: "Taxonomía de Bloom"
+      levels:
+        - label: "Recordar"
+          description: "Reconocer y recuperar información"
+        - label: "Comprender"
+          description: "Interpretar y clasificar conceptos"
+        - label: "Aplicar"
+          description: "Usar procedimientos en situaciones nuevas"
+        - label: "Analizar"
+          description: "Descomponer y relacionar elementos"
+        - label: "Evaluar"
+          description: "Juzgar con base en criterios"
+        - label: "Crear"
+          description: "Producir algo nuevo e integrado"

@@ -1,0 +1,254 @@
+videos:
+
+  # ===========================================================================
+  # SISTEMA DE CONSTRUCCIÓN DE VIDEOS EDUCATIVOS — REMOTION PIPELINE
+  # ===========================================================================
+  #
+  # DESCRIPCIÓN GENERAL:
+  #   Este archivo define una lista de videos independientes que se renderizan
+  #   con Remotion (framework React para video). Cada entrada en 'videos:'
+  #   produce un archivo MP4 separado en pipeline/output/.
+  #
+  # CÓMO CORRERLO:
+  #   python3 pipeline/render_yaml.py pipeline/inputs/videos2.yaml
+  #   python3 pipeline/render_yaml.py pipeline/inputs/videos2.yaml --only typewriter_01.mp4
+  #
+  # ESTRUCTURA DE CADA ENTRADA:
+  #   - template:  nombre del template (ver lista abajo)
+  #   - output:    nombre del archivo MP4 resultante
+  #   - duration:  duración en formato mm:ss (ej: "0:45", "1:30", "2:00")
+  #   - data:      contenido del video (solo texto y números — sin colores,
+  #                los colores los maneja el template internamente)
+  #
+  # TEMPLATES DISPONIBLES Y SUS CATEGORÍAS:
+  #
+  #   NARRATIVOS (fondo negro / dramático):
+  #     TypeWriter   → terminal hacker, texto que se tipea línea a línea
+  #     Spotlight    → foco de luz que ilumina puntos en la pantalla
+  #     Timeline     → línea de tiempo con eventos
+  #
+  #   FLUJO (diagramas de proceso):
+  #     MindMap      → mapa mental radial con nodo central y ramas
+  #     LinearSteps  → pasos horizontales conectados por flechas
+  #     CycleLoop    → ciclo de pasos en círculo
+  #     OrgChart     → árbol jerárquico
+  #     FunnelDiagram→ embudo de etapas
+  #
+  #   DATOS (gráficas y estadísticas):
+  #     StatCounter  → números grandes que cuentan desde 0
+  #     HorizontalBars → barras horizontales comparativas
+  #     PieDonut     → gráfico de torta / donut
+  #     RadarChart   → gráfico de araña / radar
+  #     WaveTrend    → línea de tendencia animada
+  #
+  #   CLASIFICACIÓN / CONCEPTO:
+  #     VennDiagram  → dos círculos con zona de intersección
+  #     TwoColumns   → comparación lado a lado (✓ vs ✗)
+  #     FourBoxes    → cuatro tarjetas con ícono y descripción
+  #     MatrixGrid   → cuadrante 2x2 tipo matriz
+  #     PyramidLevels→ pirámide de niveles (base ancha → cima)
+  #     FlipCards    → tarjetas que aparecen secuencialmente
+  #
+  # NOTAS GENERALES:
+  #   - Los colores son automáticos en todos los templates
+  #   - La única excepción es TypeWriter: los colores se asignan por prefijo
+  #   - El sistema es SEPARADO de render.py (que es el previsualizador Remotion Studio)
+  #
+  # ===========================================================================
+
+
+  # ---------------------------------------------------------------------------
+  # NAR-TypeWriter (Hacker Terminal)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Pantalla negra estilo terminal de computadora. Las líneas aparecen
+  #   escritas una a una como si alguien las estuviera tipeando en tiempo real.
+  #   Ideal para dar un tono técnico, dramático o de "sistema iniciando".
+  #
+  # PARA QUÉ SIRVE:
+  #   - Introducir conceptos técnicos o de programación
+  #   - Crear suspenso antes de revelar una idea importante
+  #   - Mostrar pasos de un proceso como si fuera código
+  #   - Apertura de clase con impacto visual fuerte
+  #
+  # LÍMITES: min 1 línea — max 6 líneas recomendado (hasta 10 técnico)
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output            → nombre del archivo MP4 que se va a generar    │
+  # │  duration          → duración total del video en mm:ss             │
+  # │  accent            → color del cursor parpadeante (hex)            │
+  # │  lines[].prefix    → símbolo que define el color automático:       │
+  # │                        "$ "  → verde    (comando)                  │
+  # │                        "→ "  → celeste  (output del sistema)       │
+  # │                        "> "  → amarillo (resultado)                │
+  # │                        "✓ "  → verde suave (éxito)                 │
+  # │                        "! "  → rojo    (error / advertencia)       │
+  # │                        "// " → gris    (comentario)                │
+  # │  lines[].text      → el texto que se escribe letra por letra       │
+  # │  lines[].delay     → cuándo aparece esa línea (frames: 30 = 1 seg) │
+  # │                                                                     │
+  # │  NO TOCAR: template, colores (salen solos según el prefix)         │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: TypeWriter
+    output: typewriter_01.mp4
+    duration: "0:45"
+    data:
+      accent: "#00FF41"
+      lines:
+        - prefix: "$ "
+          text: "agent.perceive(environment)"
+          delay: 10
+        - prefix: "→ "
+          text: "state = { temp: 22, motion: true }"
+          delay: 60
+        - prefix: "$ "
+          text: "agent.reason(state)"
+          delay: 110
+        - prefix: "→ "
+          text: "action = 'turn_on_cooling'"
+          delay: 160
+        - prefix: "$ "
+          text: "agent.act(action)"
+          delay: 210
+        - prefix: "✓ "
+          text: "Environment updated successfully."
+          delay: 260
+
+
+  # ---------------------------------------------------------------------------
+  # FLOW-MindMap (Mapa Mental)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Un concepto central rodeado de ramas distribuidas radialmente.
+  #   Los nodos se posicionan y colorean solos según cuántos haya.
+  #
+  # PARA QUÉ SIRVE:
+  #   - Mostrar componentes o dimensiones de un concepto
+  #   - Síntesis visual de un tema al inicio o cierre de clase
+  #   - Activar conocimientos previos antes de una explicación
+  #
+  # LÍMITES: min 3 nodos — max 8 nodos — recomendado 4-6
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output        → nombre del archivo MP4 que se va a generar        │
+  # │  duration      → duración total del video en mm:ss                 │
+  # │  center        → texto del nodo central (el concepto madre)        │
+  # │  nodes[].text  → nombre de cada rama                               │
+  # │  nodes[].sub   → texto secundario bajo la rama (opcional, borrar   │
+  # │                  la línea si no se necesita)                       │
+  # │                                                                     │
+  # │  NO TOCAR: template, colores (son automáticos)                     │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: MindMap
+    output: mindmap_01.mp4
+    duration: "1:30"
+    data:
+      center: "Concepto central"
+      nodes:
+        - text: "Rama 1"
+          sub: "descripción opcional"
+        - text: "Rama 2"
+          sub: "descripción opcional"
+        - text: "Rama 3"
+          sub: "descripción opcional"
+
+
+  # ---------------------------------------------------------------------------
+  # FLOW-LinearSteps (Pasos Lineales)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Tarjetas horizontales conectadas por flechas, de izquierda a derecha.
+  #   El ancho de cada tarjeta se ajusta automáticamente según cuántas haya.
+  #
+  # PARA QUÉ SIRVE:
+  #   - Explicar procesos con pasos secuenciales y obligatorios
+  #   - Mostrar metodologías (método científico, design thinking, etc.)
+  #   - Cualquier flujo donde el orden importa
+  #
+  # LÍMITES: min 2 pasos — max 6 pasos — recomendado 3-4
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output              → nombre del archivo MP4 que se va a generar  │
+  # │  duration            → duración total del video en mm:ss           │
+  # │  title               → título superior del video (opcional, borrar │
+  # │                        la línea si no se necesita)                 │
+  # │  steps[].title       → nombre corto del paso (1-3 palabras ideal)  │
+  # │  steps[].description → explicación del paso (2-3 líneas máximo)    │
+  # │                                                                     │
+  # │  NO TOCAR: template, colores (son automáticos)                     │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: LinearSteps
+    output: linearsteps_01.mp4
+    duration: "1:30"
+    data:
+      title: "Título opcional"
+      steps:
+        - title: "Paso 1"
+          description: "Descripción del primer paso"
+        - title: "Paso 2"
+          description: "Descripción del segundo paso"
+        - title: "Paso 3"
+          description: "Descripción del tercer paso"
+
+
+  # ---------------------------------------------------------------------------
+  # CLASS-FlipCards (Tarjetas con Flip)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Tarjetas que aparecen con un ícono y etiqueta al frente, luego giran
+  #   para revelar el título y descripción completos en el reverso (coloreado).
+  #   Los colores de cada carta se asignan automáticamente en secuencia.
+  #
+  # PARA QUÉ SIRVE:
+  #   - Presentar categorías, tipos o ejemplos de un concepto
+  #   - Comparar elementos con su descripción asociada
+  #   - Listar características con impacto visual progresivo
+  #
+  # LÍMITES: min 2 tarjetas — max 6 tarjetas — recomendado 3-4
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output               → nombre del archivo MP4 que se va a generar │
+  # │  duration             → duración total del video en mm:ss          │
+  # │  title                → título superior (opcional, borrar la línea │
+  # │                         si no se necesita)                         │
+  # │  items[].icon         → emoji que aparece al frente de la tarjeta  │
+  # │  items[].label        → texto corto visible al frente (1-3 palabras│
+  # │  items[].title        → título en el reverso (revelado al girar)   │
+  # │  items[].description  → explicación en el reverso (2-3 líneas max) │
+  # │                                                                     │
+  # │  NO TOCAR: template, colores (son automáticos por posición)        │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: FlipCards
+    output: flipcards_01.mp4
+    duration: "1:30"
+    data:
+      title: "Título opcional"
+      items:
+        - icon: "🧠"
+          label: "Etiqueta 1"
+          title: "Título reverso 1"
+          description: "Descripción que aparece al girar la tarjeta."
+        - icon: "⚙️"
+          label: "Etiqueta 2"
+          title: "Título reverso 2"
+          description: "Descripción que aparece al girar la tarjeta."
+        - icon: "🚀"
+          label: "Etiqueta 3"
+          title: "Título reverso 3"
+          description: "Descripción que aparece al girar la tarjeta."

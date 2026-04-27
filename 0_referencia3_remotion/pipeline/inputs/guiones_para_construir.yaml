@@ -1,0 +1,70 @@
+videos:
+- template: TypeWriter
+  output: REM01.mp4
+  duration: 0:39
+  data:
+    accent: '#00FF41'
+    lines:
+    - prefix: '$ '
+      text: function recuperar_clima(ubicacion, fechas)
+      delay: 10
+    - prefix: '→ '
+      text: obtiene clima para una ubicación y fechas dadas
+      delay: 60
+    - prefix: '$ '
+      text: function buscar_en_la_web(consulta)
+      delay: 110
+    - prefix: '→ '
+      text: busca información en internet a partir de una consulta
+      delay: 160
+    - prefix: '$ '
+      text: function enviar_correo(destinatario, asunto, contenido)
+      delay: 210
+    - prefix: '→ '
+      text: envía un email con asunto y contenido
+      delay: 260
+    - prefix: '$ '
+      text: function ejecutar_consulta_sql(query)
+      delay: 310
+    - prefix: '→ '
+      text: lanza una consulta a la base de datos y devuelve el resultado
+      delay: 360
+    - prefix: '✓ '
+      text: El LLM elige la herramienta, genera parámetros y solicita ejecución.
+      delay: 410
+- template: FlipCards
+  output: REM02.mp4
+  duration: 0:20
+  data:
+    title: Sistemas de decisión
+    items:
+    - icon: 🧩
+      label: Workflows
+      title: Sistemas deterministas
+      description: 'Tienen pasos predefinidos, predecibles y auditables.
+
+        Siguen una secuencia fija.'
+    - icon: 🤖
+      label: Agentes
+      title: Sistemas flexibles
+      description: 'Deciden sus propios pasos con libertad.
+
+        Son adaptativos y responden al contexto.'
+- template: MindMap
+  output: REM03.mp4
+  duration: 0:40
+  data:
+    center: Grandes consultoras
+    nodes:
+    - text: Gartner
+      sub: Tecnología
+    - text: McKinsey
+      sub: Estrategia
+    - text: BCG
+      sub: Innovación
+    - text: Deloitte
+      sub: Operaciones y auditoría
+    - text: Accenture
+      sub: Tecnología y outsourcing
+    - text: PwC
+      sub: Finanzas y legal

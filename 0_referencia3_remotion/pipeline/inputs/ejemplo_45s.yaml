@@ -1,0 +1,107 @@
+# ejemplo_45s.yaml — Video de ejemplo de exactamente 45 segundos
+# Uso:
+#   python render.py inputs/ejemplo_45s.yaml
+#   python render.py inputs/ejemplo_45s.yaml --audio inputs/locucion.wav
+#
+# Suma de duraciones: 7 + 5 + 8 + 7 + 6 + 6 + 6 = 45 segundos
+
+fps: 30
+
+scenes:
+
+  - id: portada
+    template: COVER-MainCover
+    duration: 7
+    props:
+      tag: "Clase 01 — Fundamentos"
+      title: "Agentes de Inteligencia Artificial"
+      subtitle: "Qué son, cómo funcionan y por qué importan"
+
+  - id: pregunta
+    template: DEF-RhetoricalQuestion
+    duration: 5
+    props:
+      question: "¿Qué hace diferente a un agente de IA de un programa normal?"
+      hint: "Lo descubrirás en los próximos minutos"
+
+  - id: definicion
+    template: DEF-Central
+    duration: 8
+    props:
+      term: "Agente inteligente"
+      definition: "Sistema que percibe su entorno a través de sensores y actúa sobre él mediante actuadores para alcanzar sus objetivos de forma autónoma."
+
+  - id: propiedades
+    template: CLASS-FourBoxes
+    duration: 7
+    props:
+      title: "Las 4 propiedades de Wooldridge"
+      items:
+        - icon: "🧠"
+          title: "Autonomía"
+          description: "Opera sin intervención humana directa."
+        - icon: "⚡"
+          title: "Reactividad"
+          description: "Percibe y responde a los cambios del entorno."
+        - icon: "🎯"
+          title: "Proactividad"
+          description: "Toma la iniciativa orientado a objetivos."
+        - icon: "🤝"
+          title: "Habilidad Social"
+          description: "Interactúa con otros agentes y humanos."
+
+  - id: ciclo
+    template: FLOW-CycleLoop
+    duration: 6
+    props:
+      title: "El ciclo de un agente inteligente"
+      center:
+        icon: "🤖"
+        label: "Agente"
+      items:
+        - icon: "👁️"
+          title: "Percibir"
+          description: "Capta el estado del entorno"
+        - icon: "🧠"
+          title: "Razonar"
+          description: "Procesa y actualiza su modelo"
+        - icon: "🎯"
+          title: "Decidir"
+          description: "Elige la mejor acción posible"
+        - icon: "⚙️"
+          title: "Actuar"
+          description: "Ejecuta y modifica el entorno"
+
+  - id: datos
+    template: DATA-StatCounter
+    duration: 6
+    props:
+      title: "¿Por qué importan los agentes?"
+      stats:
+        - value: 4
+          suffix: ""
+          label: "Propiedades esenciales"
+          sublabel: "según Wooldridge"
+          color: "#6C63FF"
+        - value: 95
+          suffix: "%"
+          label: "Autonomía posible"
+          sublabel: "sin intervención humana"
+          color: "#10b981"
+        - value: 360
+          suffix: "°"
+          label: "Percepción del entorno"
+          sublabel: "monitoreo continuo"
+          color: "#00D9FF"
+
+  - id: cierre
+    template: CLOSE-Keywords
+    duration: 6
+    props:
+      words:
+        - "Autonomía"
+        - "Percepción"
+        - "Decisión"
+        - "Acción"
+        - "Agente"
+      subtitle: "Lo que aprendiste hoy"

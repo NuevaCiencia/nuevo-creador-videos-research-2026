@@ -1,0 +1,31 @@
+{
+  "name": "pipeline-remotion",
+  "version": "1.0.0",
+  "description": "Remotion templates — pipeline de videos educativos",
+  "scripts": {
+    "start": "remotion preview src/index.tsx",
+    "render": "remotion render src/index.tsx"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/google-fonts": "^4.0.0",
+    "@remotion/noise": "^4.0.448",
+    "@remotion/three": "^4.0.448",
+    "@types/three": "^0.183.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.0",
+    "roughjs": "^4.6.6",
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.0.0"
+  },
+  "remotion": {
+    "entryPoint": "src/index.tsx"
+  }
+}

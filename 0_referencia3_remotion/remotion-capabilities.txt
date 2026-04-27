@@ -1,0 +1,422 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              TODO LO QUE PUEDE HACER REMOTION 4.x                          ║
+║              Referencia completa de capacidades                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. CONCEPTO BASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Remotion es un framework React para crear videos programáticamente.
+Cada frame del video es simplemente un componente React renderizado en un
+momento específico del tiempo.
+
+  frame = useCurrentFrame()          → número de frame actual (0, 1, 2, …)
+  { fps, width, height, durationInFrames } = useVideoConfig()
+
+El principio: si puedes dibujarlo en React, puedes renderizarlo como video.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. ANIMACIONES — PRIMITIVAS PRINCIPALES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► interpolate(frame, [fromFrame, toFrame], [fromValue, toValue], options?)
+  - Mapea el frame a cualquier valor numérico (opacidad, posición, escala…)
+  - Opciones: extrapolateLeft/Right ("clamp", "extend", "wrap")
+  - Con easing: easing: Easing.bezier(...)
+  - Ejemplo: interpolate(frame, [0, 30], [0, 1])  → fade-in en 30 frames
+
+► spring({ frame, fps, config, from, to })
+  - Animación física con resorte (damping, stiffness, mass)
+  - Resultado natural, no robótico
+  - config: { damping: 18, stiffness: 200, mass: 1 }
+  - Perfecto para entradas/salidas de elementos
+
+► Easing (de "remotion")
+  - Easing.linear
+  - Easing.ease / Easing.easeIn / Easing.easeOut / Easing.easeInOut
+  - Easing.bezier(x1, y1, x2, y2)
+  - Easing.in(fn) / Easing.out(fn) / Easing.inOut(fn)
+  - Easing.elastic(bounciness)
+  - Easing.bounce
+  - Easing.back(n)
+  - Easing.circle
+  - Easing.exp / Easing.cubic / Easing.quad / Easing.sin
+
+► interpolateColors(frame, [0,30], ["#FF0000","#0000FF"])
+  - Interpola entre colores hex, rgb, hsl
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. COMPOSICIÓN — ESTRUCTURA TEMPORAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <AbsoluteFill>
+  - Contenedor a pantalla completa (position:absolute, inset:0)
+  - Base para casi todo
+
+► <Sequence from={30} durationInFrames={60}>
+  - Retrasa el inicio de sus hijos N frames
+  - frame adentro siempre empieza desde 0
+  - Los hijos son invisibles fuera del rango
+
+► <Series>
+  - Encadena secuencias automáticamente una tras otra
+  <Series.Sequence durationInFrames={60}> ... </Series.Sequence>
+  <Series.Sequence durationInFrames={90}> ... </Series.Sequence>
+
+► <Loop durationInFrames={30} times={5}>
+  - Repite su contenido N veces (o infinito si no se especifica times)
+
+► <Freeze frame={45}>
+  - Congela el contenido en el frame indicado
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. MEDIA — ELEMENTOS MULTIMEDIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <Img src={...}>
+  - Imagen estática (PNG, JPG, SVG, WebP)
+  - Espera a que cargue antes de renderizar el frame
+
+► <Video src={...} startFrom={30} endAt={120} playbackRate={1.5}>
+  - Video embebido dentro del video final
+  - Control preciso de qué segmento usar y a qué velocidad
+
+► <OffthreadVideo src={...}>
+  - Variante de Video para mejor rendimiento en render final
+  - Recomendada para producción en lugar de <Video>
+
+► <Audio src={...} startFrom={0} endAt={90} volume={0.8}>
+  - Audio embebido (WAV, MP3, AAC)
+  - volume puede ser una función: volume={(f) => interpolate(f,[0,30],[0,1])}
+  - Fade in/out de audio con interpolate
+
+► <Gif src={...}>  (@remotion/gif)
+  - GIFs animados correctamente sincronizados con el timeline
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. TIPOGRAFÍA Y TEXTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► Fuentes Google  (@remotion/google-fonts)
+  - import { loadFont } from "@remotion/google-fonts/Inter"
+  - Carga garantizada antes del render, sin FOUT
+
+► Texto letra por letra (efecto typewriter)
+  - Iterar caracteres y aplicar Sequence o interpolate por índice
+
+► Texto palabra por palabra (karaoke)
+  - word_cues con t_start/t_end → resaltar la palabra activa
+
+► Efectos de texto posibles (todo con CSS + interpolate):
+  - Fade in / fade out
+  - Slide in desde arriba/abajo/izquierda/derecha
+  - Scale in / scale out
+  - Blur → nítido (filter: blur)
+  - Texto que "escribe solo" (clip-path o máscara de ancho)
+  - Color que cambia (interpolateColors)
+  - Outline / stroke animado
+  - Texto con gradiente animado (background-clip: text)
+  - Contadores numéricos animados
+  - Texto que explota en partículas (requiere Canvas o Three.js)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. SVG — ANIMACIONES VECTORIALES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► Paths que se dibujan solos
+  - strokeDasharray + strokeDashoffset animado con interpolate
+  - Efecto "línea que se traza"
+
+► Formas que morfean
+  - Interpolar entre dos definiciones de <path d="..."> con @remotion/paths
+
+► @remotion/paths
+  - evolvePath(progress, path1, path2)   → morphing de formas
+  - getLength(path)                      → longitud real del path
+  - getPointAtLength(path, length)       → punto a lo largo del path
+  - extendViewBox(path)                  → ajuste de viewport
+
+► Diagramas animados (todo en SVG puro):
+  - Flechas que se dibujan
+  - Nodos que aparecen con spring
+  - Grafos de red con conexiones animadas
+  - Flowcharts
+  - Ciclos / loops
+  - Barras de progreso circulares (arc SVG)
+  - Gauges / medidores
+
+► Íconos SVG inline con animación de propiedades
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. CANVAS 2D  (@remotion/media-utils + useRef + <canvas>)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► Dibujar directamente en canvas con useCurrentFrame
+  - Gráficos de barras, líneas, dispersión
+  - Partículas y simulaciones físicas
+  - Fractales, generative art
+  - Pixel manipulation
+
+► getAudioData / visualizeAudio  (@remotion/media-utils)
+  - Extrae datos de frecuencia de un archivo de audio
+  - Genera waveforms y espectros de frecuencia animados
+  - Audio reactivo: elementos que bailan con la música
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. THREE.JS / 3D  (@remotion/three)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <ThreeCanvas> — integra Three.js/React Three Fiber en Remotion
+  - Escenas 3D completas sincronizadas al frame
+  - Modelos GLTF/GLB animados
+  - Materiales PBR (physically-based rendering)
+  - Luces, sombras, reflejos
+  - Texto 3D (drei/Text3D)
+  - Partículas en 3D
+  - Geometrías procedurales
+  - Shaders GLSL personalizados
+
+► Posible: visualizaciones de datos en 3D, títulos en 3D, logotipos 3D, etc.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. RUIDO PROCESAL  (@remotion/noise)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► noise2D(x, y) / noise3D(x, y, z) / noise4D(x, y, z, w)
+  - Perlin noise determinístico (mismo input = mismo output siempre)
+  - Movimiento orgánico, no mecánico
+  - Usos:
+    · Movimiento de cámara "hand-held" (temblor natural)
+    · Partículas con trayectorias orgánicas
+    · Texturas procedurales
+    · Posiciones y tamaños que "respiran"
+    · Ondas de fondo animadas
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. TRANSICIONES  (@remotion/transitions)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <TransitionSeries> con presentaciones:
+  - fade()              → fundido a negro/blanco
+  - slide()             → deslizamiento (left, right, up, down)
+  - wipe()              → cortinilla
+  - flip()              → giro de página
+  - clockWipe()         → cortinilla circular
+  - cube()              → cubo 3D girando (requiere @remotion/three)
+  - none()              → corte limpio
+
+► Duración y easing configurables por transición
+► Se puede crear transiciones custom (cualquier efecto CSS/SVG/Three)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. MOTION BLUR  (@remotion/motion-blur)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <Trail frames={4} lagInFrames={1}>
+  - Agrega motion blur real a cualquier elemento
+  - Hace los movimientos rápidos visualmente creíbles
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. LOTTIE  (@remotion/lottie)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <Lottie animationData={...} playbackRate={1}>
+  - Reproduce animaciones Lottie (JSON de After Effects vía Bodymovin)
+  - Sincronizadas al timeline de Remotion
+  - LottieFiles.com tiene miles de animaciones gratuitas
+  - Control de velocidad, loop, dirección
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. RIVE  (@remotion/rive)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <RiveCanvas src="animation.riv" stateMachineInputs={...}>
+  - Animaciones interactivas de Rive embebidas en video
+  - Máquinas de estado controladas programáticamente
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. REACT NATIVE SKIA  (@remotion/skia)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► <SkiaCanvas> — usa la API de Skia (motor de gráficos de Chrome/Flutter)
+  - Trazos con presión, blur gaussiano, sombras complejas
+  - Paths con rellenos de gradiente avanzados
+  - Efectos de filtro (imagen con desenfoque, saturación, contraste)
+  - Texto con shaping avanzado
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. TIPOS DE PANTALLAS / DIAPOSITIVAS POSIBLES (sin assets externos)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TÍTULOS Y TEXTO
+  · Title card con spring + línea decorativa animada
+  · Lower third (nombre/cargo que aparece desde abajo)
+  · Typewriter (texto que se escribe solo, letra a letra)
+  · Karaoke / word highlight (subtítulos sincronizados)
+  · Contador animado (de 0 a N con easing)
+  · Reloj / timer en tiempo real dentro del video
+  · Cita con comillas que se dibujan en SVG
+
+LISTAS Y PUNTOS
+  · Bullet reveal (aparecen uno a uno con stagger)
+  · Checklist animada (checks que se van marcando)
+  · Numeración progresiva
+  · Tabla que se construye fila a fila
+
+DIAGRAMAS Y FLUJOS
+  · Ciclo / loop (diagrama circular con flechas que se dibujan)
+  · Flowchart (nodos y aristas que aparecen secuencialmente)
+  · Árbol jerárquico que crece desde la raíz
+  · Mapa mental (nodo central + ramas que salen)
+  · Diagrama de Venn (círculos que se intersectan)
+  · Línea de tiempo / timeline horizontal
+  · Embudo / funnel
+
+COMPARACIONES
+  · Two-column comparison (básico vs avanzado)
+  · Antes / después con wipe central
+  · Pros y contras con íconos animados
+  · Tabla comparativa columna a columna
+
+DATOS Y GRÁFICOS
+  · Barra de progreso horizontal animada
+  · Gráfico de barras que crece desde 0
+  · Gráfico de líneas que se dibuja
+  · Pie / donut chart que se llena
+  · Gauge / velocímetro
+  · Número grande con counting animation
+  · Estadísticas que aparecen con spring
+  · Heatmap / grid de colores
+
+VISUALIZACIONES CONCEPTUALES
+  · Diagrama de ciclo del agente (PERCIBIR→DECIDIR→ACTUAR)
+  · Red de nodos (grafo) con conexiones animadas
+  · Arquitectura de sistema (capas que se van revelando)
+  · Diagrama de estados (FSM visual)
+  · Espectro / escala graduada
+
+TRANSICIONES Y MOTION
+  · Zoom in / zoom out (Ken Burns)
+  · Parallax (capas moviéndose a distinta velocidad)
+  · Particle explosion / implosion
+  · Morphing de una forma a otra (@remotion/paths)
+  · Wipe de izquierda a derecha
+  · Flip de página
+  · Blur → sharp reveal
+  · Split screen que se abre desde el centro
+
+AUDIO REACTIVO
+  · Waveform (forma de onda sincronizada al audio)
+  · Equalizer de barras que danzan
+  · Círculo que pulsa con el volumen
+  · Texto que vibra con la frecuencia
+
+3D (con @remotion/three)
+  · Título en 3D rotando
+  · Cubo de datos (faces = pantallas)
+  · Globo terráqueo girando
+  · Grafo 3D de nodos
+  · Producto girando 360°
+  · Logotipo 3D con iluminación
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+16. OUTPUTS / FORMATOS DE SALIDA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► Video:     MP4 (H.264, H.265/HEVC), WebM (VP8, VP9, AV1)
+► Audio:     MP3, WAV, AAC (solo audio, sin video)
+► Imagen:    PNG, JPEG, WebP (still de un frame específico)
+► Secuencia: carpeta de PNG/JPEG frame a frame (para post en After Effects, DaVinci, etc.)
+
+Resoluciones: cualquiera — 1920×1080, 4K, vertical 9:16 (1080×1920), cuadrado 1:1
+FPS: cualquiera — 24, 25, 30, 60
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+17. RENDER Y DESPLIEGUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+► Local:   npx remotion render                    → en CPU/GPU local
+► Cloud:   @remotion/lambda                       → render en AWS Lambda (paralelo)
+► Server:  @remotion/renderer (Node.js API)       → integrar en backend propio
+► Player:  @remotion/player                       → embed en app React (preview interactivo)
+► GitHub Actions / CI:  renderizar automáticamente en cada commit
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+18. LIMITACIONES A TENER EN CUENTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✗ No soporta animaciones CSS (@keyframes) — todo debe ser basado en `frame`
+✗ No soporta transitions CSS — usar interpolate/spring en su lugar
+✗ setTimeout / setInterval no funcionan — el tiempo viene del frame
+✗ Fetch en render no garantizado — usar staticFile() o precargar datos
+✗ WebGL puede no estar disponible en ciertos entornos de render headless
+✗ Videos muy largos = render lento local → usar Lambda para producción
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+19. PAQUETES OPCIONALES (instalar según necesidad)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+npm install @remotion/three        → Three.js / React Three Fiber
+npm install @remotion/noise        → Perlin noise
+npm install @remotion/paths        → SVG path morphing y utilidades
+npm install @remotion/transitions  → Transiciones entre escenas
+npm install @remotion/motion-blur  → Motion blur
+npm install @remotion/lottie       → Animaciones Lottie
+npm install @remotion/rive         → Animaciones Rive
+npm install @remotion/skia         → React Native Skia
+npm install @remotion/gif          → GIFs animados
+npm install @remotion/media-utils  → Audio analysis (waveform, FFT)
+npm install @remotion/player       → Player embebible en React
+npm install @remotion/lambda       → Render en AWS Lambda
+npm install @remotion/google-fonts → Fuentes Google garantizadas
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFERENCIA RÁPIDA DE PATRONES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// Fade in
+const opacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
+
+// Slide in desde la izquierda
+const x = spring({ frame, fps, from: -100, to: 0 });
+
+// Escala con rebote
+const scale = spring({ frame, fps, config: { damping: 10, stiffness: 200 }, from: 0, to: 1 });
+
+// Dibujar SVG path
+const dash = interpolate(frame, [0, 60], [1000, 0], { extrapolateRight: "clamp" });
+<path strokeDasharray="1000" strokeDashoffset={dash} />
+
+// Stagger: elemento i aparece i*10 frames después
+const localFrame = frame - i * 10;
+const opacity = interpolate(localFrame, [0, 15], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+// Pulso infinito
+const pulse = 1 + interpolate(Math.sin(frame / fps * Math.PI * 2), [-1, 1], [-0.05, 0.05]);
+
+// Color animado
+const color = interpolateColors(frame, [0, 60], ["#6C63FF", "#00D9FF"]);
+
+// Contador numérico
+const count = Math.round(interpolate(frame, [0, 90], [0, 1000], { extrapolateRight: "clamp" }));

@@ -1,0 +1,397 @@
+[1.849 - 2.590]: Hola a todos.
+[3.571 - 4.231]: Hoy comenzamos
+[4.251 - 5.032]: una serie de
+[5.112 - 5.793]: clases sobre
+[5.973 - 6.713]: uno de los temas
+[7.054 - 7.214]: más
+[7.354 - 8.295]: revolucionarios en
+[8.355 - 8.935]: inteligencia
+[8.976 - 9.516]: artificial,
+[10.377 - 11.077]: los agentes de
+[11.178 - 11.398]: IA.
+[12.439 - 13.380]: Esta primera parte
+[13.400 - 14.300]: la dedicaremos a
+[14.521 - 14.621]: los
+[14.821 - 15.622]: fundamentos
+[15.942 - 16.502]: teóricos.
+[17.423 - 18.184]: Necesitamos
+[18.204 - 19.064]: entender qué
+[19.164 - 19.965]: es realmente un
+[19.985 - 20.445]: agente,
+[21.146 - 21.846]: cuáles son sus
+[21.906 - 22.386]: propiedades
+[22.466 - 23.067]: esenciales y
+[23.707 - 24.508]: qué tipos de
+[24.548 - 25.168]: arquitecturas
+[25.408 - 25.889]: existen.
+[26.809 - 27.310]: Puede sonar
+[27.470 - 28.350]: académico, pero
+[28.450 - 28.831]: créanme,
+[29.311 - 30.012]: entender estos
+[30.092 - 30.972]: conceptos base
+[31.092 - 31.172]: es
+[31.533 - 32.193]: sumamente
+[32.253 - 32.913]: importante
+[33.574 - 34.154]: para después
+[34.214 - 34.655]: comprender
+[35.015 - 35.995]: cómo funcionan
+[36.036 - 36.656]: los agentes
+[36.736 - 37.637]: modernos que están
+[37.757 - 38.577]: revolucionando
+[38.657 - 39.198]: industrias
+[39.298 - 39.798]: completas y
+[40.418 - 40.919]: cambiando
+[40.939 - 41.459]: nuestra
+[41.539 - 42.520]: perspectiva sobre
+[42.660 - 43.180]: la IA.
+[44.601 - 45.442]: ¿Listo? Vamos.
+[47.344 - 47.684]: ¿Qué es
+[47.884 - 48.785]: realmente un
+[48.805 - 49.545]: agente de
+[49.645 - 49.866]: IA?
+[52.207 - 52.887]: Empecemos con lo
+[52.927 - 53.388]: esencial.
+[53.968 - 54.868]: ¿Qué es un agente de
+[54.949 - 55.129]: IA?
+[55.849 - 56.289]: Tratando de
+[56.369 - 57.050]: comprenderlo
+[57.510 - 57.870]: desde la
+[57.950 - 58.911]: perspectiva más
+[58.971 - 59.571]: sencilla,
+[60.252 - 61.112]: un agente es
+[61.192 - 61.973]: una entidad
+[62.093 - 62.893]: de software
+[63.233 - 63.353]: que
+[63.554 - 64.334]: percibe
+[64.694 - 65.455]: su entorno y
+[65.835 - 66.455]: actúa
+[66.635 - 67.256]: sobre él
+[67.876 - 68.657]: para alcanzar
+[68.857 - 69.557]: objetivos
+[69.757 - 70.458]: específicos.
+[71.558 - 72.359]: La palabra clave
+[72.499 - 72.919]: aquí es
+[73.219 - 74.000]: autonomía.
+[75.156 - 75.897]: No es un
+[75.938 - 76.498]: programa que
+[76.599 - 77.480]: simplemente sigue
+[77.540 - 78.481]: instrucciones paso
+[78.522 - 79.203]: a paso como una
+[79.263 - 79.683]: receta.
+[80.465 - 81.266]: Es un sistema
+[81.486 - 82.307]: capaz de
+[82.548 - 83.309]: adaptarse,
+[83.710 - 84.331]: aprender de
+[84.411 - 85.032]: situaciones
+[85.192 - 85.573]: nuevas y
+[86.514 - 87.315]: decidir por
+[87.415 - 88.357]: sí mismo qué
+[88.597 - 89.539]: hacer en cada
+[89.779 - 90.200]: momento.
+[92.518 - 93.018]: Por ejemplo,
+[93.639 - 94.099]: veamos la
+[94.139 - 95.079]: diferencia entre
+[95.159 - 95.259]: un
+[95.439 - 96.160]: termostato
+[96.380 - 97.320]: simple y uno
+[97.580 - 98.321]: inteligente.
+[99.441 - 99.861]: Digamos,
+[100.482 - 101.482]: el termostato de una
+[101.702 - 102.643]: terma eléctrica.
+[103.283 - 103.883]: El termostato
+[104.063 - 104.704]: básico
+[106.204 - 106.424]: solo
+[106.625 - 107.525]: enciende o
+[107.585 - 108.065]: apaga la
+[108.285 - 109.046]: calefacción
+[109.346 - 109.966]: según una
+[110.046 - 110.606]: temperatura
+[110.807 - 111.347]: fija que
+[111.487 - 112.327]: programaste.
+[113.128 - 113.568]: Punto.
+[114.588 - 114.968]: Eso es
+[115.149 - 115.909]: automatización
+[116.029 - 116.709]: tradicional,
+[117.310 - 118.190]: reglas fijas,
+[118.630 - 119.411]: comportamiento
+[119.731 - 120.311]: predecible.
+[122.404 - 123.284]: Pero un termostato
+[123.344 - 124.004]: inteligente
+[124.244 - 125.105]: observa tus
+[125.225 - 125.905]: patrones de
+[126.025 - 126.965]: comportamiento.
+[127.805 - 128.205]: Aprende
+[128.625 - 129.105]: cuándo
+[129.565 - 130.246]: más se
+[130.366 - 130.926]: usa el
+[130.966 - 131.446]: aparato.
+[131.866 - 132.506]: Detecta si está
+[132.706 - 133.486]: encendido sin
+[133.546 - 134.326]: razón. Se
+[134.386 - 135.327]: conecta a WIFI
+[135.387 - 135.967]: para recibir
+[136.007 - 136.707]: instrucciones y
+[136.727 - 138.127]: ajusta
+[138.247 - 139.187]: posibles gastos
+[139.387 - 139.968]: inútiles de
+[140.008 - 140.948]: energía sin que se
+[141.008 - 141.488]: lo pidas.
+[141.928 - 142.788]: Ese es un
+[142.988 - 143.568]: agente.
+[145.509 - 146.129]: Otro ejemplo
+[146.209 - 146.749]: cotidiano.
+[147.569 - 148.489]: Los asistentes de
+[148.549 - 149.469]: voz como el OK
+[149.509 - 150.150]: GOOGLE de los
+[150.190 - 150.790]: televisores con
+[150.830 - 151.510]: Google TV.
+[152.756 - 153.617]: Cuando le pides algo
+[153.677 - 154.357]: como abre
+[154.417 - 155.258]: YouTube y sigue
+[155.318 - 156.119]: reproduciendo mis
+[156.199 - 156.799]: canciones, el
+[157.760 - 158.600]: asistente no solo
+[158.620 - 159.461]: ejecuta un comando
+[159.541 - 159.821]: fijo,
+[161.202 - 162.103]: debe interpretar tu
+[162.163 - 162.683]: lenguaje
+[162.763 - 163.264]: natural,
+[163.284 - 164.285]: entender
+[164.445 - 165.265]: el contexto
+[165.285 - 166.206]: que
+[166.246 - 167.127]: había en el historial de
+[167.227 - 167.827]: reproducción,
+[168.968 - 169.548]: decidir qué
+[169.668 - 170.329]: comandos
+[170.389 - 170.909]: utilizar,
+[171.350 - 171.850]: verificar
+[172.090 - 172.771]: conectividad y
+[173.051 - 173.992]: ejecutar la acción.
+[174.812 - 175.353]: Además, puede
+[175.873 - 176.814]: recibir
+[177.154 - 177.534]: instrucción
+[177.614 - 178.535]: multimodal o
+[178.555 - 179.376]: aprender según
+[179.456 - 180.296]: tus opciones de
+[180.597 - 181.397]: personalización.
+[182.838 - 183.779]: Cada paso involucra
+[183.839 - 184.420]: percepción del
+[184.460 - 184.980]: entorno,
+[185.601 - 185.941]: toma de
+[186.042 - 186.682]: decisiones y
+[186.862 - 187.363]: ejecución
+[187.583 - 188.144]: autónoma.
+[188.564 - 189.425]: Ese es el
+[189.485 - 190.126]: comportamiento
+[190.306 - 190.907]: agéntico.
+[193.650 - 194.190]: Las cuatro
+[194.290 - 194.811]: propiedades
+[194.971 - 195.632]: esenciales de
+[195.772 - 196.332]: Wooldridge
+[198.214 - 199.115]: Para que un sistema sea
+[199.155 - 199.576]: considerado
+[199.636 - 200.357]: verdaderamente un
+[200.377 - 200.857]: agente,
+[201.458 - 202.198]: debe cumplir con
+[202.479 - 202.979]: cuatro
+[203.380 - 203.940]: propiedades
+[204.241 - 204.901]: fundamentales.
+[206.378 - 207.259]: Estas fueron establecidas
+[207.359 - 208.279]: por Michael
+[208.420 - 209.040]: Woodridge,
+[209.660 - 210.601]: uno de los investigadores
+[210.921 - 211.882]: más importantes
+[211.962 - 212.802]: en el campo de los
+[212.863 - 213.243]: agentes
+[213.323 - 213.923]: inteligentes,
+[214.744 - 215.424]: en un trabajo
+[215.604 - 216.485]: pionero que sigue
+[216.585 - 216.965]: siendo la
+[217.225 - 218.046]: referencia
+[218.106 - 218.606]: académica
+[218.827 - 219.387]: hasta hoy.
+[220.708 - 221.228]: Son como los
+[221.448 - 222.049]: pilares que
+[222.129 - 222.729]: sostienen la
+[222.789 - 223.710]: definición misma
+[223.790 - 224.510]: de lo que es un
+[224.530 - 225.071]: agente.
+[227.332 - 228.133]: Primera propiedad,
+[229.293 - 229.934]: autonomía.
+[231.732 - 232.512]: El agente debe poder
+[232.672 - 233.352]: operar sin
+[233.532 - 234.513]: intervención humana
+[234.593 - 235.133]: directa y
+[235.933 - 236.773]: tener control sobre
+[236.953 - 237.633]: sus propias
+[237.713 - 238.694]: acciones y estado
+[238.794 - 239.294]: interno.
+[240.854 - 241.514]: No necesita que
+[241.754 - 242.434]: alguien le esté
+[242.474 - 243.075]: diciendo en cada
+[243.155 - 244.115]: momento, ahora
+[244.135 - 245.135]: haz esto, ahora haz
+[245.175 - 245.515]: lo otro.
+[246.515 - 247.396]: Tiene la capacidad de
+[247.576 - 248.356]: gobernarse a
+[248.476 - 248.996]: sí mismo
+[249.196 - 249.816]: dentro de los
+[249.936 - 250.636]: límites de su
+[250.676 - 251.136]: diseño.
+[252.057 - 253.057]: Por ejemplo, un
+[253.097 - 254.077]: robot aspiradora
+[254.217 - 254.977]: que decide por sí
+[255.017 - 255.857]: mismo qué ruta
+[255.937 - 256.698]: seguir para limpiar
+[256.958 - 257.898]: toda tu casa.
+[259.117 - 259.938]: cuándo regresar a
+[260.018 - 260.619]: cargarse
+[260.979 - 261.700]: y cómo evitar
+[261.840 - 262.681]: obstáculos que
+[262.761 - 262.921]: van
+[263.101 - 263.862]: apareciendo.
+[265.864 - 266.624]: Segunda propiedad,
+[267.285 - 268.126]: reactividad.
+[269.407 - 270.148]: El agente debe
+[270.348 - 271.209]: percibir su
+[271.269 - 271.749]: entorno y
+[272.230 - 273.211]: responder de
+[273.291 - 273.551]: manera
+[273.811 - 274.592]: oportuna a los
+[274.672 - 275.553]: cambios que ocurren en
+[275.613 - 275.753]: él.
+[276.754 - 277.495]: Es como un conductor
+[277.695 - 278.656]: experimentado que
+[278.956 - 279.697]: reacciona
+[279.877 - 280.718]: inmediatamente
+[280.838 - 281.659]: cuando ve una luz
+[281.999 - 282.219]: roja.
+[283.203 - 283.843]: cuando un peatón
+[283.943 - 284.303]: cruza
+[284.323 - 285.323]: inesperadamente o
+[285.704 - 286.664]: cuando el coche de
+[286.724 - 287.624]: adelante frena
+[287.744 - 288.584]: bruscamente.
+[289.624 - 290.245]: El agente no
+[290.405 - 291.205]: puede simplemente
+[291.285 - 292.225]: seguir un plan fijo o
+[292.665 - 293.405]: ignorar lo que
+[293.485 - 294.165]: sucede a su
+[294.225 - 294.705]: alrededor.
+[295.766 - 296.126]: Debe estar
+[296.226 - 297.326]: constantemente
+[297.546 - 298.326]: monitoreando y
+[298.526 - 299.166]: ajustando
+[299.446 - 299.587]: su
+[299.727 - 300.467]: comportamiento.
+[303.027 - 303.927]: Tercera propiedad.
+[305.248 - 306.088]: Proactividad.
+[308.150 - 309.031]: Aquí está lo realmente
+[309.091 - 309.851]: interesante. El
+[309.871 - 310.792]: agente no
+[310.812 - 311.412]: solo reacciona a
+[311.472 - 312.413]: estímulos externos,
+[312.533 - 313.153]: sino también
+[313.173 - 313.894]: toma la
+[314.174 - 315.035]: iniciativa.
+[316.636 - 317.236]: Puede generar
+[317.376 - 318.137]: comportamientos
+[318.357 - 318.937]: orientados a
+[318.997 - 319.938]: objetivos sin
+[319.978 - 320.838]: que nadie se lo
+[320.979 - 321.239]: pida
+[321.379 - 322.440]: explícitamente.
+[323.540 - 323.941]: Anticipa
+[324.021 - 324.581]: problemas,
+[324.601 - 325.281]: identifica
+[325.321 - 326.102]: oportunidades, actúa
+[326.802 - 327.743]: preventivamente.
+[328.944 - 329.844]: Un ejemplo perfecto:
+[330.865 - 331.766]: Un agente personal
+[331.866 - 332.566]: que detecta que
+[332.726 - 333.607]: tienes una reunión
+[333.707 - 334.488]: importante mañana
+[334.568 - 334.968]: temprano,
+[336.483 - 337.124]: nota que el
+[337.224 - 338.025]: pronóstico
+[338.045 - 338.765]: anuncia
+[338.905 - 339.346]: tráfico
+[339.426 - 340.047]: intenso
+[340.107 - 341.068]: debido a obras en la
+[341.108 - 341.568]: carretera, y
+[342.249 - 343.029]: proactivamente te
+[343.210 - 343.850]: sugiere salir
+[344.151 - 344.851]: 20 minutos antes.
+[345.772 - 346.613]: O incluso te ofrece
+[346.833 - 347.514]: alternativas
+[347.894 - 348.535]: como hacer la
+[348.615 - 348.995]: reunión
+[349.216 - 349.756]: virtual.
+[350.797 - 351.478]: Nadie le
+[351.538 - 352.238]: pidió hacer
+[352.459 - 352.659]: eso.
+[353.320 - 354.220]: Él tomó
+[354.300 - 354.901]: la iniciativa
+[355.141 - 356.062]: basándose en su
+[356.102 - 356.703]: objetivo de
+[356.743 - 357.704]: ayudarte a cumplir
+[357.904 - 358.745]: tus compromisos.
+[361.130 - 361.771]: Cuarta propiedad:
+[362.531 - 362.991]: habilidad
+[363.412 - 363.852]: social.
+[365.473 - 366.213]: Los agentes más
+[366.253 - 367.034]: sofisticados no
+[367.074 - 367.494]: operan en
+[367.534 - 368.255]: aislamiento.
+[368.955 - 369.856]: Pueden interactuar con
+[369.936 - 370.876]: otros agentes o con
+[370.916 - 371.837]: humanos para
+[371.897 - 372.797]: completar sus tareas.
+[373.878 - 374.539]: Esta capacidad de
+[374.739 - 375.719]: comunicación y
+[375.879 - 376.680]: colaboración
+[376.820 - 376.880]: es
+[377.120 - 377.941]: fundamental en
+[377.961 - 378.301]: sistemas
+[378.421 - 379.001]: complejos
+[379.722 - 380.282]: donde múltiples
+[380.342 - 381.223]: agentes trabajan
+[381.403 - 381.863]: juntos.
+[382.864 - 383.444]: Por ejemplo,
+[383.824 - 384.525]: en un sistema de
+[384.665 - 385.385]: coordinación de
+[385.445 - 385.846]: entregas,
+[386.506 - 387.367]: múltiples agentes
+[388.188 - 389.090]: (cada camión de reparto
+[389.130 - 389.671]: es un agente)
+[390.432 - 391.273]: deben comunicarse
+[391.293 - 392.255]: entre sí para
+[392.415 - 392.816]: optimizar
+[393.116 - 393.497]: rutas,
+[393.517 - 394.379]: evitar
+[394.499 - 395.320]: duplicaciones,
+[395.340 - 395.701]: ayudarse
+[396.242 - 397.163]: mutuamente cuando uno
+[397.223 - 397.985]: tiene problemas, y
+[398.526 - 399.207]: todo mientras
+[399.227 - 399.988]: interactúan con
+[400.048 - 400.930]: sistemas centrales y
+[401.190 - 401.611]: humanos.
+[403.895 - 404.055]: Bien.
+[404.896 - 405.396]: Estas cuatro
+[405.456 - 405.937]: propiedades—
+[406.177 - 406.797]: autonomía,
+[407.658 - 408.338]: reactividad,
+[409.099 - 409.799]: pro-actividad
+[410.280 - 411.220]: y habilidad social—
+[411.781 - 412.241]: son la base
+[412.401 - 413.302]: conceptual
+[413.662 - 414.583]: que distingue a un
+[414.623 - 415.503]: verdadero agente
+[415.583 - 416.264]: de IA de un
+[416.464 - 417.345]: simple programa
+[417.525 - 418.485]: automatizado con
+[418.626 - 419.006]: algunas
+[419.106 - 419.706]: capacidades
+[419.906 - 420.527]: inteligentes
+[420.687 - 421.167]: añadidas.

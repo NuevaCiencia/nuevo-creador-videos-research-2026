@@ -1,0 +1,138 @@
+videos:
+
+  # ---------------------------------------------------------------------------
+  # NAR-TypeWriter (Hacker Terminal)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Pantalla negra estilo terminal de computadora. Las líneas aparecen
+  #   escritas una a una como si alguien las estuviera tipeando en tiempo real.
+  #   Ideal para dar un tono técnico, dramático o de "sistema iniciando".
+  #
+  # PARA QUÉ SIRVE:
+  #   - Introducir conceptos técnicos o de programación
+  #   - Crear suspenso antes de revelar una idea importante
+  #   - Mostrar pasos de un proceso como si fuera código
+  #   - Apertura de clase con impacto visual fuerte
+  #
+  # LÍMITES: min 1 línea — max 6 líneas recomendado (hasta 10 técnico)
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output     → nombre del archivo MP4 que se va a generar           │
+  # │  duration   → duración total del video en mm:ss                    │
+  # │  accent     → color del cursor parpadeante (hex)                   │
+  # │  lines[].prefix  → símbolo antes del texto ("$ ", "→ ", "✓ ")     │
+  # │  lines[].text    → el texto que se escribe letra por letra          │
+  # │  lines[].delay   → cuándo aparece cada línea (frames: 30 = 1 seg)  │
+  # │                                                                     │
+  # │  NO TOCAR: template (siempre TypeWriter para este bloque)           │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: TypeWriter
+    output: typewriter_01.mp4
+    duration: "0:45"
+    data:
+      accent: "#00FF41"
+      lines:
+        - prefix: "$ "
+          text: "agent.perceive(environment)"
+          delay: 10
+        - prefix: "→ "
+          text: "state = { temp: 22, motion: true }"
+          delay: 60
+        - prefix: "$ "
+          text: "agent.reason(state)"
+          delay: 110
+        - prefix: "→ "
+          text: "action = 'turn_on_cooling'"
+          delay: 160
+        - prefix: "$ "
+          text: "agent.act(action)"
+          delay: 210
+        - prefix: "✓ "
+          text: "Environment updated successfully."
+          delay: 260
+
+  # ---------------------------------------------------------------------------
+  # FLOW-MindMap (Mapa Mental)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Un concepto central rodeado de ramas distribuidas radialmente.
+  #   Los nodos se posicionan y colorean solos según cuántos haya.
+  #
+  # PARA QUÉ SIRVE:
+  #   - Mostrar componentes o dimensiones de un concepto
+  #   - Síntesis visual de un tema al inicio o cierre de clase
+  #   - Activar conocimientos previos antes de una explicación
+  #
+  # LÍMITES: min 3 nodos — max 8 nodos — recomendado 4-6
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output        → nombre del archivo MP4 que se va a generar        │
+  # │  duration      → duración total del video en mm:ss                 │
+  # │  center        → texto del nodo central (el concepto madre)        │
+  # │  nodes[].text  → nombre de cada rama                               │
+  # │  nodes[].sub   → texto secundario bajo la rama (opcional, borrar   │
+  # │                  la línea si no se necesita)                       │
+  # │                                                                     │
+  # │  NO TOCAR: template, colores (son automáticos)                     │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: MindMap
+    output: mindmap_01.mp4
+    duration: "1:30"
+    data:
+      center: "Concepto central"
+      nodes:
+        - text: "Rama 1"
+          sub: "descripción opcional"
+        - text: "Rama 2"
+          sub: "descripción opcional"
+        - text: "Rama 3"
+          sub: "descripción opcional"
+
+  # ---------------------------------------------------------------------------
+  # FLOW-LinearSteps (Pasos Lineales)
+  # ---------------------------------------------------------------------------
+  # QUÉ ES:
+  #   Tarjetas horizontales conectadas por flechas, de izquierda a derecha.
+  #   El ancho de cada tarjeta se ajusta automáticamente según cuántas haya.
+  #
+  # PARA QUÉ SIRVE:
+  #   - Explicar procesos con pasos secuenciales y obligatorios
+  #   - Mostrar metodologías (método científico, design thinking, etc.)
+  #   - Cualquier flujo donde el orden importa
+  #
+  # LÍMITES: min 2 pasos — max 6 pasos — recomendado 3-4
+  #
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │ MODIFICA SOLO ESTO:                                                 │
+  # │                                                                     │
+  # │  output              → nombre del archivo MP4 que se va a generar  │
+  # │  duration            → duración total del video en mm:ss           │
+  # │  title               → título superior del video (opcional, borrar  │
+  # │                        la línea si no se necesita)                 │
+  # │  steps[].title       → nombre corto del paso (1-3 palabras ideal)  │
+  # │  steps[].description → explicación del paso (2-3 líneas máximo)    │
+  # │                                                                     │
+  # │  NO TOCAR: template, colores (son automáticos)                     │
+  # └─────────────────────────────────────────────────────────────────────┘
+  # ---------------------------------------------------------------------------
+
+  - template: LinearSteps
+    output: linearsteps_01.mp4
+    duration: "1:30"
+    data:
+      title: "Título opcional"
+      steps:
+        - title: "Paso 1"
+          description: "Descripción del primer paso"
+        - title: "Paso 2"
+          description: "Descripción del segundo paso"
+        - title: "Paso 3"
+          description: "Descripción del tercer paso"

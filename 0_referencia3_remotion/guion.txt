@@ -1,0 +1,107 @@
+#SEGMENT [00:00.000]
+TYPE=TEXT
+TIME=47.344
+TEXT=Fundamentos de agentes de IA
+TEXT_STYLE=TITLE
+ASSET=
+SPEECH=Hola a todos. Hoy comenzamos una serie de clases sobre uno de los temas más revolucionarios en inteligencia artificial, los agentes de IA. Esta primera parte la dedicaremos a los fundamentos teóricos. Necesitamos entender qué es realmente un agente, cuáles son sus propiedades esenciales y qué tipos de arquitecturas existen. Puede sonar académico, pero créanme, entender estos conceptos base es sumamente importante para después comprender cómo funcionan los agentes modernos que están revolucionando industrias completas y cambiando nuestra perspectiva sobre la IA. ¿Listo? Vamos.
+NOTES=
+
+#SEGMENT [00:47.344]
+TYPE=TEXT
+TIME=2.522
+TEXT=¿Qué es un agente de IA?
+TEXT_STYLE=TITLE
+ASSET=
+SPEECH=¿Qué es realmente un agente de IA?
+NOTES=
+
+#SEGMENT [00:49.865]
+TYPE=SPLIT_LEFT
+TIME=40.334
+TEXT=Autonomía: percibe y actúa solo
+TEXT_STYLE=HIGHLIGHT
+ASSET=images/S001.png
+SPEECH=Empecemos con lo esencial. ¿Qué es un agente de IA? Tratando de comprenderlo desde la perspectiva más sencilla, un agente es una entidad de software que percibe su entorno y actúa sobre él para alcanzar objetivos específicos. La palabra clave aquí es autonomía. No es un programa que simplemente sigue instrucciones paso a paso como una receta. Es un sistema capaz de adaptarse, aprender de situaciones nuevas y decidir por sí mismo qué hacer en cada momento.
+NOTES=
+
+#SEGMENT [01:30.200]
+TYPE=SPLIT_RIGHT
+TIME=53.368
+TEXT=Termostato básico vs inteligente
+TEXT_STYLE=HIGHLIGHT
+ASSET=images/S002.png
+SPEECH=Por ejemplo, veamos la diferencia entre un termostato simple y uno inteligente. Digamos, el termostato de una terma eléctrica. El termostato básico solo enciende o apaga la calefacción según una temperatura fija que programaste. Punto. Eso es automatización tradicional, reglas fijas, comportamiento predecible. Pero un termostato inteligente observa tus patrones de comportamiento. Aprende cuándo más se usa el aparato. Detecta si está encendido sin razón. Se conecta a WIFI para recibir instrucciones y ajusta posibles gastos inútiles de energía sin que se lo pidas. Ese es un agente.
+NOTES=
+
+#SEGMENT [02:23.568]
+TYPE=VIDEO
+TIME=47.339
+TEXT=
+TEXT_STYLE=
+ASSET=videos/V001.mp4
+SPEECH=Otro ejemplo cotidiano. Los asistentes de voz como el OK GOOGLE de los televisores con Google TV. Cuando le pides algo como abre YouTube y sigue reproduciendo mis canciones, el asistente no solo ejecuta un comando fijo, debe interpretar tu lenguaje natural, entender el contexto que había en el historial de reproducción, decidir qué comandos utilizar, verificar conectividad y ejecutar la acción. Además, puede recibir instrucción multimodal o aprender según tus opciones de personalización. Cada paso involucra percepción del entorno, toma de decisiones y ejecución autónoma. Ese es el comportamiento agéntico.
+NOTES=
+
+#SEGMENT [03:10.907]
+TYPE=TEXT
+TIME=5.425
+TEXT=Las 4 propiedades de Wooldridge
+TEXT_STYLE=TITLE
+ASSET=
+SPEECH=Las cuatro propiedades esenciales de Wooldridge
+NOTES=
+
+#SEGMENT [03:16.331]
+TYPE=SPLIT_LEFT
+TIME=28.739
+TEXT=Cuatro pilares de un agente
+TEXT_STYLE=HIGHLIGHT
+ASSET=images/S003.png
+SPEECH=Para que un sistema sea considerado verdaderamente un agente, debe cumplir con cuatro propiedades fundamentales. Estas fueron establecidas por Michael Woodridge, uno de los investigadores más importantes en el campo de los agentes inteligentes, en un trabajo pionero que sigue siendo la referencia académica hasta hoy. Son como los pilares que sostienen la definición misma de lo que es un agente.
+NOTES=
+
+#SEGMENT [03:45.070]
+TYPE=SPLIT_RIGHT
+TIME=38.791
+TEXT=Autonomía: se gobierna solo
+TEXT_STYLE=HIGHLIGHT
+ASSET=images/S004.png
+SPEECH=Primera propiedad, autonomía. El agente debe poder operar sin intervención humana directa y tener control sobre sus propias acciones y estado interno. No necesita que alguien le esté diciendo en cada momento, ahora haz esto, ahora haz lo otro. Tiene la capacidad de gobernarse a sí mismo dentro de los límites de su diseño. Por ejemplo, un robot aspiradora que decide por sí mismo qué ruta seguir para limpiar toda tu casa. cuándo regresar a cargarse y cómo evitar obstáculos que van apareciendo.
+NOTES=
+
+#SEGMENT [04:23.862]
+TYPE=SPLIT_LEFT
+TIME=36.605
+TEXT=Reacciona al entorno en tiempo real
+TEXT_STYLE=HIGHLIGHT
+ASSET=images/S005.png
+SPEECH=Segunda propiedad, reactividad. El agente debe percibir su entorno y responder de manera oportuna a los cambios que ocurren en él. Es como un conductor experimentado que reacciona inmediatamente cuando ve una luz roja. cuando un peatón cruza inesperadamente o cuando el coche de adelante frena bruscamente. El agente no puede simplemente seguir un plan fijo o ignorar lo que sucede a su alrededor. Debe estar constantemente monitoreando y ajustando su comportamiento.
+NOTES=
+
+#SEGMENT [05:00.466]
+TYPE=SPLIT_RIGHT
+TIME=58.278
+TEXT=Toma la iniciativa por sí mismo
+TEXT_STYLE=HIGHLIGHT
+ASSET=images/S006.png
+SPEECH=Tercera propiedad. Proactividad. Aquí está lo realmente interesante. El agente no solo reacciona a estímulos externos, sino también toma la iniciativa. Puede generar comportamientos orientados a objetivos sin que nadie se lo pida explícitamente. Anticipa problemas, identifica oportunidades, actúa preventivamente. Un ejemplo perfecto: Un agente personal que detecta que tienes una reunión importante mañana temprano, nota que el pronóstico anuncia tráfico intenso debido a obras en la carretera, y proactivamente te sugiere salir 20 minutos antes. O incluso te ofrece alternativas como hacer la reunión virtual. Nadie le pidió hacer eso. Él tomó la iniciativa basándose en su objetivo de ayudarte a cumplir tus compromisos.
+NOTES=
+
+#SEGMENT [05:58.745]
+TYPE=FULL_IMAGE
+TIME=42.866
+TEXT=
+TEXT_STYLE=
+ASSET=images/F001.png
+SPEECH=Cuarta propiedad: habilidad social. Los agentes más sofisticados no operan en aislamiento. Pueden interactuar con otros agentes o con humanos para completar sus tareas. Esta capacidad de comunicación y colaboración es fundamental en sistemas complejos donde múltiples agentes trabajan juntos. Por ejemplo, en un sistema de coordinación de entregas, múltiples agentes (cada camión de reparto es un agente) deben comunicarse entre sí para optimizar rutas, evitar duplicaciones, ayudarse mutuamente cuando uno tiene problemas, y todo mientras interactúan con sistemas centrales y humanos.
+NOTES=
+
+#SEGMENT [06:41.610]
+TYPE=TEXT
+TIME=19.556
+TEXT=Autonomía, reactividad, proactividad y socialidad
+TEXT_STYLE=TITLE
+ASSET=
+SPEECH=Bien. Estas cuatro propiedades— autonomía, reactividad, pro-actividad y habilidad social— son la base conceptual que distingue a un verdadero agente de IA de un simple programa automatizado con algunas capacidades inteligentes añadidas.
+NOTES=

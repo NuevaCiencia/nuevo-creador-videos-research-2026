@@ -1,0 +1,663 @@
+# =============================================================================
+# VIDEOS.YAML — Pipeline de videos educativos
+# =============================================================================
+# Cada entrada produce un MP4 independiente.
+# Campos obligatorios siempre: template, output, duration
+# Los campos bajo data: varían por template (ver cada bloque).
+# Campos marcados con  # opcional  pueden omitirse.
+# La animación dura ~3-5 seg. El resto es tiempo estático para la locución.
+# =============================================================================
+
+videos:
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PORTADA / SECCIÓN
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Portada principal del video
+  - template: MainCover
+    output: portada.mp4
+    duration: "0:10"
+    data:
+      title: "Título principal del video"
+      subtitle: "Subtítulo o descripción"   # opcional
+      tag: "Módulo 1"                        # opcional — etiqueta pequeña arriba
+
+  # Separador entre secciones
+  - template: SectionCover
+    output: seccion_01.mp4
+    duration: "0:08"
+    data:
+      title: "Nombre de la sección"
+      subtitle: "Descripción breve"          # opcional
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DEFINICIÓN DE CONCEPTOS
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Término grande con definición centrada
+  - template: ImpactTerm
+    output: def_termino.mp4
+    duration: "0:45"
+    data:
+      term: "Metacognición"
+      definition: "La capacidad de pensar sobre el propio proceso de pensamiento"
+      category: "Psicología cognitiva"       # opcional
+
+  # Definición con comilla decorativa, fondo oscuro
+  - template: CentralDefinition
+    output: def_central.mp4
+    duration: "0:45"
+    data:
+      term: "Aprendizaje significativo"
+      definition: "Proceso por el cual el estudiante relaciona nueva información con conocimientos previos de forma no arbitraria"
+
+  # Pregunta retórica para activar la reflexión
+  - template: RhetoricalQuestion
+    output: pregunta_retorica.mp4
+    duration: "0:30"
+    data:
+      question: "¿Cuándo fue la última vez que aprendiste algo realmente difícil?"
+      hint: "Reflexiona antes de continuar"  # opcional
+
+  # Título grande con gradiente de color (fondo oscuro)
+  - template: GradientTitle
+    output: titulo_impacto.mp4
+    duration: "0:15"
+    data:
+      line1: "El futuro"
+      line2: "es ahora"                      # opcional
+      tag: "Introducción"                    # opcional
+      gradient: "linear-gradient(135deg, #667eea, #764ba2)"
+
+  # Texto con efecto glitch — fondo negro, estilo tech
+  - template: GlitchReveal
+    output: glitch_intro.mp4
+    duration: "0:12"
+    data:
+      line1: "SISTEMA EDUCATIVO"
+      line2: "Reiniciando..."                # opcional
+
+# ═════════════════════════════════════════════════════════════════════════════
+# NARRATIVA / TEXTO ANIMADO
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Lista de bullets que aparecen en secuencia sincronizada con la locución
+  # t_trigger: segundos desde el inicio del video en que aparece cada ítem
+  # min: 1 ítem | max: 8 ítems
+  - template: BulletReveal
+    output: bullets_concepto.mp4
+    duration: "1:30"
+    data:
+      title: "Principios del aprendizaje activo"
+      subtitle: "Fundamentos teóricos"       # opcional
+      accent: "#6366F1"
+      items:
+        - text: "El estudiante construye su propio conocimiento"
+          t_trigger: 3
+        - text: "La práctica supera a la teoría pasiva"
+          t_trigger: 8
+        - text: "El error es parte del proceso"
+          t_trigger: 14
+        - text: "La retroalimentación acelera el aprendizaje"
+          t_trigger: 20
+      word_cues: []                          # dejar vacío si no se usan
+
+  # Ítems que aparecen en momentos exactos de la locución
+  # t_trigger: segundos desde el inicio del video
+  # min: 1 ítem | max: 8 ítems
+  - template: ProgressiveReveal
+    output: reveal_progresivo.mp4
+    duration: "1:30"
+    data:
+      title: "¿Qué necesitas para aprender?"
+      items:
+        - text: "Atención sostenida"
+          t_trigger: 4
+        - text: "Práctica deliberada"
+          t_trigger: 9
+        - text: "Retroalimentación inmediata"
+          t_trigger: 15
+        - text: "Descanso y consolidación"
+          t_trigger: 21
+
+  # Palabras cinéticas grandes que explotan en pantalla
+  # min: 2 palabras | max: 8 palabras
+  - template: KineticWords
+    output: palabras_cineticas.mp4
+    duration: "0:20"
+    data:
+      words:
+        - text: "APRENDER"
+          color: "#6366F1"
+        - text: "PRACTICAR"
+          color: "#0EA5E9"
+        - text: "CRECER"
+          color: "#10B981"
+      subtitle: "El ciclo del conocimiento"  # opcional
+
+  # Terminal hacker con líneas que se escriben solas
+  # delay: frames hasta que empieza esa línea (30 frames = 1 seg a 30fps)
+  # min: 1 línea | max: 10 líneas
+  - template: TypeWriter
+    output: terminal_concepto.mp4
+    duration: "0:45"
+    data:
+      accent: "#00FF41"
+      lines:
+        - prefix: "$ "
+          text: "Inicializando módulo de aprendizaje..."
+          delay: 0
+        - prefix: "> "
+          text: "Cargando conceptos clave"
+          delay: 60
+        - prefix: "// "
+          text: "Listo para comenzar"
+          delay: 110
+          color: "#64748B"                   # opcional — default verde
+
+  # Spotlight: foco que se mueve por términos en pantalla
+  # x/y: coordenadas en píxeles (1920×1080)
+  # holdFrames: cuántos frames se queda en ese punto
+  # min: 1 punto | max: 6 puntos
+  - template: Spotlight
+    output: spotlight_terminos.mp4
+    duration: "0:40"
+    data:
+      spotRadius: 160                        # opcional — default 160
+      points:
+        - x: 480
+          y: 400
+          text: "Input"
+          sub: "Entrada de datos"            # opcional
+          color: "#6366F1"
+          holdFrames: 60
+        - x: 960
+          y: 400
+          text: "Proceso"
+          sub: "Transformación"
+          color: "#0EA5E9"
+          holdFrames: 60
+        - x: 1440
+          y: 400
+          text: "Output"
+          sub: "Resultado"
+          color: "#10B981"
+          holdFrames: 60
+
+# ═════════════════════════════════════════════════════════════════════════════
+# FLUJO / PROCESOS
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Pasos horizontales con flechas — el más usado para procesos lineales
+  # min: 2 pasos | max: 6 pasos | recomendado: 3-4
+  - template: LinearSteps
+    output: pasos_lineales.mp4
+    duration: "1:30"
+    data:
+      title: "Los 3 pasos del método"        # opcional
+      steps:
+        - title: "Observar"
+          description: "Identificar y registrar el fenómeno de interés"
+        - title: "Hipotetizar"
+          description: "Formular una explicación tentativa y verificable"
+        - title: "Experimentar"
+          description: "Diseñar pruebas controladas para validar la hipótesis"
+
+  # Ciclo cerrado con nodo central
+  # min: 3 ítems | max: 6 ítems | recomendado: 4
+  - template: CycleLoop
+    output: ciclo_proceso.mp4
+    duration: "1:30"
+    data:
+      title: "El ciclo del aprendizaje"      # opcional
+      center:
+        icon: "🧠"
+        label: "Aprendizaje"
+      items:
+        - icon: "👁️"
+          title: "Experiencia"
+          description: "Vivir o observar un evento concreto"
+        - icon: "🔍"
+          title: "Reflexión"
+          description: "Analizar qué ocurrió y por qué"
+        - icon: "💡"
+          title: "Conceptualizar"
+          description: "Extraer principios y generalizar"
+        - icon: "⚗️"
+          title: "Experimentar"
+          description: "Aplicar lo aprendido en nuevos contextos"
+
+  # Embudo de etapas de arriba hacia abajo
+  # min: 2 etapas | max: 7 etapas | recomendado: 3-5
+  - template: FunnelDiagram
+    output: embudo.mp4
+    duration: "1:15"
+    data:
+      title: "Embudo de aprendizaje"
+      subtitle: "De la exposición al dominio"  # opcional
+      stages:
+        - label: "Exposición"
+          value: 100
+          unit: "%"                          # opcional
+        - label: "Comprensión"
+          value: 72
+          unit: "%"
+        - label: "Aplicación"
+          value: 45
+          unit: "%"
+        - label: "Dominio"
+          value: 18
+          unit: "%"
+
+  # Pasos con número, título, descripción — layout vertical
+  # min: 2 pasos | max: 6 pasos
+  - template: ProcessFlow
+    output: flujo_proceso.mp4
+    duration: "1:30"
+    data:
+      title: "Cómo funciona el sistema"
+      subtitle: "Paso a paso"                # opcional
+      steps:
+        - number: "01"
+          title: "Diagnóstico"
+          description: "Evaluamos el estado actual del aprendizaje"
+          color: "#6366F1"
+        - number: "02"
+          title: "Planificación"
+          description: "Diseñamos la ruta personalizada"
+          color: "#0EA5E9"
+        - number: "03"
+          title: "Ejecución"
+          description: "Aplicamos las estrategias definidas"
+          color: "#10B981"
+
+  # Árbol jerárquico — conectar nodos con parentId
+  # El nodo raíz no lleva parentId
+  # Sin límite rígido — recomendado: máximo 12 nodos
+  - template: OrgChart
+    output: organigrama.mp4
+    duration: "1:30"
+    data:
+      title: "Estructura del currículo"
+      nodes:
+        - id: "root"
+          label: "Programa"
+        - id: "m1"
+          label: "Módulo 1"
+          sub: "Fundamentos"                 # opcional
+          parentId: "root"
+        - id: "m2"
+          label: "Módulo 2"
+          sub: "Aplicación"
+          parentId: "root"
+        - id: "t1"
+          label: "Tema 1.1"
+          parentId: "m1"
+        - id: "t2"
+          label: "Tema 1.2"
+          parentId: "m1"
+
+  # Mapa mental radial con nodo central
+  # min: 3 nodos | max: 8 nodos | recomendado: 4-6
+  - template: MindMap
+    output: mapa_mental.mp4
+    duration: "1:30"
+    data:
+      center: "Inteligencia Artificial"
+      nodes:
+        - text: "Machine Learning"
+          sub: "Aprendizaje automático"      # opcional
+        - text: "Redes Neuronales"
+          sub: "Deep Learning"
+        - text: "NLP"
+          sub: "Procesamiento de lenguaje"
+        - text: "Visión Artificial"
+        - text: "Robótica"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DATOS / ESTADÍSTICAS
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Barras horizontales animadas
+  # min: 2 barras | max: 10 barras | recomendado: 4-6
+  - template: HorizontalBars
+    output: barras.mp4
+    duration: "1:15"
+    data:
+      title: "Efectividad por método de estudio"
+      subtitle: "Retención a 7 días"         # opcional
+      bars:
+        - label: "Práctica de recuperación"
+          value: 77
+          suffix: "%"                        # opcional
+          maxValue: 100                      # opcional — default: max del set
+        - label: "Práctica espaciada"
+          value: 71
+          suffix: "%"
+        - label: "Elaboración"
+          value: 55
+          suffix: "%"
+        - label: "Lectura repetida"
+          value: 28
+          suffix: "%"
+
+  # Línea de tendencia animada
+  # value: 0–100 (el template escala al alto del gráfico)
+  # min: 2 puntos | max: 12 puntos | recomendado: 5-8
+  - template: WaveTrend
+    output: tendencia.mp4
+    duration: "1:15"
+    data:
+      title: "Evolución del rendimiento"     # opcional
+      yLabel: "Puntaje"                      # opcional
+      points:
+        - label: "Sem 1"
+          value: 30
+        - label: "Sem 2"
+          value: 45
+        - label: "Sem 3"
+          value: 38
+        - label: "Sem 4"
+          value: 60
+          note: "Punto de inflexión"         # opcional — etiqueta flotante
+        - label: "Sem 5"
+          value: 72
+        - label: "Sem 6"
+          value: 88
+
+  # Donut chart con leyenda lateral
+  # value: valor absoluto (el template calcula porcentajes)
+  # min: 2 segmentos | max: 8 segmentos | recomendado: 3-5
+  - template: PieDonut
+    output: donut.mp4
+    duration: "1:15"
+    data:
+      title: "Distribución del tiempo de estudio"
+      unit: "%"                              # opcional
+      slices:
+        - label: "Lectura activa"
+          value: 35
+        - label: "Práctica de problemas"
+          value: 30
+        - label: "Revisión espaciada"
+          value: 20
+        - label: "Discusión en grupo"
+          value: 15
+
+  # Cifras grandes que cuentan desde cero
+  # min: 1 stat | max: 4 stats | recomendado: 2-3
+  - template: StatCounter
+    output: cifras.mp4
+    duration: "1:00"
+    data:
+      title: "El impacto de la práctica espaciada"
+      stats:
+        - value: 80
+          suffix: "%"                        # opcional
+          label: "Más retención"
+          sublabel: "a largo plazo"          # opcional
+        - value: 3
+          suffix: "x"
+          label: "Más eficiente"
+          sublabel: "que releer"
+        - value: 7
+          label: "Días óptimos"
+          sublabel: "entre repasos"
+
+  # Arcos circulares con porcentaje — 0 a 100 por stat
+  # icon: emoji o texto corto
+  # min: 1 stat | max: 5 stats | recomendado: 3-4
+  - template: CircleStats
+    output: circulos_stats.mp4
+    duration: "1:00"
+    data:
+      title: "Perfil de la clase"
+      stats:
+        - label: "Comprensión"
+          value: 82
+          color: "#6366F1"
+          icon: "📖"
+        - label: "Aplicación"
+          value: 65
+          color: "#0EA5E9"
+          icon: "⚙️"
+        - label: "Retención"
+          value: 74
+          color: "#10B981"
+          icon: "🧠"
+
+  # Gráfico araña — comparar N dimensiones de 0 a 100
+  # min: 3 ejes | max: 8 ejes | recomendado: 5-6
+  - template: RadarChart
+    output: radar.mp4
+    duration: "1:15"
+    data:
+      title: "Perfil de competencias"
+      subtitle: "Evaluación inicial"         # opcional
+      fillColor: "#6366F1"
+      axes:
+        - label: "Análisis"
+          value: 75
+        - label: "Síntesis"
+          value: 60
+        - label: "Evaluación"
+          value: 45
+        - label: "Aplicación"
+          value: 80
+        - label: "Comprensión"
+          value: 90
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CLASIFICACIÓN / COMPARACIÓN
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Tarjetas que se voltean: frente (ícono) → reverso (concepto)
+  # min: 2 tarjetas | max: 6 tarjetas | recomendado: 3-4
+  - template: FlipCards
+    output: tarjetas.mp4
+    duration: "1:30"
+    data:
+      title: "Conceptos clave"               # opcional
+      items:
+        - icon: "📊"
+          label: "¿Qué es?"
+          title: "Estadística descriptiva"
+          description: "Resume y describe las características de un conjunto de datos"
+        - icon: "🎲"
+          label: "¿Para qué?"
+          title: "Inferencia estadística"
+          description: "Permite sacar conclusiones sobre una población desde una muestra"
+        - icon: "📈"
+          label: "¿Cómo?"
+          title: "Regresión"
+          description: "Modela la relación entre variables para predecir valores"
+
+  # Diagrama de Venn de dos círculos
+  # left/right: las dos zonas principales
+  # overlap: la zona de intersección
+  # left.items: min 1, max 6 | right.items: min 1, max 6 | overlap.items: min 1, max 4
+  - template: VennDiagram
+    output: venn.mp4
+    duration: "1:30"
+    data:
+      title: "Aprendizaje activo vs pasivo"  # opcional
+      left:
+        label: "Aprendizaje Activo"
+        items:
+          - "Práctica de recuperación"
+          - "Resolución de problemas"
+          - "Enseñar a otros"
+      overlap:
+        items:
+          - "Comprensión profunda"
+          - "Transferencia del conocimiento"
+      right:
+        label: "Aprendizaje Pasivo"
+        items:
+          - "Lectura"
+          - "Escuchar clase"
+          - "Ver videos"
+
+  # Dos columnas con check/cross por ítem
+  # positive: true = ✓ | false = ✗
+  # min: 1 ítem por columna | max: 8 ítems por columna
+  - template: TwoColumns
+    output: dos_columnas.mp4
+    duration: "1:15"
+    data:
+      title: "Mitos vs Realidades"           # opcional
+      left:
+        label: "Mito"
+        color: "#EF4444"
+        items:
+          - text: "Más horas = más aprendizaje"
+            positive: false
+          - text: "Releer consolida el conocimiento"
+            positive: false
+          - text: "El talento es innato"
+            positive: false
+      right:
+        label: "Realidad"
+        color: "#10B981"
+        items:
+          - text: "La calidad supera a la cantidad"
+            positive: true
+          - text: "El recuerdo activo es más efectivo"
+            positive: true
+          - text: "Las habilidades se desarrollan"
+            positive: true
+
+  # Comparación lado a lado con ítems positivos/negativos
+  # min: 1 ítem por columna | max: 6 ítems por columna
+  - template: ComparisonSlide
+    output: comparacion.mp4
+    duration: "1:15"
+    data:
+      title: "Estudio superficial vs profundo"
+      left:
+        label: "Superficial"
+        color: "#EF4444"
+        items:
+          - text: "Memorizar sin entender"
+            positive: false
+          - text: "Estudio de última hora"
+            positive: false
+          - text: "Sin conexión con lo previo"
+            positive: false
+      right:
+        label: "Profundo"
+        color: "#10B981"
+        items:
+          - text: "Comprensión de relaciones"
+            positive: true
+          - text: "Práctica espaciada"
+            positive: true
+          - text: "Integración de conceptos"
+            positive: true
+      word_cues: []                          # dejar vacío si no se usan
+
+  # Analogía visual: dos columnas con listas de equivalencias
+  # min: 1 ítem por columna | max: 6 ítems por columna
+  - template: VisualAnalogy
+    output: analogia.mp4
+    duration: "1:15"
+    data:
+      title: "El cerebro como músculo"
+      left:
+        label: "Músculo"
+        items:
+          - "Se fortalece con ejercicio"
+          - "Necesita descanso para crecer"
+          - "Mejora con práctica constante"
+      right:
+        label: "Cerebro"
+        items:
+          - "Aprende con práctica deliberada"
+          - "Consolida durante el sueño"
+          - "Se desarrolla con repetición espaciada"
+
+  # Pirámide jerárquica — el orden es de base a cima
+  # min: 2 niveles | max: 7 niveles | recomendado: 4-6
+  - template: PyramidLevels
+    output: piramide.mp4
+    duration: "1:30"
+    data:
+      title: "Taxonomía de Bloom"
+      levels:
+        - label: "Recordar"
+          description: "Reconocer y recuperar información"
+        - label: "Comprender"
+          description: "Interpretar y clasificar conceptos"
+        - label: "Aplicar"
+          description: "Usar procedimientos en situaciones nuevas"
+        - label: "Analizar"
+          description: "Descomponer y relacionar elementos"
+        - label: "Evaluar"
+          description: "Juzgar con base en criterios"
+        - label: "Crear"
+          description: "Producir algo nuevo e integrado"
+
+  # Línea de tiempo horizontal
+  # year: texto libre (puede ser año, período, etapa)
+  # accent: color de la línea y puntos
+  # min: 2 eventos | max: 6 eventos | recomendado: 4-5
+  - template: TimelineSlide
+    output: timeline.mp4
+    duration: "1:30"
+    data:
+      title: "Hitos de la pedagogía moderna"
+      accent: "#6366F1"
+      events:
+        - year: "1916"
+          title: "Dewey"
+          description: "Aprendizaje por experiencia y educación democrática"
+        - year: "1956"
+          title: "Bloom"
+          description: "Taxonomía de objetivos educativos"
+        - year: "1983"
+          title: "Gardner"
+          description: "Teoría de las inteligencias múltiples"
+        - year: "1996"
+          title: "Mayer"
+          description: "Principios del aprendizaje multimedia"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CIERRE
+# ═════════════════════════════════════════════════════════════════════════════
+
+  # Cita final con palabras que aparecen una a una
+  - template: ClosingQuote
+    output: cita_final.mp4
+    duration: "0:30"
+    data:
+      quote: "El aprendizaje no es un destino sino un viaje que nunca termina"
+      author: "John Dewey"                   # opcional
+
+  # Palabras clave que explotan desde distintas direcciones
+  # min: 3 palabras | max: 6 palabras
+  - template: ClosingKeywords
+    output: palabras_cierre.mp4
+    duration: "0:20"
+    data:
+      words:
+        - "Aprender"
+        - "Practicar"
+        - "Reflexionar"
+        - "Crecer"
+        - "Compartir"
+      subtitle: "Los pilares del aprendizaje efectivo"  # opcional
+
+  # Créditos finales
+  # min: 1 ítem | max: 10 ítems
+  - template: Credits
+    output: creditos.mp4
+    duration: "0:20"
+    data:
+      title: "Gracias por aprender con nosotros"  # opcional
+      items:
+        - label: "Instructor"
+          text: "Nombre del docente"
+        - label: "Institución"
+          text: "Nombre de la institución"
+        - text: "© 2025 Todos los derechos reservados"
