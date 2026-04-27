@@ -332,19 +332,92 @@ function renderGuion(area) {
   S.saveStatus = 'saved';
   area.innerHTML = `
     <div class="guion-view">
-      <div class="guion-toolbar">
-        <span class="guion-toolbar-label">Locución / Guion</span>
-        <div style="flex:1"></div>
-        <button class="btn btn-sm btn-primary" onclick="doSave(false)">Guardar</button>
+      <div class="guion-main">
+        <div class="guion-toolbar">
+          <div class="guion-toolbar-left">
+            <span class="guion-toolbar-label">Locución / Guion</span>
+            <span id="guionStats" class="guion-stats">0 palabras · 0 caracteres</span>
+          </div>
+          <div class="guion-toolbar-actions">
+            <button class="btn btn-sm btn-ghost" onclick="runResearch()">🔍 Verificar con IA (Tavily)</button>
+            <button class="btn btn-sm btn-primary" onclick="doSave(false)">Guardar Guion</button>
+          </div>
+        </div>
+        <div class="guion-editor-wrap">
+          <textarea id="guionTA" class="guion-ta"
+            placeholder="Pega aquí tu locución raw..."
+            oninput="onGuionInput(this)">${esc(cls.raw_narration || '')}</textarea>
+        </div>
       </div>
-      <div class="guion-editor-wrap">
-        <textarea id="guionTA" class="guion-ta"
-          placeholder="Escribe aquí el guion completo de esta clase…"
-          oninput="onGuionInput(this)">${esc(cls.raw_narration || '')}</textarea>
+      <div class="guion-research-panel" id="researchPanel">
+        <div class="rp-head">Investigación y Sustento</div>
+        <div class="rp-body" id="researchBody">
+          <div class="rp-empty">Pulsa "Verificar con IA" para analizar el contenido.</div>
+        </div>
       </div>
     </div>`;
-  document.getElementById('guionTA').focus();
+  onGuionInput(document.getElementById('guionTA'));
+  renderResearchItems();
 }
+
+async function runResearch() {
+  const cls = S.activeClass;
+  if (!cls.raw_narration && !document.getElementById('guionTA').value) {
+    return toast('Pega un guion primero', false);
+  }
+  
+  const body = document.getElementById('researchBody');
+  body.innerHTML = '<div class="rp-loading">🤖 Analizando y consultando Tavily...</div>';
+  
+  try {
+    const results = await api('POST', `/api/classes/${cls.id}/research`);
+    toast('Investigación completada');
+    renderResearchItems(results);
+  } catch(e) {
+    toast('Error en investigación', false);
+    renderResearchItems();
+  }
+}
+
+async function renderResearchItems(providedItems = null) {
+  const body = document.getElementById('researchBody');
+  if (!body) return;
+  
+  let items = providedItems;
+  if (!items) {
+    const res = await api('GET', `/api/classes/${S.activeClass.id}/research`);
+    items = res;
+  }
+  
+  if (!items || items.length === 0) {
+    body.innerHTML = '<div class="rp-empty">Sin hallazgos.</div>';
+    return;
+  }
+  
+  body.innerHTML = items.map(i => `
+    <div class="research-item status-${i.status}">
+      <div class="ri-head">
+        <span class="ri-badge">${i.status.toUpperCase()}</span>
+        ${i.confidence ? `<span class="ri-conf" title="Confianza: ${i.confidence}%">${i.confidence}%</span>` : ''}
+        <button class="ri-del" onclick="deleteResearchItem(${i.id})">×</button>
+      </div>
+      <div class="ri-claim">${esc(i.claim)}</div>
+      ${i.source_url ? `
+        <div class="ri-source">
+          <a href="${i.source_url}" target="_blank" class="ri-link">${esc(i.source_title || 'Ver fuente')}</a>
+          <div class="ri-snippet">${esc(i.source_snippet || '')}</div>
+        </div>
+      ` : (i.status === 'error' ? `<div class="ri-error">${esc(i.source_snippet)}</div>` : '')}
+    </div>
+  `).join('');
+}
+
+async function deleteResearchItem(id) {
+  if (!confirm('¿Eliminar este hallazgo?')) return;
+  await api('DELETE', `/api/research-items/${id}`);
+  renderResearchItems();
+}
+
 
 function onGuionInput(el) {
   // update stats

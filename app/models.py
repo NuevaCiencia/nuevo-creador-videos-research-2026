@@ -51,6 +51,25 @@ class Class(Base):
     updated_at    = Column(DateTime, default=datetime.utcnow)
 
     section = relationship("Section", back_populates="classes")
+    research_items = relationship("ResearchItem", back_populates="class_obj", cascade="all, delete-orphan")
+
+
+class ResearchItem(Base):
+    __tablename__ = "research_items"
+    id                  = Column(Integer, primary_key=True, index=True)
+    class_id            = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False)
+    
+    claim               = Column(Text, nullable=False)
+    query               = Column(Text, nullable=True)
+    status              = Column(String(50), default="pending") # pending, verified, disputed, not_found, error
+    confidence          = Column(Integer, nullable=True) # 0-100
+    source_url          = Column(String(500), nullable=True)
+    source_title        = Column(String(500), nullable=True)
+    source_snippet      = Column(Text, nullable=True)
+    
+    created_at          = Column(DateTime, default=datetime.utcnow)
+    
+    class_obj           = relationship("Class", back_populates="research_items")
 
 
 # ── GLOBAL: Screen Types ───────────────────────────────────────────────────────

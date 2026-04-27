@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db, init_db
 import models
+from ai_agents import research_agent
 
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
 init_db()
@@ -126,6 +127,21 @@ def ser_course(c: models.Course, db: Session = None):
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
     }
 
+def ser_research_item(item: models.ResearchItem):
+    return {
+        "id": item.id,
+        "class_id": item.class_id,
+        "claim": item.claim,
+        "query": item.query,
+        "status": item.status,
+        "confidence": item.confidence,
+        "source_url": item.source_url,
+        "source_title": item.source_title,
+        "source_snippet": item.source_snippet,
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+    }
+
+
 def ser_class(c: models.Class):
     text = c.raw_narration or ""
     return {
@@ -136,6 +152,7 @@ def ser_class(c: models.Class):
         "raw_narration": text,
         "char_count": len(text),
         "word_count": len(text.split()) if text.strip() else 0,
+        "research_items": [ser_research_item(ri) for ri in c.research_items],
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
     }
 
@@ -266,6 +283,70 @@ def update_class(class_id: int, data: ClassUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(cls)
     return ser_class(cls)
+
+
+# ── Research (Tavily Verification) ─────────────────────────────────────────────
+
+@app.get("/api/classes/{class_id}/research")
+def get_class_research(class_id: int, db: Session = Depends(get_db)):
+    items = db.query(models.ResearchItem).filter(models.ResearchItem.class_id == class_id).all()
+    return [ser_research_item(i) for i in items]
+
+
+@app.post("/api/classes/{class_id}/research")
+async def run_class_research(class_id: int, db: Session = Depends(get_db)):
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls or not cls.raw_narration:
+        raise HTTPException(400, "La clase no tiene guion para investigar")
+    
+    # 1. Extract claims
+    try:
+        claims = research_agent.extract_claims(cls.raw_narration)
+    except Exception as e:
+        raise HTTPException(500, f"Error al extraer afirmaciones: {str(e)}")
+    
+    # 2. Clear old research
+    db.query(models.ResearchItem).filter(models.ResearchItem.class_id == class_id).delete()
+    
+    results = []
+    # 3. Verify each claim
+    for c_obj in claims:
+        item = models.ResearchItem(
+            class_id=class_id,
+            claim=c_obj["claim"],
+            query=c_obj["query"],
+            status="pending"
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        
+        # Verify with Tavily
+        try:
+            v_res = research_agent.verify_claim(c_obj)
+            item.status = v_res.get("status", "error")
+            item.confidence = v_res.get("confidence")
+            item.source_url = v_res.get("source_url")
+            item.source_title = v_res.get("source_title")
+            item.source_snippet = v_res.get("source_snippet")
+        except Exception as e:
+            item.status = "error"
+            item.source_snippet = str(e)
+        
+        db.commit()
+        results.append(ser_research_item(item))
+        
+    return results
+
+
+@app.delete("/api/research-items/{item_id}", status_code=204)
+def delete_research_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(models.ResearchItem).filter(models.ResearchItem.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "Ítem no encontrado")
+    db.delete(item)
+    db.commit()
+
 
 
 @app.delete("/api/classes/{class_id}", status_code=204)
