@@ -306,8 +306,9 @@ function renderPhase(phase) {
   switch(phase) {
     case 'guion':    renderGuion(area);       break;
     case 'audio':    renderAudio(area);       break;
-    case 'fonts':    renderFontsColors(area); break;
-    case 'visuales': renderVisuales(area);    break;
+    case 'fonts':    renderFontsColors(area);  break;
+    case 'viz':      renderViz(area);          break;
+    case 'visuales': renderVisuales(area);     break;
     case 'video':    renderVideo(area);       break;
   }
 }
@@ -1336,6 +1337,272 @@ async function viewGuionConsolidado() {
       </div>`
     });
   } catch(e) { toast(e.message, false); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   VISUALIZADOR DE PANTALLAS
+═══════════════════════════════════════════════════════ */
+
+let _vizData = null;   // { segments, has_guion, course }
+
+async function renderViz(area) {
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando pantallas…</div></div>`;
+  try {
+    _vizData = await api('GET', `/api/classes/${S.activeClass.id}/visualizador`);
+  } catch(e) {
+    area.innerHTML = `<div class="audio-phase"><div class="rp-loading">Error: ${esc(e.message)}</div></div>`;
+    return;
+  }
+  _buildVizUI(area);
+}
+
+function _buildVizUI(area) {
+  const { segments, has_guion, course } = _vizData;
+  const [pW, pH] = (course.resolution || '1920x1080').split('x').map(Number);
+  const ratio = pW / pH;
+  const TYPES = ["TEXT","SPLIT_LEFT","SPLIT_RIGHT","FULL_IMAGE","VIDEO","LIST","CONCEPT","REMOTION"];
+
+  if (!segments.length) {
+    area.innerHTML = `<div class="audio-phase"><div class="audio-card"><div class="audio-card-body">
+      <div class="vis-prereq"><span class="vis-prereq-icon">🔒</span>
+      <div><div style="font-size:13px;font-weight:700;color:var(--tx1)">Sin pantallas segmentadas</div>
+      <div style="font-size:12px;color:var(--tx3)">Genera la segmentación en Guion → Pantallas primero.</div></div></div>
+    </div></div></div>`;
+    return;
+  }
+
+  const cardsHtml = segments.map((seg, i) => {
+    const typeOpts = TYPES.map(t =>
+      `<option value="${t}" ${t === seg.screen_type ? 'selected' : ''}>${t}</option>`
+    ).join('');
+
+    const hasAsset = !!seg.asset;
+    const assetUrl = hasAsset ? `/assets/${seg.asset}` : '';
+    const isVideo  = assetUrl.endsWith('.mp4');
+
+    return `
+    <div class="viz-card" id="viz-card-${i}" data-seg-id="${seg.id}">
+
+      <!-- LEFT: controls -->
+      <div class="viz-col-ctrl">
+        <div class="viz-screen-num">${i + 1}</div>
+        ${seg.timestamp ? `
+          <div class="viz-timing">
+            <span class="viz-ts">${esc(seg.timestamp)}</span>
+            <span class="viz-dur">${parseFloat(seg.duration||0).toFixed(1)}s</span>
+          </div>` : `<div class="viz-timing"><span class="viz-ts" style="color:var(--tx3)">sin timing</span></div>`}
+
+        <div class="viz-type-wrap">
+          <label class="fc-config-label" style="margin-bottom:4px">Tipo</label>
+          <select class="fc-select" style="width:100%" onchange="vizUpdateType(${i}, this.value)">
+            ${typeOpts}
+          </select>
+        </div>
+
+        ${_vizParamsBadges(seg)}
+        ${_vizParamsEdit(seg, i)}
+      </div>
+
+      <!-- CENTER: narration + text -->
+      <div class="viz-col-content">
+        <div class="viz-section-label">Narración</div>
+        <div class="viz-narration">${esc(seg.narration)}</div>
+        ${seg.text_on_screen ? `
+          <div class="viz-section-label" style="margin-top:10px">Texto en pantalla</div>
+          <div class="viz-text-screen">${esc(seg.text_on_screen)}</div>` : ''}
+        ${seg.asset ? `
+          <div class="viz-section-label" style="margin-top:10px">Asset</div>
+          <div class="viz-asset-chip">
+            <span class="viz-asset-tipo">${esc(seg.asset_tipo||'')}</span>
+            <span style="font-family:monospace;font-size:11px">${esc(seg.asset)}</span>
+          </div>
+          ${seg.asset_desc ? `<div class="viz-asset-desc">${esc(seg.asset_desc)}</div>` : ''}` : ''}
+      </div>
+
+      <!-- RIGHT: live preview -->
+      <div class="viz-col-preview">
+        <div class="viz-preview-box" style="aspect-ratio:${ratio};background:${esc(course.background_color)}">
+          <div class="viz-preview-canvas" id="viz-canvas-${i}"></div>
+        </div>
+        <div class="viz-preview-label">${esc(seg.screen_type)} · ${pW}×${pH}</div>
+      </div>
+
+    </div>`;
+  }).join('');
+
+  area.innerHTML = `<div class="viz-phase">
+    <div class="viz-header">
+      <div class="viz-header-info">
+        <strong>${segments.length}</strong> pantallas
+        ${has_guion ? `· <span style="color:#22c55e">con timing ✓</span>` : `· <span style="color:var(--tx3)">sin guion consolidado</span>`}
+      </div>
+      <div style="font-size:11px;color:var(--tx3)">Cambiar tipo invalida Alineación y Visuales</div>
+    </div>
+    <div class="viz-list">${cardsHtml}</div>
+  </div>`;
+
+  // Render all previews
+  segments.forEach((_, i) => vizRenderPreview(i));
+}
+
+function _vizParamsBadges(seg) {
+  if (!seg.params || ['LIST','CONCEPT','REMOTION'].includes(seg.screen_type)) return '';
+  return `<div class="fc-font-weights" style="margin-top:8px">
+    ${seg.params.split('//').filter(p=>p.trim()).map(p =>
+      `<span class="fc-weight-chip">${esc(p.trim())}</span>`).join('')}
+  </div>`;
+}
+
+function _vizParamsEdit(seg, i) {
+  if (!['LIST','CONCEPT','REMOTION'].includes(seg.screen_type)) return '';
+  const parts = (seg.params||'').split('//').map(p => p.trim());
+
+  if (seg.screen_type === 'LIST') {
+    const title = parts[0]||'';
+    const items = parts.slice(1);
+    return `<div class="viz-params-form">
+      <div class="fc-config-label">Lista</div>
+      <input class="fc-select" style="width:100%;margin-bottom:5px" placeholder="@ Título (opcional)"
+        value="${escA(title)}" oninput="vizSyncParams(${i})">
+      ${[0,1,2,3,4,5,6].map(j => `
+        <input class="fc-select viz-list-item-${i}" style="width:100%;margin-bottom:3px"
+          placeholder="Ítem ${j+1}" value="${escA(items[j]||'')}" oninput="vizSyncParams(${i})">`
+      ).join('')}
+    </div>`;
+  }
+  if (seg.screen_type === 'CONCEPT') {
+    return `<div class="viz-params-form">
+      <div class="fc-config-label">Concepto</div>
+      <input class="fc-select" style="width:100%;margin-bottom:5px" id="viz-concept-title-${i}"
+        placeholder="Nombre del concepto" value="${escA(parts[0]||'')}" oninput="vizSyncParams(${i})">
+      <textarea class="fc-select" style="width:100%;min-height:56px;resize:vertical" id="viz-concept-body-${i}"
+        placeholder="Definición" oninput="vizSyncParams(${i})">${escA(parts[1]||'')}</textarea>
+    </div>`;
+  }
+  if (seg.screen_type === 'REMOTION') {
+    const TEMPLATES = ["TypeWriter","MindMap","LinearSteps","CycleLoop","Timeline","FunnelDiagram","StatCounter","FlipCards","TwoColumns","FourBoxes","MatrixGrid","PyramidLevels","HorizontalBars","PieDonut","RadarChart","WaveTrend","OrgChart","VennDiagram","Spotlight"];
+    const selected = (parts[0]||'').replace('$','').trim();
+    return `<div class="viz-params-form">
+      <div class="fc-config-label">Template Remotion</div>
+      <select class="fc-select" style="width:100%" id="viz-remotion-tpl-${i}" onchange="vizSyncParams(${i})">
+        <option value="">-- Selecciona --</option>
+        ${TEMPLATES.map(t => `<option value="${t}" ${t===selected?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+  return '';
+}
+
+async function vizUpdateType(i, newType) {
+  const seg = _vizData.segments[i];
+  seg.screen_type = newType;
+  // Save to DB
+  try {
+    await api('PUT', `/api/segments/${seg.id}/type`, { screen_type: newType, params: seg.params });
+  } catch(e) { toast(e.message, false); }
+  // Re-render card (params form may change)
+  _buildVizUI(document.getElementById('contentArea'));
+}
+
+async function vizSyncParams(i) {
+  const seg = _vizData.segments[i];
+  let parts = [];
+  if (seg.screen_type === 'LIST') {
+    const title = document.querySelector(`#viz-card-${i} input[placeholder^="@ Título"]`)?.value?.trim();
+    if (title) parts.push(title.startsWith('@') ? title : `@ ${title}`);
+    document.querySelectorAll(`.viz-list-item-${i}`).forEach(el => {
+      if (el.value.trim()) parts.push(el.value.trim());
+    });
+  } else if (seg.screen_type === 'CONCEPT') {
+    const t = document.getElementById(`viz-concept-title-${i}`)?.value?.trim();
+    const b = document.getElementById(`viz-concept-body-${i}`)?.value?.trim();
+    if (t) parts.push(t);
+    if (b) parts.push(b);
+  } else if (seg.screen_type === 'REMOTION') {
+    const tpl = document.getElementById(`viz-remotion-tpl-${i}`)?.value;
+    if (tpl) parts.push(`$${tpl}`);
+  }
+  seg.params = parts.join(' // ');
+  vizRenderPreview(i);
+  try {
+    await api('PUT', `/api/segments/${seg.id}/type`, { screen_type: seg.screen_type, params: seg.params });
+  } catch(e) {}
+}
+
+function vizRenderPreview(i) {
+  const canvas = document.getElementById(`viz-canvas-${i}`);
+  if (!canvas || !_vizData) return;
+  const seg    = _vizData.segments[i];
+  const course = _vizData.course;
+  const [pW, pH] = (course.resolution || '1920x1080').split('x').map(Number);
+  const bg     = course.background_color || '#fefefe';
+  const txtCol = course.main_text_color  || '#bd0505';
+
+  canvas.style.backgroundColor = 'transparent';
+  const text   = seg.text_on_screen || '';
+  const params = (seg.params||'').split('//').map(p => p.trim());
+  const assetUrl = seg.asset ? `/assets/${seg.asset}` : '';
+  const isVid    = assetUrl.endsWith('.mp4');
+
+  const mediaEl = assetUrl
+    ? (isVid
+       ? `<video src="${assetUrl}#t=0.001" preload="metadata" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0"></video>`
+       : `<img src="${assetUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0" loading="lazy">`)
+    : '';
+
+  let html = '';
+
+  if (seg.screen_type === 'TEXT') {
+    html = `<div style="display:flex;align-items:center;justify-content:center;height:100%;padding:8%;text-align:center;font-size:6cqh;font-weight:700;color:${esc(txtCol)};font-family:'${esc(course.main_font||'Inter')}';">${esc(text)}</div>`;
+
+  } else if (seg.screen_type === 'SPLIT_LEFT' || seg.screen_type === 'SPLIT_RIGHT') {
+    const assetSide = `<div style="width:50%;height:100%;position:relative;overflow:hidden">${mediaEl || '<div style="width:100%;height:100%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:5cqh;opacity:.3">img</div>'}</div>`;
+    const textSide  = `<div style="width:50%;height:100%;display:flex;align-items:center;justify-content:center;padding:5%;text-align:center;font-size:4.5cqh;font-weight:600;color:${esc(txtCol)};font-family:'${esc(course.main_font||'Inter')}';">${esc(text)}</div>`;
+    html = seg.screen_type === 'SPLIT_LEFT'
+      ? assetSide + textSide
+      : textSide + assetSide;
+    canvas.style.display = 'flex';
+
+  } else if (seg.screen_type === 'FULL_IMAGE') {
+    html = `${mediaEl || '<div style="width:100%;height:100%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:5cqh;opacity:.3">img</div>'}
+      ${text ? `<div style="position:absolute;bottom:5%;left:0;right:0;text-align:center;font-size:4cqh;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8);padding:0 5%;z-index:2">${esc(text)}</div>` : ''}`;
+
+  } else if (seg.screen_type === 'VIDEO') {
+    html = `${mediaEl || '<div style="width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;font-size:5cqh;color:#555">▶ video</div>'}
+      ${text ? `<div style="position:absolute;bottom:5%;left:0;right:0;text-align:center;font-size:4cqh;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8);padding:0 5%;z-index:2">${esc(text)}</div>` : ''}`;
+
+  } else if (seg.screen_type === 'LIST') {
+    canvas.style.backgroundColor = '#2C5F2E';
+    let items = [...params];
+    let ghost = '';
+    if (items[0]?.startsWith('@')) ghost = items.shift().replace('@','').trim();
+    html = `
+      ${ghost ? `<div style="position:absolute;top:8cqh;left:50%;transform:translateX(-50%);color:#fff;font-size:7cqh;opacity:.15;font-weight:700;white-space:nowrap">${esc(ghost)}</div>` : ''}
+      <div style="position:absolute;top:${ghost?'20':'12'}cqh;left:6cqw;right:6cqw;display:flex;flex-direction:column;gap:2cqh">
+        ${items.filter(p=>p).map(p => `<div style="font-size:4.5cqh;font-weight:700;color:#fff">• ${esc(p)}</div>`).join('')}
+      </div>`;
+
+  } else if (seg.screen_type === 'CONCEPT') {
+    const title = params[0]||'Concepto';
+    const def   = params[1]||'';
+    html = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:8%;gap:3cqh;text-align:center">
+      <div style="font-size:6cqh;font-weight:800;color:${esc(txtCol)}">${esc(title)}</div>
+      ${def ? `<div style="font-size:4cqh;color:#1a1a1a;opacity:.8">${esc(def)}</div>` : ''}
+    </div>`;
+
+  } else if (seg.screen_type === 'REMOTION') {
+    const tpl = (params[0]||'').replace('$','');
+    html = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:3cqh;background:linear-gradient(135deg,#1e1b4b,#312e81)">
+      <div style="font-size:8cqh">🎬</div>
+      <div style="font-size:4cqh;color:#a5b4fc;font-weight:700">${esc(tpl||'Remotion')}</div>
+      <div style="font-size:2.5cqh;color:#6366f1;opacity:.7">animación generada</div>
+    </div>`;
+
+  } else {
+    html = `<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:.3;font-size:4cqh">${esc(seg.screen_type)}</div>`;
+  }
+
+  canvas.innerHTML = html;
 }
 
 /* ═══════════════════════════════════════════════════════

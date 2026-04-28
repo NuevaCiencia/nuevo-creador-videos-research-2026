@@ -951,6 +951,113 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
     return {"status": "started"}
 
 
+# ── Visualizador de Pantallas ──────────────────────────────────────────────────
+
+@app.get("/api/classes/{class_id}/visualizador")
+def get_visualizador(class_id: int, db: Session = Depends(get_db)):
+    """
+    Returns merged data: ScreenSegments + parsed guion_consolidado + course config.
+    Used by the Visualizador de Pantallas tab.
+    """
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
+    course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
+
+    # Screen segments from DB
+    segs = (db.query(models.ScreenSegment)
+            .filter(models.ScreenSegment.class_id == class_id)
+            .order_by(models.ScreenSegment.order).all())
+
+    # Parse guion_consolidado if available
+    guion_row = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+
+    guion_segments: list = []
+    if guion_row and guion_row.content and guion_row.status == "done":
+        import re as _re
+        cur = None
+        for raw in guion_row.content.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            up = line.upper()
+            if up.startswith("#SEGMENT"):
+                m = _re.search(r"\[(\d+):(\d+)(?:\.(\d+))?\]", line)
+                ts = ""
+                if m:
+                    mn, sc = int(m.group(1)), int(m.group(2))
+                    dec = m.group(3)
+                    sc_total = mn * 60 + sc + (float(f"0.{dec}") if dec else 0)
+                    ts = f"{mn}:{sc:02d}"
+                    cur = {"timestamp": ts, "time_sec": round(sc_total, 2)}
+                guion_segments.append(cur or {"timestamp": "", "time_sec": 0})
+                cur = guion_segments[-1]
+                continue
+            if cur is not None and "=" in line:
+                k, v = map(str.strip, line.split("=", 1))
+                cur[k.upper()] = v
+
+    # Merge: pair each screen_segment with its guion segment by index
+    result = []
+    for i, seg in enumerate(segs):
+        g = guion_segments[i] if i < len(guion_segments) else {}
+        result.append({
+            "id":          seg.id,
+            "order":       seg.order,
+            "screen_type": seg.screen_type,
+            "params":      seg.params or "",
+            "narration":   seg.narration or "",
+            "notes":       seg.notes or "",
+            # From guion_consolidado
+            "timestamp":   g.get("timestamp", ""),
+            "time_sec":    g.get("time_sec", 0),
+            "duration":    g.get("TIME", "0"),
+            "text_on_screen": g.get("TEXT", ""),
+            "asset":       g.get("ASSET", ""),
+            "asset_tipo":  g.get("ASSET_TIPO", ""),
+            "asset_desc":  g.get("ASSET_DESCRIPCION", ""),
+            "has_guion":   bool(g),
+        })
+
+    return {
+        "segments": result,
+        "has_guion": bool(guion_segments),
+        "course": {
+            "resolution":       course.resolution or "1920x1080",
+            "background_color": course.background_color or "#fefefe",
+            "main_text_color":  course.main_text_color or "#bd0505",
+            "main_font":        course.main_font or "Inter",
+        }
+    }
+
+
+@app.put("/api/segments/{segment_id}/type")
+def update_segment_type(segment_id: int, payload: dict, db: Session = Depends(get_db)):
+    """Update screen_type and params of a segment. Marks guion_base stale."""
+    seg = db.query(models.ScreenSegment).filter(models.ScreenSegment.id == segment_id).first()
+    if not seg:
+        raise HTTPException(404, "Segmento no encontrado")
+
+    if "screen_type" in payload:
+        seg.screen_type = payload["screen_type"]
+    if "params" in payload:
+        seg.params = payload["params"]
+
+    # Cascade invalidation
+    class_id = seg.class_id
+    for model_cls in (models.ClassGuionBase, models.ClassGuionConsolidado):
+        row = db.query(model_cls).filter(model_cls.class_id == class_id).first()
+        if row:
+            row.status = "stale"
+            row.phase  = "⚠️ Tipo de pantalla editado — re-ejecuta Alineación"
+    db.commit()
+    return {"id": seg.id, "screen_type": seg.screen_type, "params": seg.params}
+
+
 # ── Screen Segmentation ────────────────────────────────────────────────────────
 
 @app.get("/api/classes/{class_id}/segments")
