@@ -835,7 +835,7 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
           </div>
         ` : `
           <p class="audio-card-desc">Corrige errores ortográficos del audio usando el guion original como referencia.<br>
-          Modelo: <strong>gpt-4.1-mini</strong> · batches de 50 bloques.</p>
+          Modelo: <strong>gpt-5.4-nano-2025-04-14</strong> · batches de 50 bloques.</p>
           <div>
             <button class="btn btn-primary audio-att-btn" onclick="startSpellCorrection()" ${spellRunning ? 'disabled' : ''}>
               ${spellRunning ? '⏳ Corrigiendo…' : '✏️ Corregir con GPT'}
@@ -1065,7 +1065,7 @@ function _clearSpellPoll() {
 async function startSpellCorrection() {
   try {
     await api('POST', `/api/classes/${S.activeClass.id}/spell-correction`);
-    AIModal.show('✏️ Corrección Ortográfica', 'Corrigiendo con gpt-4.1-mini en batches de 50 bloques…');
+    AIModal.show('✏️ Corrección Ortográfica', 'Corrigiendo con gpt-5.4-nano-2025-04-14 en batches de 50 bloques…');
     AIModal.update('Iniciando…');
     const area = document.getElementById('contentArea');
     const state = await api('GET', `/api/classes/${S.activeClass.id}/audio`);
@@ -1186,10 +1186,10 @@ function _buildVisualesUI(area, guion, visual) {
       <div class="audio-card-body">
         ${!guionOk ? `
           <div class="vis-prereq">
-            <span class="vis-prereq-icon">🔒</span>
+            <span class="vis-prereq-icon">${guion?.status === 'stale' ? '⚠️' : '🔒'}</span>
             <div>
-              <div style="font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px">Requiere Alineación completada</div>
-              <div style="font-size:12px;color:var(--tx3)">Completa Whisper → Corrección → Alineación en la fase Audio.</div>
+              <div style="font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px">${guion?.status === 'stale' ? 'Pantallas regeneradas — re-ejecuta la Alineación' : 'Requiere Alineación completada'}</div>
+              <div style="font-size:12px;color:var(--tx3)">${guion?.status === 'stale' ? 'Las pantallas cambiaron desde la última alineación. Ve a la fase Audio → Alineación y vuelve a ejecutarla.' : 'Completa Whisper → Corrección → Alineación en la fase Audio.'}</div>
             </div>
           </div>
         ` : visualDone ? `
@@ -1204,7 +1204,9 @@ function _buildVisualesUI(area, guion, visual) {
             <button class="seg-action-btn" onclick="exportGuionConsolidado()">⬇ guion_consolidado.txt</button>
             <button class="seg-action-btn" onclick="exportRecursos()">⬇ recursos_visuales.json</button>
             <button class="seg-action-btn" onclick="viewGuionConsolidado()">👁 Ver guion</button>
-            <button class="seg-action-btn" style="color:var(--tx3)" onclick="startVisualOrchestration()">↻ Re-generar</button>
+          </div>
+          <div style="margin-top:10px">
+            <button class="btn btn-ghost audio-att-btn" onclick="startVisualOrchestration()">↻ Re-generar Arquitectura Visual</button>
           </div>
         ` : `
           <p class="audio-card-desc">
@@ -1216,7 +1218,7 @@ function _buildVisualesUI(area, guion, visual) {
           </p>
           <div>
             <button class="btn btn-primary audio-att-btn" onclick="startVisualOrchestration()" ${visualRunning ? 'disabled' : ''}>
-              ${visualRunning ? '⏳ Procesando…' : '✨ Generar Arquitectura Visual'}
+              ${visualRunning ? '⏳ Procesando…' : visual?.error ? '↻ Re-generar Arquitectura Visual' : '✨ Generar Arquitectura Visual'}
             </button>
           </div>
           ${visualRunning ? `

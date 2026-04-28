@@ -5,6 +5,46 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v0.7 — Robustez del pipeline + UX mejoras
+
+### Distribución de pantallas (screen_agent)
+- Añadida sección **DISTRIBUCIÓN ESPERADA** al prompt de segmentación: SPLIT/FULL como tipo dominante
+  (60-70%), TEXT limitado al 15-20%, cuotas orientativas para VIDEO, REMOTION, LIST y CONCEPT.
+- La distribución es orientativa y ajustable por proyecto en el futuro.
+
+### Nombres de assets deterministas (visual_agent)
+- Los nombres de archivo (`S001.png`, `F001.png`, `V001.mp4`…) ahora se pre-computan antes de llamar
+  a GPT, en orden secuencial estricto por tipo. GPT ya no es responsable de generarlos.
+- Eliminado el fallback `S_AUTO_<timestamp>.png` que causaba nombres duplicados cuando dos segmentos
+  tenían el mismo timestamp de inicio.
+- Prompt actualizado: GPT devuelve siempre `asset_filename=""` — el sistema lo ignora.
+
+### Invalidación en cascada (main.py)
+- Al regenerar pantallas (Fase Guion), `guion_base` y `guion_consolidado` pasan automáticamente
+  a estado `stale`.
+- La Fase Visuales queda bloqueada con aviso específico: *"Pantallas regeneradas — re-ejecuta la Alineación"*.
+- Previene que Visuales corra silenciosamente con datos rancios.
+
+### UI — botón Re-generar Visuales (app.js)
+- Estado **done**: Re-generar aparece en fila propia como `btn-ghost`, separado de los exports.
+- Estado **error**: el botón principal pasa a decir "↻ Re-generar" en lugar de "✨ Generar".
+
+### Bug fix — timestamps duplicados (aligner_agent)
+- `corregir_gaps` garantiza duración mínima de 100ms por segmento (`max(0.1, ...)`).
+- Corrige el caso en que dos segmentos consecutivos con `inicio=0.0` generaban el mismo timestamp
+  acumulado, produciendo nombres de archivo idénticos en el fallback visual.
+
+### Panel de Configuración — modelos IA (index.html + style.css)
+- Nueva sección de solo lectura en el settings panel: lista todos los modelos IA usados en el
+  pipeline en orden de ejecución (claims, Tavily, segmentación, Whisper, spell, alineación,
+  arquitectura visual, Remotion).
+
+### Actualización de modelos
+- `spell_agent`: `gpt-4.1-mini-2025-04-14` → `gpt-5.4-nano-2025-04-14`
+- Referencias en UI actualizadas en consecuencia.
+
+---
+
 ## v0.6 — FASE 3b: Orquestación Visual · `af9b8b4`
 
 **Fase Visuales** implementada de extremo a extremo, replicando exactamente

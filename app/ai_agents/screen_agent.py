@@ -13,6 +13,16 @@ TIPOS DE PANTALLA DISPONIBLES:
 TEMPLATES REMOTION DISPONIBLES (solo para tipo REMOTION):
 {remotion_str}
 
+DISTRIBUCIÓN ESPERADA DE TIPOS (orientativa — puede ajustarse por proyecto):
+- SPLIT_LEFT / SPLIT_RIGHT / FULL_IMAGE → tipo DOMINANTE. Deben representar el 60-70% de las pantallas. \
+Úsalos para la mayoría del contenido explicativo, ejemplos y demostraciones.
+- VIDEO → 3-6 pantallas por clase. Para apertura, ejemplos en movimiento o cierre de bloque.
+- REMOTION → 2-4 pantallas. Solo cuando hay datos cuantificables, procesos secuenciales, comparaciones o jerarquías.
+- LIST → 2-4 pantallas. Solo cuando el narrador enumera 3 o más ítems consecutivos.
+- CONCEPT → 1-3 pantallas. Solo para definiciones o términos clave que merecen destacarse.
+- TEXT → usar con MODERACIÓN. Máximo 15-20% del total. Solo para apertura de bloque, transición breve y cierre. \
+NO uses TEXT como comodín cuando no sabes qué tipo elegir — elige SPLIT_LEFT o SPLIT_RIGHT en su lugar.
+
 REGLAS PEDAGÓGICAS:
 1. Mantén coherencia narrativa — cada pantalla debe fluir naturalmente hacia la siguiente.
 2. Varía los tipos de pantalla para sostener la atención; no repitas el mismo tipo más de 2 veces seguidas.

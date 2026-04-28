@@ -147,21 +147,23 @@ class GuionFormatter:
         ordenados  = sorted(segmentos, key=lambda x: x["inicio"])
         corregidos = []
 
+        _MIN_DUR = 0.1  # mínimo 100ms por segmento para evitar timestamps duplicados
+
         for i, seg in enumerate(ordenados):
             seg = seg.copy()
             if i == 0:
-                nxt          = ordenados[1]["inicio"] if len(ordenados) > 1 else seg["fin"]
+                nxt             = ordenados[1]["inicio"] if len(ordenados) > 1 else seg["fin"]
                 seg["inicio"]   = 0.0
-                seg["duracion"] = nxt
-                seg["fin"]      = nxt
+                seg["duracion"] = max(_MIN_DUR, nxt)
+                seg["fin"]      = seg["duracion"]
             else:
-                prev             = corregidos[i - 1]
-                gap              = seg["inicio"] - prev["fin"]
-                nuevo_inicio     = prev["fin"]
-                nueva_duracion   = seg["duracion"] + gap if gap > 0.001 else seg["duracion"]
-                seg["inicio"]    = nuevo_inicio
-                seg["duracion"]  = nueva_duracion
-                seg["fin"]       = nuevo_inicio + nueva_duracion
+                prev           = corregidos[i - 1]
+                gap            = seg["inicio"] - prev["fin"]
+                nuevo_inicio   = prev["fin"]
+                nueva_duracion = max(_MIN_DUR, seg["duracion"] + gap if gap > 0.001 else seg["duracion"])
+                seg["inicio"]  = nuevo_inicio
+                seg["duracion"]= nueva_duracion
+                seg["fin"]     = nuevo_inicio + nueva_duracion
             corregidos.append(seg)
         return corregidos
 

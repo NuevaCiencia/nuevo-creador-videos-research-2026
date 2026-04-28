@@ -995,6 +995,22 @@ async def run_class_segment(class_id: int, db: Session = Depends(get_db)):
         )
         db.add(seg)
 
+    # Invalidar guion_base y guion_consolidado — los screen_segments cambiaron,
+    # hay que realinear antes de poder volver a generar visuales.
+    guion_base = db.query(models.ClassGuionBase).filter(
+        models.ClassGuionBase.class_id == class_id
+    ).first()
+    if guion_base:
+        guion_base.status = "stale"
+        guion_base.phase  = "⚠️ Pantallas regeneradas — re-ejecuta la Alineación"
+
+    guion_consolidado = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if guion_consolidado:
+        guion_consolidado.status = "stale"
+        guion_consolidado.phase  = "⚠️ Pantallas regeneradas — re-ejecuta Alineación y luego Visuales"
+
     db.commit()
 
     segs = (

@@ -33,12 +33,7 @@ REGLAS ESTRICTAS DE ASIGNACIÓN:
    - Elige entre "TITLE", "HIGHLIGHT", "CODE".
    - Para tipos VIDEO, FULL_IMAGE: DEBE SER EXACTAMENTE "".
 
-3. ASSET_FILENAME (El nombre del archivo multimedia):
-   - Para SPLIT_LEFT / SPLIT_RIGHT: OBLIGATORIO ej. S001.png, S002.png...
-   - Para FULL_IMAGE: OBLIGATORIO ej. F001.png, F002.png...
-   - Para VIDEO: OBLIGATORIO ej. V001.mp4, V002.mp4...
-   - Para TEXT: DEBE SER EXACTAMENTE "".
-   - PROHIBICIÓN: NUNCA uses el prefijo 'L' ni otros prefijos inventados. Solo S, F, V o "".
+3. ASSET_FILENAME: Devuelve siempre "" — el sistema asigna los nombres de archivo automáticamente.
 
 4. ASSET_TIPO:
    - "imagen_split" para (S), "imagen_completa" para (F), "video" para (V).
@@ -266,6 +261,22 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
             phase('error', 0, '❌ guion_base vacío', error='No se encontraron segmentos #SEGMENT')
             return
 
+        # Pre-compute asset filenames — deterministic, not left to GPT
+        asset_names  = {}
+        _cnt = {'S': 0, 'F': 0, 'V': 0}
+        for idx, seg in enumerate(segments, start=1):
+            tipo = seg.get('TYPE', '')
+            if 'SPLIT' in tipo:
+                _cnt['S'] += 1
+                asset_names[idx] = f"S{_cnt['S']:03d}.png"
+            elif tipo == 'FULL_IMAGE':
+                _cnt['F'] += 1
+                asset_names[idx] = f"F{_cnt['F']:03d}.png"
+            elif tipo == 'VIDEO':
+                _cnt['V'] += 1
+                asset_names[idx] = f"V{_cnt['V']:03d}.mp4"
+            # TEXT, LIST, CONCEPT, REMOTION → no asset name needed here
+
         payload_visual   = []
         payload_remotion = []
         rem_counter      = 0
@@ -311,10 +322,10 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
 
         phase('running', 80, '📝 Construyendo guion consolidado…')
 
-        texto_final   = _generar_header(course_cfg, audio_filename)
-        recursos      = []
-        field_order   = ['TYPE', 'PARAMS', 'TIME', 'TEXT', 'TEXT_STYLE', 'ASSET', 'SPEECH', 'NOTES']
-        rem_cfg_idx   = 0
+        texto_final  = _generar_header(course_cfg, audio_filename)
+        recursos     = []
+        field_order  = ['TYPE', 'PARAMS', 'TIME', 'TEXT', 'TEXT_STYLE', 'ASSET', 'SPEECH', 'NOTES']
+        rem_cfg_idx  = 0
 
         for idx, sg in enumerate(segments, start=1):
             tipo = sg.get('TYPE', '')
@@ -346,25 +357,10 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
                     palabras = sg.get('SPEECH', '').split()
                     sg['TEXT'] = ' '.join(palabras[:10]) + ('…' if len(palabras) > 10 else '')
 
-                asset_file = _v(sub, 'asset_filename')
+                # Use pre-computed deterministic filename — never rely on GPT for this
+                asset_file = asset_names.get(idx, '')
 
                 if asset_file:
-                    new_prefix = None
-                    if 'SPLIT' in tipo:        new_prefix = 'S'
-                    elif tipo == 'FULL_IMAGE':  new_prefix = 'F'
-                    elif tipo == 'VIDEO':        new_prefix = 'V'
-                    if new_prefix and not asset_file.startswith(new_prefix):
-                        digits     = ''.join(c for c in asset_file if c.isdigit()) or str(idx).zfill(2)
-                        ext        = 'mp4' if new_prefix == 'V' else 'png'
-                        asset_file = f"{new_prefix}{digits}.{ext}"
-
-                if not asset_file and tipo in ('SPLIT_LEFT', 'SPLIT_RIGHT', 'FULL_IMAGE', 'VIDEO'):
-                    ts         = sg['TIMESTAMP'].replace(':', '_').replace('.', '_')
-                    prefix     = 'S' if 'SPLIT' in tipo else ('F' if tipo == 'FULL_IMAGE' else 'V')
-                    ext        = 'mp4' if tipo == 'VIDEO' else 'png'
-                    asset_file = f"{prefix}_AUTO_{ts}.{ext}"
-
-                if asset_file and tipo not in ('CONCEPT', 'LIST'):
                     folder      = 'videos' if asset_file.endswith('.mp4') else 'images'
                     sg['ASSET'] = f"{folder}/{asset_file}"
                     recursos.append({

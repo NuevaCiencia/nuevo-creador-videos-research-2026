@@ -12,7 +12,7 @@ from datetime import datetime
 from openai import OpenAI
 
 # ── Configuración exacta de 0_referencia/ai_config.yaml ───────────────────────
-MODEL              = "gpt-4.1-mini-2025-04-14"
+MODEL              = "gpt-5.4-nano-2025-04-14"
 TEMPERATURE        = 0.1
 MAX_TOKENS         = 4000
 CONTEXT_THRESHOLD  = 50   # bloques por batch
