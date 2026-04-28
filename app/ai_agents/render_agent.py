@@ -153,6 +153,7 @@ def run_render(class_id: int):
         # ── Prepare output dirs ──────────────────────────────────────────────
         renders_dir = app_dir / "renders"
         renders_dir.mkdir(exist_ok=True)
+        fonts_dir_str = str(app_dir / "fonts") if (app_dir / "fonts").exists() else ""
 
         tmp_dir = tempfile.mkdtemp(prefix=f"render_{class_id}_")
         try:
@@ -171,7 +172,8 @@ def run_render(class_id: int):
             from core.video_engine import crear_video_mixto, procesar_portada
             crear_video_mixto(
                 audio_abs, ass_path, segments, meta,
-                body_path, sample_rate, channels, tmp_dir
+                body_path, sample_rate, channels, tmp_dir,
+                fonts_dir=fonts_dir_str,
             )
 
             _update_render(class_id, "rendering", 80, "🎞️ Añadiendo portada…")

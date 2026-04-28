@@ -24,10 +24,13 @@ app = FastAPI(title="Video Creator")
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+FONTS_DIR  = os.path.join(os.path.dirname(__file__), "fonts")
 os.makedirs(ASSETS_DIR, exist_ok=True)
+os.makedirs(FONTS_DIR,  exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+app.mount("/fonts",  StaticFiles(directory=FONTS_DIR),  name="fonts")
 
 
 def get_audio_duration(file_path: str) -> float:
@@ -1283,3 +1286,78 @@ def download_render(class_id: int, db: Session = Depends(get_db)):
         media_type="video/mp4",
         filename=os.path.basename(abs_path),
     )
+
+
+# ── FONTS ──────────────────────────────────────────────────────────────────────
+
+FONT_EXTS = {".ttf", ".otf"}
+# Known family → display name + weights mapping (for bundled fonts)
+_FAMILY_MAP = {
+    "inter":        {"family": "Inter",         "weights": ["Regular", "Bold", "Italic"]},
+    "montserrat":   {"family": "Montserrat",     "weights": ["Regular", "Bold", "Italic"]},
+    "jetbrainsmono":{"family": "JetBrains Mono", "weights": ["Regular"]},
+}
+
+
+def _parse_font_file(filename: str) -> dict:
+    """Extract family name and weight from a font filename."""
+    stem = os.path.splitext(filename)[0]   # e.g. "Inter-Bold"
+    ext  = os.path.splitext(filename)[1].lower()
+    parts = stem.split("-", 1)
+    family = parts[0]
+    weight = parts[1] if len(parts) > 1 else "Regular"
+    return {
+        "filename": filename,
+        "family":   family,
+        "weight":   weight,
+        "ext":      ext,
+        "url":      f"/fonts/{filename}",
+    }
+
+
+@app.get("/api/fonts")
+def list_fonts():
+    """List all installed font files from app/fonts/."""
+    files = []
+    for fname in sorted(os.listdir(FONTS_DIR)):
+        if os.path.splitext(fname)[1].lower() in FONT_EXTS:
+            files.append(_parse_font_file(fname))
+
+    # Group by family
+    families: dict = {}
+    for f in files:
+        fam = f["family"]
+        if fam not in families:
+            families[fam] = {"family": fam, "weights": []}
+        families[fam]["weights"].append({"weight": f["weight"], "filename": f["filename"], "url": f["url"]})
+
+    return {"fonts": files, "families": list(families.values())}
+
+
+@app.post("/api/fonts", status_code=201)
+async def upload_font(file: UploadFile = File(...)):
+    """Upload a TTF or OTF font file to app/fonts/."""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in FONT_EXTS:
+        raise HTTPException(400, f"Solo se aceptan archivos TTF u OTF. Recibido: {ext or 'sin extensión'}")
+
+    # Sanitize filename
+    safe_name = "".join(c for c in (file.filename or "font.ttf")
+                        if c.isalnum() or c in "-_.")
+    dest = os.path.join(FONTS_DIR, safe_name)
+    content = await file.read()
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    return _parse_font_file(safe_name)
+
+
+@app.delete("/api/fonts/{filename}", status_code=204)
+def delete_font(filename: str):
+    """Delete a font file. Bundled fonts can also be deleted (user's choice)."""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(400, "Nombre de archivo inválido")
+    dest = os.path.join(FONTS_DIR, filename)
+    if not os.path.exists(dest):
+        raise HTTPException(404, "Fuente no encontrada")
+    os.remove(dest)

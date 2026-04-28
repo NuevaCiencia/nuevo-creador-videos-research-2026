@@ -13,8 +13,13 @@ def _escape_ass_path(path: str) -> str:
     return f"'{escaped}'"
 
 
+def _escape_fontsdir(path: str) -> str:
+    """Escape fontsdir path for FFmpeg filter option (no outer quotes needed)."""
+    return _re.sub(r'^([A-Za-z]):', r'\1\\:', path)
+
+
 def construir_filtro_ffmpeg(recursos, W, H, fps, ass_path_ffmpeg, filtro_path,
-                            use_trans=False, dur_t=0.5):
+                            use_trans=False, dur_t=0.5, fonts_dir: str = ""):
     half = W // 2
     with open(filtro_path, "w", encoding="utf-8") as f:
         f.write("[0:v]null[bg];\n")
@@ -52,6 +57,7 @@ def construir_filtro_ffmpeg(recursos, W, H, fps, ass_path_ffmpeg, filtro_path,
             idx_in     += 1
             overlay_idx += 1
 
-        f.write(f"[v{overlay_idx-1}]ass={_escape_ass_path(ass_path_ffmpeg)}[vout]")
+        fontsdir_opt = f":fontsdir={_escape_fontsdir(fonts_dir)}" if fonts_dir else ""
+        f.write(f"[v{overlay_idx-1}]ass={_escape_ass_path(ass_path_ffmpeg)}{fontsdir_opt}[vout]")
 
     return overlay_idx

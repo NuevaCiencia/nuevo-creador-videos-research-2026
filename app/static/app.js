@@ -304,10 +304,11 @@ function renderPhase(phase) {
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
   switch(phase) {
-    case 'guion':    renderGuion(area);    break;
-    case 'audio':    renderAudio(area);    break;
-    case 'visuales': renderVisuales(area); break;
-    case 'video':    renderVideo(area); break;
+    case 'guion':    renderGuion(area);       break;
+    case 'audio':    renderAudio(area);       break;
+    case 'fonts':    renderFontsColors(area); break;
+    case 'visuales': renderVisuales(area);    break;
+    case 'video':    renderVideo(area);       break;
   }
 }
 
@@ -1334,6 +1335,251 @@ async function viewGuionConsolidado() {
         <button class="btn btn-primary" onclick="exportGuionConsolidado()">⬇ Exportar</button>
       </div>`
     });
+  } catch(e) { toast(e.message, false); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   FONTS & COLORS PHASE
+═══════════════════════════════════════════════════════ */
+
+async function renderFontsColors(area) {
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando fonts…</div></div>`;
+  let fontsData = null, course = null;
+  try { fontsData = await api('GET', '/api/fonts'); } catch(e) {}
+  if (S.activeCourse) {
+    try { course = await api('GET', `/api/courses`).then(cs => cs.find(c => c.id === S.activeCourse.id)); } catch(e) {}
+    if (!course) course = S.activeCourse;
+  }
+  _buildFontsColorsUI(area, fontsData, course);
+}
+
+function _buildFontsColorsUI(area, fontsData, course) {
+  const families = fontsData?.families || [];
+  const installed = fontsData?.fonts || [];
+
+  // Inject @font-face for preview
+  let faceCSS = installed.map(f =>
+    `@font-face{font-family:'${f.family}';font-weight:${f.weight==='Bold'?'700':f.weight==='Italic'?'400':'400'};font-style:${f.weight==='Italic'?'italic':'normal'};src:url('${f.url}') format('truetype');}`
+  ).join('\n');
+  let styleEl = document.getElementById('fc-font-faces');
+  if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'fc-font-faces'; document.head.appendChild(styleEl); }
+  styleEl.textContent = faceCSS;
+
+  const activeFontFamily = course?.main_font || 'Inter';
+  const bg     = course?.background_color     || '#fefefe';
+  const txtCol = course?.main_text_color      || '#bd0505';
+  const hlCol  = course?.highlight_text_color || '#e3943b';
+
+  // Font family options
+  const familyNames = [...new Set(installed.map(f => f.family))];
+  const fontOpts = familyNames.map(fam =>
+    `<option value="${esc(fam)}" ${fam === activeFontFamily ? 'selected' : ''}>${esc(fam)}</option>`
+  ).join('');
+
+  area.innerHTML = `<div class="audio-phase">
+
+    <!-- ① Font Library -->
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🔤 Biblioteca de Fonts</span>
+        <label class="btn btn-secondary btn-sm fc-upload-label">
+          ⬆ Importar TTF/OTF
+          <input type="file" accept=".ttf,.otf" multiple style="display:none" onchange="uploadFonts(this)">
+        </label>
+      </div>
+      <div class="audio-card-body">
+        ${installed.length === 0 ? `<p class="audio-card-desc">No hay fonts instalados. Importa archivos TTF/OTF.</p>` : `
+        <div class="fc-font-grid">
+          ${families.map(fam => `
+            <div class="fc-font-card">
+              <div class="fc-font-preview" style="font-family:'${esc(fam.family)}'">${esc(fam.family)}</div>
+              <div class="fc-font-name">${esc(fam.family)}</div>
+              <div class="fc-font-weights">
+                ${fam.weights.map(w => `
+                  <span class="fc-weight-chip">${esc(w.weight)}
+                    <button class="fc-weight-del" onclick="deleteFont('${esc(w.filename)}')" title="Eliminar">×</button>
+                  </span>`).join('')}
+              </div>
+            </div>`).join('')}
+        </div>`}
+      </div>
+    </div>
+
+    <!-- ② Font & Color Config (per course) -->
+    ${course ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">⚙️ Configuración del Proyecto — ${esc(course.title)}</span>
+        <span id="fc-save-status" style="font-size:11px;color:var(--tx3)"></span>
+      </div>
+      <div class="audio-card-body">
+
+        <!-- Font selector -->
+        <div class="fc-config-section">
+          <div class="fc-config-label">Fuente Principal (subtítulos ASS)</div>
+          <div class="fc-font-selector-row">
+            <select id="fc_font" class="fc-select" onchange="fcPreviewFont(this.value); fcAutoSave()">
+              ${fontOpts}
+              <option value="Arial" ${activeFontFamily==='Arial'?'selected':''}>Arial (sistema)</option>
+              <option value="Helvetica" ${activeFontFamily==='Helvetica'?'selected':''}>Helvetica (sistema)</option>
+            </select>
+            <div class="fc-font-preview-inline" id="fcFontPreview" style="font-family:'${esc(activeFontFamily)}'">
+              Texto de ejemplo — Video Creator 2026
+            </div>
+          </div>
+        </div>
+
+        <!-- Colors -->
+        <div class="fc-config-section">
+          <div class="fc-config-label">Colores</div>
+          <div class="fc-colors-grid">
+            <div class="fc-color-item">
+              <label>Fondo</label>
+              <div class="vc-color-row">
+                <input type="color" id="fc_bg_pick" value="${escA(bg)}"
+                  oninput="document.getElementById('fc_bg').value=this.value;fcAutoSave()">
+                <input type="text" id="fc_bg" class="vc-hex" value="${escA(bg)}"
+                  oninput="document.getElementById('fc_bg_pick').value=this.value;fcAutoSave()">
+              </div>
+              <div class="fc-color-preview" id="fcBgPreview" style="background:${escA(bg)}"></div>
+            </div>
+            <div class="fc-color-item">
+              <label>Texto subtítulos</label>
+              <div class="vc-color-row">
+                <input type="color" id="fc_txt_pick" value="${escA(txtCol)}"
+                  oninput="document.getElementById('fc_txt').value=this.value;fcAutoSave()">
+                <input type="text" id="fc_txt" class="vc-hex" value="${escA(txtCol)}"
+                  oninput="document.getElementById('fc_txt_pick').value=this.value;fcAutoSave()">
+              </div>
+              <div class="fc-color-preview" id="fcTxtPreview" style="background:${escA(txtCol)}"></div>
+            </div>
+            <div class="fc-color-item">
+              <label>Highlight</label>
+              <div class="vc-color-row">
+                <input type="color" id="fc_hl_pick" value="${escA(hlCol)}"
+                  oninput="document.getElementById('fc_hl').value=this.value;fcAutoSave()">
+                <input type="text" id="fc_hl" class="vc-hex" value="${escA(hlCol)}"
+                  oninput="document.getElementById('fc_hl_pick').value=this.value;fcAutoSave()">
+              </div>
+              <div class="fc-color-preview" id="fcHlPreview" style="background:${escA(hlCol)}"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video config -->
+        <div class="fc-config-section">
+          <div class="fc-config-label">Video</div>
+          <div class="fc-video-grid">
+            <div class="fc-video-field">
+              <label>FPS</label>
+              <input type="number" id="fc_fps" value="${course.fps||30}" min="24" max="60" onchange="fcAutoSave()">
+            </div>
+            <div class="fc-video-field">
+              <label>Resolución</label>
+              <input type="text" id="fc_res" value="${escA(course.resolution||'1920x1080')}" onchange="fcAutoSave()">
+            </div>
+            <div class="fc-video-field">
+              <label>Portada (path relativo)</label>
+              <input type="text" id="fc_cover" value="${escA(course.cover_asset||'videos/portada.mp4')}" onchange="fcAutoSave()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div class="fc-config-section">
+          <div class="fc-config-label">Preview</div>
+          <div class="fc-preview-box" id="fcPreviewBox"
+            style="background:${escA(bg)};font-family:'${esc(activeFontFamily)}'">
+            <div class="fc-preview-sub" id="fcPreviewSub" style="color:${escA(txtCol)}">
+              Este es el texto de subtítulo que aparece en el video
+            </div>
+            <div class="fc-preview-hl" id="fcPreviewHl" style="color:${escA(hlCol)}">
+              Texto con highlight — concepto clave
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    ` : `<div class="audio-card"><div class="audio-card-body"><p class="audio-card-desc">Selecciona una clase para editar la configuración de su proyecto.</p></div></div>`}
+
+  </div>`;
+}
+
+function fcPreviewFont(fontFamily) {
+  ['fcFontPreview','fcPreviewSub','fcPreviewHl','fcPreviewBox'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.fontFamily = `'${fontFamily}'`;
+  });
+}
+
+let _fcSaveTimer = null;
+function fcAutoSave() {
+  // Live preview update
+  const bg     = document.getElementById('fc_bg')?.value     || '';
+  const txtCol = document.getElementById('fc_txt')?.value    || '';
+  const hlCol  = document.getElementById('fc_hl')?.value     || '';
+  const font   = document.getElementById('fc_font')?.value   || '';
+
+  const previewBox = document.getElementById('fcPreviewBox');
+  if (previewBox) previewBox.style.background = bg;
+  const previewSub = document.getElementById('fcPreviewSub');
+  if (previewSub) { previewSub.style.color = txtCol; previewSub.style.fontFamily = `'${font}'`; }
+  const previewHl = document.getElementById('fcPreviewHl');
+  if (previewHl)  { previewHl.style.color = hlCol;  previewHl.style.fontFamily = `'${font}'`; }
+  document.getElementById('fcBgPreview') &&  (document.getElementById('fcBgPreview').style.background  = bg);
+  document.getElementById('fcTxtPreview') && (document.getElementById('fcTxtPreview').style.background = txtCol);
+  document.getElementById('fcHlPreview') &&  (document.getElementById('fcHlPreview').style.background  = hlCol);
+
+  // Debounced save
+  clearTimeout(_fcSaveTimer);
+  _fcSaveTimer = setTimeout(async () => {
+    if (!S.activeCourse) return;
+    const statusEl = document.getElementById('fc-save-status');
+    if (statusEl) statusEl.textContent = 'Guardando…';
+    try {
+      const payload = {
+        title:                S.activeCourse.title,
+        description:          S.activeCourse.description || '',
+        fps:                  parseInt(document.getElementById('fc_fps')?.value) || 30,
+        resolution:           document.getElementById('fc_res')?.value?.trim()   || '1920x1080',
+        main_font:            font,
+        background_color:     bg,
+        main_text_color:      txtCol,
+        highlight_text_color: hlCol,
+        cover_asset:          document.getElementById('fc_cover')?.value?.trim() || 'videos/portada.mp4',
+      };
+      const updated = await api('PUT', `/api/courses/${S.activeCourse.id}`, payload);
+      S.activeCourse = updated;
+      if (statusEl) { statusEl.textContent = '✓ Guardado'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+    } catch(e) {
+      if (statusEl) statusEl.textContent = '⚠ Error guardando';
+    }
+  }, 700);
+}
+
+async function uploadFonts(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  let ok = 0, fail = 0;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      await fetch('/api/fonts', { method: 'POST', body: fd });
+      ok++;
+    } catch(e) { fail++; }
+  }
+  toast(fail === 0 ? `✅ ${ok} font${ok>1?'s':''} importado${ok>1?'s':''}` : `⚠ ${ok} ok · ${fail} error${fail>1?'es':''}`, fail === 0);
+  renderFontsColors(document.getElementById('contentArea'));
+}
+
+async function deleteFont(filename) {
+  if (!confirm(`¿Eliminar ${filename}?`)) return;
+  try {
+    await api('DELETE', `/api/fonts/${encodeURIComponent(filename)}`);
+    toast('Font eliminado');
+    renderFontsColors(document.getElementById('contentArea'));
   } catch(e) { toast(e.message, false); }
 }
 

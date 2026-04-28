@@ -46,7 +46,8 @@ def _generar_dynamic_dummy(seg, cfg, output_path, tmp_dir):
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
 
 
-def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate, channels, tmp_dir):
+def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate, channels, tmp_dir,
+                      fonts_dir: str = ""):
     print("🎬 Creando video mezclado…")
     dur_audio     = get_audio_duration(audio_path)
     ass_path_norm = normalizar_ruta_ffmpeg(ass_path)
@@ -112,9 +113,10 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
 
     if not recursos:
         ass_escaped = _escape_ass_path_vf(ass_path_norm)
+        fontsdir_opt = f":fontsdir={_escape_ass_path_vf(fonts_dir)}" if fonts_dir else ""
         result = subprocess.run([
             "ffmpeg", "-y", "-i", fondo, "-i", norm_audio,
-            "-vf", f"ass={ass_escaped}",
+            "-vf", f"ass={ass_escaped}{fontsdir_opt}",
             "-c:v", "libx264", "-crf", "18",
             "-c:a", "aac", "-b:a", "192k", "-ar", str(sample_rate),
             "-shortest", out_path
@@ -133,6 +135,7 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
         recursos, W, H, cfg["FPS"], ass_path_norm, filtro_txt,
         use_trans=cfg.get("USE_TRANSITIONS", False),
         dur_t=cfg.get("TRANSITION_DURATION", 0.5),
+        fonts_dir=fonts_dir,
     )
 
     cmd = ["ffmpeg", "-y", "-i", fondo]
