@@ -893,16 +893,9 @@ input,textarea{font-family:inherit;outline:none}
 
 /* ─── VISUALIZADOR DE PANTALLAS ─────────────────────── */
 
-/* Type color tokens (same palette as 0_referencia) */
-.viz-col-ctrl.vt-video      { --vt-bg:#eff6ff; --vt-border:#bfdbfe; --vt-text:#1d4ed8; }
-.viz-col-ctrl.vt-text       { --vt-bg:#fff1f2; --vt-border:#fecdd3; --vt-text:#e11d48; }
-.viz-col-ctrl.vt-split_left { --vt-bg:#ecfdf5; --vt-border:#a7f3d0; --vt-text:#065f46; }
-.viz-col-ctrl.vt-split_right{ --vt-bg:#f0fdfa; --vt-border:#99f6e4; --vt-text:#0d9488; }
-.viz-col-ctrl.vt-list       { --vt-bg:#fffbeb; --vt-border:#fde68a; --vt-text:#92400e; }
-.viz-col-ctrl.vt-full_image { --vt-bg:#f5f3ff; --vt-border:#ddd6fe; --vt-text:#6d28d9; }
-.viz-col-ctrl.vt-concept    { --vt-bg:#faf5ff; --vt-border:#e9d5ff; --vt-text:#7e22ce; }
-.viz-col-ctrl.vt-remotion   { --vt-bg:#f0fdf4; --vt-border:#86efac; --vt-text:#166534; }
-.viz-col-ctrl                { --vt-bg:#f1f5f9; --vt-border:#e2e8f0; --vt-text:#475569; }
+/* Type color tokens — set via inline style from DB (--vt-text, --vt-border).
+   Fallback values used only if DB color is missing. */
+.viz-col-ctrl { --vt-text:#475569; --vt-border:#e2e8f0; }
 
 .viz-phase {
   flex: 1;
@@ -938,10 +931,8 @@ input,textarea{font-family:inherit;outline:none}
 }
 .viz-card:hover { box-shadow: inset 0 0 0 2px var(--accent); }
 
-/* ─ Left column — colored by type ─ */
+/* ─ Left column — background + border set via inline style from DB color ─ */
 .viz-col-ctrl {
-  background: var(--vt-bg);
-  border-right: 2px solid var(--vt-border);
   padding: 18px 16px;
   display: flex;
   flex-direction: column;

@@ -1358,17 +1358,27 @@ async function renderViz(area) {
   _buildVizUI(area);
 }
 
-// CSS class per type for the left column color
-function _vizTypeClass(type) {
-  return 'vt-' + type.toLowerCase().replace('_', '_');
+// Build inline style for the left column using the type's DB color.
+// Sets CSS custom properties so child elements keep using var(--vt-*).
+function _vizTypeColStyle(color) {
+  const c = color || '#666666';
+  return `background:${c}18;border-right:3px solid ${c}88;--vt-text:${c};--vt-border:${c}66;`;
+}
+function _vizTypeNumStyle(color) {
+  return `color:${color || '#666666'};`;
 }
 
 function _buildVizUI(area) {
-  const { segments, has_guion, course } = _vizData;
+  const { segments, has_guion, course, screen_types } = _vizData;
   const [pW, pH] = (course.resolution || '1920x1080').split('x').map(Number);
   const ratio = pW / pH;
-  const TYPES = ["TEXT","SPLIT_LEFT","SPLIT_RIGHT","FULL_IMAGE","VIDEO","LIST","CONCEPT","REMOTION"];
-  const HAS_PARAMS = ["LIST","CONCEPT","REMOTION"];
+
+  // Build a map from type name → DB record
+  const typeMap = {};
+  (screen_types || []).forEach(st => { typeMap[st.name] = st; });
+
+  // All available type names from DB (for the select)
+  const TYPES = (screen_types || []).map(st => st.name);
 
   if (!segments.length) {
     area.innerHTML = `<div class="audio-phase"><div class="audio-card"><div class="audio-card-body">
@@ -1380,11 +1390,14 @@ function _buildVizUI(area) {
   }
 
   const cardsHtml = segments.map((seg, i) => {
-    const tc     = _vizTypeClass(seg.screen_type);
-    const isEdit = _vizEditingIdx === i;
-    const typeOpts = TYPES.map(t =>
-      `<option value="${t}" ${t === seg.screen_type ? 'selected' : ''}>${t}</option>`
-    ).join('');
+    const st      = typeMap[seg.screen_type] || {};
+    const color   = st.color || '#666666';
+    const isEdit  = _vizEditingIdx === i;
+    const typeOpts = TYPES.map(t => {
+      const tst = typeMap[t] || {};
+      const lbl = tst.label ? `${tst.icon || ''} ${tst.label}` : t;
+      return `<option value="${t}" ${t === seg.screen_type ? 'selected' : ''}>${lbl}</option>`;
+    }).join('');
 
     // Params badges (shown when NOT editing)
     const badges = (!isEdit && seg.params)
@@ -1392,13 +1405,17 @@ function _buildVizUI(area) {
           `<span class="viz-param-badge">${esc(p.trim())}</span>`).join('')
       : '';
 
+    const colStyle   = _vizTypeColStyle(color);
+    const numStyle   = _vizTypeNumStyle(color);
+    const typeLabel  = st.label ? `${st.icon || ''} ${st.label}` : seg.screen_type;
+
     return `
     <div class="viz-card" id="viz-card-${i}" data-seg-id="${seg.id}">
 
-      <!-- LEFT: colored control column -->
-      <div class="viz-col-ctrl ${tc}">
-        <div class="viz-screen-badge">Pantalla</div>
-        <div class="viz-screen-num">${i + 1}</div>
+      <!-- LEFT: colored control column (color from DB) -->
+      <div class="viz-col-ctrl" style="${escA(colStyle)}">
+        <div class="viz-screen-badge">${esc(typeLabel)}</div>
+        <div class="viz-screen-num" style="${escA(numStyle)}">${i + 1}</div>
 
         <div class="viz-timing">
           ${seg.timestamp
@@ -1414,7 +1431,7 @@ function _buildVizUI(area) {
           </select>
         </div>
 
-        ${HAS_PARAMS.includes(seg.screen_type) ? `
+        ${st.has_params ? `
         <button class="viz-edit-btn${isEdit ? ' active' : ''}" onclick="vizToggleEdit(${i})">
           ${isEdit ? '✕ Cerrar edición' : '✎ Editar Contenido'}
         </button>` : ''}
@@ -1446,7 +1463,7 @@ function _buildVizUI(area) {
         <div class="viz-preview-box" style="aspect-ratio:${ratio};background:${escA(course.background_color)}">
           <div class="viz-preview-canvas" id="viz-canvas-${i}"></div>
         </div>
-        <div class="viz-preview-label">${esc(seg.screen_type)} · ${pW}×${pH}</div>
+        <div class="viz-preview-label" style="color:${escA(color)}">${esc(seg.screen_type)} · ${pW}×${pH}</div>
       </div>
 
     </div>`;

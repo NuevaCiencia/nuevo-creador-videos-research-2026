@@ -1023,6 +1023,9 @@ def get_visualizador(class_id: int, db: Session = Depends(get_db)):
             "has_guion":   bool(g),
         })
 
+    # Screen types catalog (global)
+    st_rows = db.query(models.ScreenType).order_by(models.ScreenType.sort_order).all()
+
     return {
         "segments": result,
         "has_guion": bool(guion_segments),
@@ -1031,7 +1034,8 @@ def get_visualizador(class_id: int, db: Session = Depends(get_db)):
             "background_color": course.background_color or "#fefefe",
             "main_text_color":  course.main_text_color or "#bd0505",
             "main_font":        course.main_font or "Inter",
-        }
+        },
+        "screen_types": [ser_screen_type(st) for st in st_rows],
     }
 
 
