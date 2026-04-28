@@ -13,6 +13,7 @@ const S = {
   activeClass: null,
   activePhase: 'guion',
   guionRightTab: 'research',  // 'research' | 'screens'
+  guionLocked: true,           // locked after save; unlocked explicitly to edit
   saveStatus: 'saved',
   saveTimer: null,
 };
@@ -255,6 +256,8 @@ async function selectClass(id) {
   try {
     const cls = await api('GET', `/api/classes/${id}`);
     S.activeClass = cls;
+    // Lock by default — requires explicit "Edit" click to modify
+    S.guionLocked = (cls.raw_narration || '').trim().length > 0;
     // update active state in tree without full re-render
     document.querySelectorAll('.tree-class-item').forEach(el => {
       el.classList.toggle('active', +el.dataset.cid === id);
@@ -330,33 +333,55 @@ function renderContent(type) {
 
 /* ─── GUION PHASE ─────────────────────────────────────── */
 function renderGuion(area) {
-  const cls = S.activeClass;
-  S.saveStatus = 'saved';
-  const tab = S.guionRightTab;
+  const cls    = S.activeClass;
+  const locked = S.guionLocked;
+  const tab    = S.guionRightTab;
+  if (!locked) S.saveStatus = 'saved';
 
   area.innerHTML = `
     <div class="guion-view">
       <div class="guion-main">
+
+        <!-- Toolbar -->
         <div class="guion-toolbar">
           <div class="guion-toolbar-left">
-            <span class="guion-toolbar-label">Locución / Guion</span>
-            <span id="guionStats" class="guion-stats">0 palabras · 0 caracteres</span>
+            ${locked
+              ? `<span class="guion-lock-badge">🔒 Guardado</span>`
+              : `<span class="guion-toolbar-label">Locución / Guion</span>`}
+            <span id="guionStats" class="guion-stats"></span>
           </div>
           <div class="guion-toolbar-actions">
-            <button class="btn btn-sm btn-ghost" onclick="doSave(false)">Guardar Guion</button>
+            ${locked
+              ? `<button class="btn btn-sm btn-ghost" onclick="unlockGuion()">✏️ Editar guion</button>`
+              : `<button class="btn btn-sm btn-primary" onclick="doSave(false)">Guardar Guion</button>`}
           </div>
         </div>
+
+        <!-- Edit banner (only in edit mode) -->
+        ${!locked ? `
+        <div class="guion-edit-banner">
+          ✏️ Modo edición activo — si realizas cambios significativos, recuerda volver a
+          <strong>Verificar con Tavily</strong> y <strong>Re-segmentar las pantallas</strong>.
+        </div>` : ''}
+
+        <!-- Editor -->
         <div class="guion-editor-wrap">
-          <textarea id="guionTA" class="guion-ta"
+          <textarea id="guionTA" class="guion-ta ${locked ? 'guion-ta-locked' : ''}"
             placeholder="Pega aquí tu locución raw..."
-            oninput="onGuionInput(this)">${esc(cls.raw_narration || '')}</textarea>
+            ${locked ? 'readonly' : `oninput="onGuionInput(this)"`}
+          >${esc(cls.raw_narration || '')}</textarea>
         </div>
       </div>
 
+      <!-- Right panel -->
       <div class="guion-research-panel" id="rightPanel">
         <div class="rp-tabs">
-          <button class="rp-tab ${tab === 'research' ? 'active' : ''}" onclick="switchGuionTab('research')">🔍 Investigación</button>
-          <button class="rp-tab ${tab === 'screens'  ? 'active' : ''}" onclick="switchGuionTab('screens')">🎬 Pantallas</button>
+          <button class="rp-tab ${tab === 'research' ? 'active' : ''}" onclick="switchGuionTab('research')">
+            🔍 Investigación${!locked ? '<span class="rp-tab-dot" title="Puede necesitar re-verificación"></span>' : ''}
+          </button>
+          <button class="rp-tab ${tab === 'screens' ? 'active' : ''}" onclick="switchGuionTab('screens')">
+            🎬 Pantallas${!locked ? '<span class="rp-tab-dot" title="Puede necesitar re-segmentación"></span>' : ''}
+          </button>
         </div>
 
         <div id="researchSection" class="${tab === 'research' ? '' : 'hidden'}">
@@ -379,9 +404,16 @@ function renderGuion(area) {
       </div>
     </div>`;
 
-  onGuionInput(document.getElementById('guionTA'));
+  _updateGuionStats(cls.raw_narration || '');
   if (tab === 'research') renderResearchItems();
   else renderSegmentCards();
+}
+
+function unlockGuion() {
+  S.guionLocked = false;
+  S.saveStatus  = 'saved';
+  renderGuion(document.getElementById('contentArea'));
+  setTimeout(() => document.getElementById('guionTA')?.focus(), 50);
 }
 
 function switchGuionTab(tab) {
@@ -590,9 +622,16 @@ function exportTaggedScript() {
   URL.revokeObjectURL(url);
 }
 
+function _updateGuionStats(text) {
+  const w  = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const c  = text.length;
+  const el = document.getElementById('guionStats');
+  if (el) el.textContent = `${w} palabras · ${c} caracteres`;
+}
+
 function onGuionInput(el) {
-  // update stats
   const text = el.value;
+  _updateGuionStats(text);
   const w = text.trim() ? text.trim().split(/\s+/).length : 0;
   const c = text.length;
   setStatus(`${esc(S.activeClass.title)} · ${w} palabras · ${c} chars`, '● Sin guardar', 'sb-unsaved');
@@ -612,13 +651,15 @@ async function doSave(silent = false) {
       title: S.activeClass.title,
       raw_narration: ta.value,
     });
-    S.activeClass = updated;
-    S.saveStatus = 'saved';
+    S.activeClass  = updated;
+    S.saveStatus   = 'saved';
+    S.guionLocked  = true;   // lock after every save
     const w = (updated.raw_narration||'').trim().split(/\s+/).filter(Boolean).length;
     setStatus(`${esc(updated.title)} · ${w} palabras`, '✓ Guardado', 'sb-saved');
-    // update dot in tree
     const item = document.querySelector(`.tree-class-item[data-cid="${updated.id}"]`);
     if (item) item.classList.toggle('has-content', (updated.raw_narration||'').trim().length > 0);
+    // Re-render guion to show locked state
+    if (S.activePhase === 'guion') renderGuion(document.getElementById('contentArea'));
     if (!silent) toast('Guardado');
   } catch(e) {
     S.saveStatus = 'unsaved';
