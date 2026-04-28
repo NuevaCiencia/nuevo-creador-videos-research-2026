@@ -1500,19 +1500,29 @@ function _vizParamsForm(seg, i) {
   return '';
 }
 
+function _rebuildViz() {
+  const area     = document.getElementById('contentArea');
+  const list     = area.querySelector('.viz-list');
+  const scrollEl = area.querySelector('.viz-phase') || area;
+  const scrollTop = scrollEl ? scrollEl.scrollTop : 0;
+  _buildVizUI(area);
+  const newScrollEl = area.querySelector('.viz-phase') || area;
+  if (newScrollEl) newScrollEl.scrollTop = scrollTop;
+}
+
 function vizToggleEdit(i) {
   _vizEditingIdx = (_vizEditingIdx === i) ? null : i;
-  _buildVizUI(document.getElementById('contentArea'));
+  _rebuildViz();
 }
 
 async function vizUpdateType(i, newType) {
   const seg = _vizData.segments[i];
   seg.screen_type = newType;
-  if (_vizEditingIdx === i) _vizEditingIdx = null; // close edit form on type change
+  if (_vizEditingIdx === i) _vizEditingIdx = null;
   try {
     await api('PUT', `/api/segments/${seg.id}/type`, { screen_type: newType, params: seg.params });
   } catch(e) { toast(e.message, false); }
-  _buildVizUI(document.getElementById('contentArea'));
+  _rebuildViz();
 }
 
 async function vizSyncParams(i) {
