@@ -1,8 +1,16 @@
 import os
+import re
 import subprocess
 import shutil
 from .utils import get_audio_duration, normalizar_ruta_ffmpeg, redondear_tiempo
 from .ffmpeg_builder import construir_filtro_ffmpeg
+
+
+def _escape_ass_path_vf(path: str) -> str:
+    """Escape path for -vf ass= argument (not inside filter script).
+    Windows drive colon must be escaped so FFmpeg's filter parser won't
+    treat it as an option separator."""
+    return re.sub(r'^([A-Za-z]):', r'\1\\:', path)
 
 
 def _generar_dynamic_dummy(seg, cfg, output_path, tmp_dir):
@@ -103,13 +111,18 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
     recursos.sort(key=lambda r: r["ini"])
 
     if not recursos:
-        subprocess.run([
+        ass_escaped = _escape_ass_path_vf(ass_path_norm)
+        result = subprocess.run([
             "ffmpeg", "-y", "-i", fondo, "-i", norm_audio,
-            "-vf", f"ass={ass_path_norm}",
+            "-vf", f"ass={ass_escaped}",
             "-c:v", "libx264", "-crf", "18",
             "-c:a", "aac", "-b:a", "192k", "-ar", str(sample_rate),
             "-shortest", out_path
-        ], check=True)
+        ], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"FFmpeg (no recursos) falló (exit {result.returncode}):\n{result.stderr[-3000:]}"
+            )
         return True
 
     filtro_txt      = os.path.join(tmp_dir, "filtro.txt")
@@ -137,7 +150,12 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
         "-c:a", "aac", "-b:a", "192k", "-ar", str(sample_rate),
         "-vsync", "cfr", "-shortest", out_path
     ]
-    subprocess.run(cmd, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"FFmpeg falló (exit {result.returncode}):\n"
+            f"STDERR:\n{result.stderr[-3000:] if result.stderr else '(vacío)'}"
+        )
     return True
 
 

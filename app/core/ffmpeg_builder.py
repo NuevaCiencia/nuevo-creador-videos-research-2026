@@ -1,7 +1,22 @@
+import re as _re
+
+
+def _escape_ass_path(path: str) -> str:
+    """
+    Escape a path for use inside an FFmpeg filtergraph ass= option.
+    On Windows, the drive letter colon (C:) must be escaped as C\\:
+    so FFmpeg's filter parser doesn't treat it as an option separator.
+    """
+    # Escape Windows drive letter colon: C:/ → C\:/
+    escaped = _re.sub(r'^([A-Za-z]):', r'\1\\:', path)
+    # Wrap in single quotes if not already quoted
+    return f"'{escaped}'"
+
+
 def construir_filtro_ffmpeg(recursos, W, H, fps, ass_path_ffmpeg, filtro_path,
                             use_trans=False, dur_t=0.5):
     half = W // 2
-    with open(filtro_path, "w") as f:
+    with open(filtro_path, "w", encoding="utf-8") as f:
         f.write("[0:v]null[bg];\n")
         idx_in, overlay_idx = 1, 0
 
@@ -37,6 +52,6 @@ def construir_filtro_ffmpeg(recursos, W, H, fps, ass_path_ffmpeg, filtro_path,
             idx_in     += 1
             overlay_idx += 1
 
-        f.write(f"[v{overlay_idx-1}]ass={ass_path_ffmpeg}[vout]")
+        f.write(f"[v{overlay_idx-1}]ass={_escape_ass_path(ass_path_ffmpeg)}[vout]")
 
     return overlay_idx
