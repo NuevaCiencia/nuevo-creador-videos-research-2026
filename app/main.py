@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db, init_db
 import models
-from ai_agents import research_agent, screen_agent, whisper_agent, spell_agent, aligner_agent
+from ai_agents import research_agent, screen_agent, whisper_agent, spell_agent, aligner_agent, visual_agent
 
 _whisper_pool = ThreadPoolExecutor(max_workers=1)  # one transcription at a time
 
@@ -858,6 +858,90 @@ def run_alignment(class_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(row)
     return ser_guion_base(row)
+
+
+# ── Visual Orchestration (FASE 3b) ────────────────────────────────────────────
+
+def ser_visual(row: models.ClassGuionConsolidado):
+    return {
+        "class_id":     row.class_id,
+        "status":       row.status,
+        "progress":     row.progress,
+        "phase":        row.phase or "",
+        "error":        row.error,
+        "content":      row.content,
+        "recursos_json": row.recursos_json,
+        "created_at":   row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+@app.get("/api/classes/{class_id}/visual")
+def get_visual(class_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if not row:
+        raise HTTPException(404, "Sin orquestación visual")
+    return ser_visual(row)
+
+
+@app.get("/api/classes/{class_id}/visual/status")
+def get_visual_status(class_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if not row:
+        return {"status": "idle"}
+    return {"status": row.status, "progress": row.progress, "phase": row.phase or "", "error": row.error}
+
+
+@app.post("/api/classes/{class_id}/visual")
+async def start_visual(class_id: int, db: Session = Depends(get_db)):
+    # Verify prerequisites
+    guion = db.query(models.ClassGuionBase).filter(
+        models.ClassGuionBase.class_id == class_id
+    ).first()
+    if not guion or guion.status != "done" or not guion.content:
+        raise HTTPException(400, "Primero completa la alineación (Guion Base)")
+
+    # Get course config
+    cls     = db.query(models.Class).filter(models.Class.id == class_id).first()
+    section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
+    course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
+
+    audio = db.query(models.ClassAudio).filter(models.ClassAudio.class_id == class_id).first()
+    audio_filename = os.path.basename(audio.file_path) if audio else "audio.mp3"
+
+    course_cfg = {
+        "title":               course.title,
+        "files_folder":        "assets",
+        "fps":                 course.fps or 30,
+        "resolution":          course.resolution or "1920x1080",
+        "main_font":           course.main_font or "Inter",
+        "background_color":    course.background_color or "#fefefe",
+        "main_text_color":     course.main_text_color or "#bd0505",
+        "highlight_text_color":course.highlight_text_color or "#e3943b",
+        "cover_asset":         course.cover_asset or "videos/portada.mp4",
+    }
+
+    # Upsert visual row
+    row = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if row:
+        row.status = "running"; row.progress = 0; row.phase = "⏳ Iniciando…"
+        row.error  = None; row.content = None; row.recursos_json = None
+    else:
+        row = models.ClassGuionConsolidado(class_id=class_id, status="running",
+                                           progress=0, phase="⏳ Iniciando…")
+        db.add(row)
+    db.commit()
+
+    _whisper_pool.submit(
+        visual_agent.run_visual_orchestration,
+        class_id, guion.content, course_cfg, audio_filename
+    )
+    return {"status": "started"}
 
 
 # ── Screen Segmentation ────────────────────────────────────────────────────────

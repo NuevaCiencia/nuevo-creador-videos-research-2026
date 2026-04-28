@@ -67,9 +67,10 @@ class Class(Base):
         cascade="all, delete-orphan",
         order_by="ScreenSegment.order",
     )
-    audio            = relationship("ClassAudio",           back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
-    spell_correction = relationship("ClassSpellCorrection", back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
-    guion_base       = relationship("ClassGuionBase",       back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    audio               = relationship("ClassAudio",              back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    spell_correction    = relationship("ClassSpellCorrection",    back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    guion_base          = relationship("ClassGuionBase",          back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    guion_consolidado   = relationship("ClassGuionConsolidado",   back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
 
 
 class ResearchItem(Base):
@@ -161,6 +162,26 @@ class ClassGuionBase(Base):
     created_at = Column(DateTime,    default=datetime.utcnow)
 
     class_obj = relationship("Class", back_populates="guion_base")
+
+
+# ── Per-class: Guion Consolidado (FASE 3b output) ─────────────────────────────
+# Stores VisualOrchestrator output: guion_consolidado.txt + recursos_visuales.json
+# TEXT=, TEXT_STYLE=, ASSET=, ASSET_TIPO=, ASSET_DESCRIPCION= filled by AI.
+
+class ClassGuionConsolidado(Base):
+    __tablename__ = "class_guion_consolidado"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    class_id   = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True)
+    status     = Column(String(30),  default="idle")   # idle | running | done | error
+    progress   = Column(Integer,     default=0)
+    phase      = Column(String(255), default="")
+    error      = Column(Text,        nullable=True)
+    content    = Column(Text,        nullable=True)    # guion_consolidado.txt
+    recursos_json = Column(Text,     nullable=True)    # recursos_visuales.json
+    created_at = Column(DateTime,    default=datetime.utcnow)
+
+    class_obj = relationship("Class", back_populates="guion_consolidado")
 
 
 # ── Per-class: Screen Segments ────────────────────────────────────────────────

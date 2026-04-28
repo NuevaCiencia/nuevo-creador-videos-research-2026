@@ -299,12 +299,13 @@ function switchPhase(phase) {
 function renderPhase(phase) {
   _clearAudioPoll();
   _clearSpellPoll();
+  _clearVisualPoll();
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
   switch(phase) {
     case 'guion':    renderGuion(area);    break;
     case 'audio':    renderAudio(area);    break;
-    case 'visuales': renderPlaceholder(area, '🧠', 'Fase: Visuales', 'Aquí se generará el guion visual enriquecido con IA.'); break;
+    case 'visuales': renderVisuales(area); break;
     case 'video':    renderPlaceholder(area, '🎬', 'Fase: Video', 'Aquí se configurará y lanzará el render final con FFmpeg.'); break;
   }
 }
@@ -1139,6 +1140,198 @@ function _download(filename, text) {
   const a    = document.createElement('a');
   a.href = url; a.download = filename;
   a.click(); URL.revokeObjectURL(url);
+}
+
+/* ═══════════════════════════════════════════════════════
+   VISUALES PHASE — FASE 3b (VisualOrchestrator)
+═══════════════════════════════════════════════════════ */
+let _visualPollTimer = null;
+
+function _clearVisualPoll() {
+  if (_visualPollTimer) { clearInterval(_visualPollTimer); _visualPollTimer = null; }
+}
+
+async function renderVisuales(area) {
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estado visual…</div></div>`;
+
+  let guion = null, visual = null;
+  try { guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);  } catch(e) {}
+  if (guion?.status === 'done') {
+    try { visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`); } catch(e) {}
+  }
+  _buildVisualesUI(area, guion, visual);
+  if (visual?.status === 'running') _startVisualPoll();
+}
+
+function _buildVisualesUI(area, guion, visual) {
+  const guionOk      = guion?.status === 'done';
+  const visualRunning = visual?.status === 'running';
+  const visualDone    = visual?.status === 'done';
+  const recursos      = visual?.recursos_json ? JSON.parse(visual.recursos_json) : null;
+
+  const _cnt = (tipo) => recursos?.recursos?.filter(r => r.tipo === tipo).length || 0;
+  const splits = recursos?.recursos?.filter(r => r.tipo === 'imagen_split').length   || 0;
+  const fulls  = recursos?.recursos?.filter(r => r.tipo === 'imagen_completa').length|| 0;
+  const videos = recursos?.recursos?.filter(r => r.tipo === 'video' && r.tipo_contenido !== 'remotion').length || 0;
+  const remotion = recursos?.recursos?.filter(r => r.tipo_contenido === 'remotion').length || 0;
+
+  area.innerHTML = `<div class="audio-phase">
+
+    <!-- Prerequisite card -->
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🧠 Arquitectura Visual</span>
+        ${visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
+      </div>
+      <div class="audio-card-body">
+        ${!guionOk ? `
+          <div class="vis-prereq">
+            <span class="vis-prereq-icon">🔒</span>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px">Requiere Alineación completada</div>
+              <div style="font-size:12px;color:var(--tx3)">Completa Whisper → Corrección → Alineación en la fase Audio.</div>
+            </div>
+          </div>
+        ` : visualDone ? `
+          <div class="tx-summary-row">
+            <div class="tx-summary-stat"><span class="tx-stat-val">${recursos?.total_recursos || 0}</span><span class="tx-stat-lbl">assets total</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${splits}</span><span class="tx-stat-lbl">split imgs</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${fulls}</span><span class="tx-stat-lbl">full imgs</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${videos}</span><span class="tx-stat-lbl">videos</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${remotion}</span><span class="tx-stat-lbl">remotion</span></div>
+          </div>
+          <div class="audio-exports">
+            <button class="seg-action-btn" onclick="exportGuionConsolidado()">⬇ guion_consolidado.txt</button>
+            <button class="seg-action-btn" onclick="exportRecursos()">⬇ recursos_visuales.json</button>
+            <button class="seg-action-btn" onclick="viewGuionConsolidado()">👁 Ver guion</button>
+            <button class="seg-action-btn" style="color:var(--tx3)" onclick="startVisualOrchestration()">↻ Re-generar</button>
+          </div>
+        ` : `
+          <p class="audio-card-desc">
+            Diseña la arquitectura visual completa:<br>
+            <strong>TEXT=</strong> (texto en pantalla) · <strong>ASSET=</strong> (imagen/video asignado) ·
+            <strong>ASSET_DESCRIPCION=</strong> (prompt "Scientific American" para generación) ·
+            Remotion data por template.<br>
+            Modelo: <strong>gpt-5.4-mini</strong> — misma lógica que <code>0_referencia</code>.
+          </p>
+          <div>
+            <button class="btn btn-primary audio-att-btn" onclick="startVisualOrchestration()" ${visualRunning ? 'disabled' : ''}>
+              ${visualRunning ? '⏳ Procesando…' : '✨ Generar Arquitectura Visual'}
+            </button>
+          </div>
+          ${visualRunning ? `
+          <div class="audio-progress-wrap">
+            <div class="audio-progress-bar">
+              <div class="audio-progress-fill running" id="visualProgressFill" style="width:${visual?.progress||0}%"></div>
+            </div>
+            <div class="audio-progress-foot">
+              <span id="visualPhaseLabel" class="audio-phase-label">${esc(visual?.phase||'')}</span>
+              <span id="visualProgressPct" class="audio-progress-pct">${visual?.progress||0}%</span>
+            </div>
+          </div>` : ''}
+          ${visual?.error ? `<div class="audio-error-box"><div class="audio-error-title">⚠️ Error</div><pre class="audio-error-pre">${esc(visual.error)}</pre></div>` : ''}
+        `}
+      </div>
+    </div>
+
+    <!-- Asset breakdown (when done) -->
+    ${visualDone && recursos?.recursos?.length ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">📦 Assets Identificados</span>
+      </div>
+      <div class="audio-card-body" style="padding:0">
+        <table class="stat-cls-table">
+          <thead><tr>
+            <th>Archivo</th><th>Tipo</th><th>Segmento</th><th>Duración</th>
+          </tr></thead>
+          <tbody>
+            ${recursos.recursos.map(r => `
+              <tr>
+                <td class="stat-cls-name" style="font-family:monospace;font-size:11px">${esc(r.nombre)}</td>
+                <td><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(r.tipo_contenido || r.tipo)}</span></td>
+                <td class="stat-cls-num">[${esc(r.segmento)}]</td>
+                <td class="stat-cls-num">${parseFloat(r.duracion||0).toFixed(1)}s</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ` : ''}
+
+  </div>`;
+}
+
+async function startVisualOrchestration() {
+  try {
+    await api('POST', `/api/classes/${S.activeClass.id}/visual`);
+    AIModal.show('✨ Arquitectura Visual', 'Diseñando TEXT=, ASSET= y prompts de generación para cada pantalla…');
+    AIModal.update('Iniciando VisualAssistant…');
+    const guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);
+    const visual = { status: 'running', progress: 0, phase: 'Iniciando…' };
+    _buildVisualesUI(document.getElementById('contentArea'), guion, visual);
+    _startVisualPoll();
+  } catch(e) { AIModal.error(e.message); }
+}
+
+function _startVisualPoll() {
+  _clearVisualPoll();
+  const classId = S.activeClass?.id;
+  _visualPollTimer = setInterval(async () => {
+    if (S.activeClass?.id !== classId || S.activePhase !== 'visuales') { _clearVisualPoll(); return; }
+    try {
+      const s = await api('GET', `/api/classes/${classId}/visual/status`);
+      AIModal.update(s.phase, s.progress);
+      const fill  = document.getElementById('visualProgressFill');
+      const lbl   = document.getElementById('visualPhaseLabel');
+      const pct   = document.getElementById('visualProgressPct');
+      if (fill) fill.style.width  = `${s.progress}%`;
+      if (lbl)  lbl.textContent   = s.phase || '';
+      if (pct)  pct.textContent   = `${s.progress}%`;
+      if (s.status !== 'running') {
+        _clearVisualPoll();
+        const guion  = await api('GET', `/api/classes/${classId}/guion-base`);
+        let visual = null;
+        try { visual = await api('GET', `/api/classes/${classId}/visual`); } catch(e) {}
+        _buildVisualesUI(document.getElementById('contentArea'), guion, visual);
+        if (s.status === 'done')  AIModal.done('✅ Arquitectura visual completada');
+        else                      AIModal.error(s.error || 'Error en orquestación visual');
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+async function exportGuionConsolidado() {
+  try {
+    const v = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    if (!v?.content) return toast('Sin contenido', false);
+    _download(`${(S.activeClass?.title||'clase').replace(/[^a-z0-9_\-]/gi,'_')}_guion_consolidado.txt`, v.content);
+  } catch(e) { toast(e.message, false); }
+}
+
+async function exportRecursos() {
+  try {
+    const v = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    if (!v?.recursos_json) return toast('Sin recursos', false);
+    _download(`${(S.activeClass?.title||'clase').replace(/[^a-z0-9_\-]/gi,'_')}_recursos_visuales.json`, v.recursos_json);
+  } catch(e) { toast(e.message, false); }
+}
+
+async function viewGuionConsolidado() {
+  try {
+    const v = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    if (!v?.content) return toast('Sin contenido', false);
+    openModal({ wide: true, html: `
+      <div class="modal-title">📋 Guion Consolidado — ${esc(S.activeClass?.title||'')}</div>
+      <div class="modal-body">
+        <pre class="tagged-script-ta" style="height:500px;overflow-y:auto;font-size:11px">${esc(v.content)}</pre>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+        <button class="btn btn-primary" onclick="exportGuionConsolidado()">⬇ Exportar</button>
+      </div>`
+    });
+  } catch(e) { toast(e.message, false); }
 }
 
 /* ─── PLACEHOLDER PHASES ──────────────────────────────── */
