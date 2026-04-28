@@ -298,6 +298,7 @@ function switchPhase(phase) {
 
 function renderPhase(phase) {
   _clearAudioPoll();
+  _clearSpellPoll();
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
   switch(phase) {
@@ -680,16 +681,26 @@ function _clearAudioPoll() {
 
 async function renderAudio(area) {
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estado del audio…</div></div>`;
-  let state = null;
-  try { state = await api('GET', `/api/classes/${S.activeClass.id}/audio`); } catch(e) { /* no audio yet */ }
-  _buildAudioUI(area, state);
+  let state = null, spell = null, guion = null;
+  try { state = await api('GET', `/api/classes/${S.activeClass.id}/audio`); } catch(e) {}
+  if (state?.tx_status === 'done') {
+    try { spell = await api('GET', `/api/classes/${S.activeClass.id}/spell-correction`); } catch(e) {}
+  }
+  if (spell?.status === 'done') {
+    try { guion = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`); } catch(e) {}
+  }
+  _buildAudioUI(area, state, spell, guion);
   if (state && RUNNING_STATUSES.has(state.tx_status)) _startAudioPoll();
+  if (spell?.status === 'running') _startSpellPoll();
 }
 
-function _buildAudioUI(area, state) {
+function _buildAudioUI(area, state, spell = null, guion = null) {
   const running = state && RUNNING_STATUSES.has(state.tx_status);
-  const done    = state?.tx_status === 'done';
+  const txDone  = state?.tx_status === 'done';
   const hasErr  = state?.tx_error;
+  const spellRunning = spell?.status === 'running';
+  const spellDone    = spell?.status === 'done';
+  const guionDone    = guion?.status === 'done';
 
   const modelOptions = ['tiny','base','small','medium','large-v3'].map(m =>
     `<option value="${m}" ${(state?.whisper_model || 'large-v3') === m ? 'selected' : ''}>${m}</option>`
@@ -768,20 +779,87 @@ function _buildAudioUI(area, state) {
     </div>
     ` : ''}
 
-    <!-- ③ Result Card -->
-    ${done ? `
+    <!-- ③ Transcription summary (compact) -->
+    ${txDone ? `
     <div class="audio-card">
       <div class="audio-card-head">
         <span class="audio-card-title">📄 Transcripción</span>
         <div style="display:flex;gap:6px">
           <button class="seg-action-btn" onclick="copyTranscription()">📋 Copiar</button>
           <button class="seg-action-btn" onclick="exportTranscription()">⬇ .txt</button>
+          <button class="seg-action-btn" onclick="exportSRT()">⬇ .srt</button>
         </div>
       </div>
       <div class="audio-card-body">
-        <pre class="tx-result-pre" id="txResultPre">${esc(state.tx_raw_text || '')}</pre>
+        <div class="tx-summary-row">
+          <div class="tx-summary-stat"><span class="tx-stat-val">${state.tx_segments?.length || 0}</span><span class="tx-stat-lbl">bloques</span></div>
+          <div class="tx-summary-stat"><span class="tx-stat-val">${(state.tx_raw_text||'').split('\n').filter(Boolean).reduce((a,l)=>a+l.split(']:')[1]?.trim().split(/\s+/).length||0,0)}</span><span class="tx-stat-lbl">palabras</span></div>
+          <div class="tx-summary-stat"><span class="tx-stat-val">${_fmtDuration(state.duration)}</span><span class="tx-stat-lbl">duración</span></div>
+        </div>
+        <details class="tx-preview-details">
+          <summary>Ver muestra</summary>
+          <pre class="tx-preview-pre">${esc((state.tx_raw_text||'').split('\n').slice(0,6).join('\n'))}</pre>
+        </details>
       </div>
     </div>
+
+    <!-- ④ Spell correction -->
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">✏️ Corrección Ortográfica</span>
+        ${spellDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
+      </div>
+      <div class="audio-card-body">
+        ${spellDone ? `
+          <div class="tx-summary-row">
+            <div class="tx-summary-stat"><span class="tx-stat-val">${spell.segments?.length || 0}</span><span class="tx-stat-lbl">bloques corregidos</span></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="seg-action-btn" onclick="exportSpellCorrection()">⬇ .txt corregido</button>
+            <button class="seg-action-btn" style="color:var(--tx3)" onclick="startSpellCorrection()">↻ Re-corregir</button>
+          </div>
+        ` : `
+          <p class="audio-card-desc">Corrige errores ortográficos del audio usando el guion original como referencia. Modelo: <strong>gpt-4.1-mini</strong> · batches de 50 bloques.</p>
+          <button class="btn btn-primary audio-att-btn" onclick="startSpellCorrection()" ${spellRunning ? 'disabled' : ''}>
+            ${spellRunning ? '⏳ Corrigiendo…' : '✏️ Corregir con GPT'}
+          </button>
+          ${spellRunning ? `
+          <div class="audio-progress-wrap">
+            <div class="audio-progress-bar"><div class="audio-progress-fill running" id="spellProgressFill" style="width:${spell?.progress||0}%"></div></div>
+            <div class="audio-progress-foot">
+              <span id="spellPhaseLabel" class="audio-phase-label">${esc(spell?.phase||'')}</span>
+              <span id="spellProgressPct" class="audio-progress-pct">${spell?.progress||0}%</span>
+            </div>
+          </div>` : ''}
+          ${spell?.error ? `<div class="audio-error-box"><div class="audio-error-title">⚠️ Error</div><pre class="audio-error-pre">${esc(spell.error)}</pre></div>` : ''}
+        `}
+      </div>
+    </div>
+
+    <!-- ⑤ Alignment -->
+    ${spellDone ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🔗 Alineación y Guion Base</span>
+        ${guionDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
+      </div>
+      <div class="audio-card-body">
+        ${guionDone ? `
+          <div class="tx-summary-row">
+            <div class="tx-summary-stat"><span class="tx-stat-val">${guion.segments?.length || 0}</span><span class="tx-stat-lbl">segmentos alineados</span></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="seg-action-btn" onclick="exportGuionBase()">⬇ guion_base.txt</button>
+            <button class="seg-action-btn" style="color:var(--tx3)" onclick="runAlignment()">↻ Re-alinear</button>
+          </div>
+        ` : `
+          <p class="audio-card-desc">Mapea los timestamps de Whisper a cada pantalla del guion etiquetado usando difflib — mismo algoritmo de <code>0_referencia</code>.</p>
+          <button class="btn btn-primary audio-att-btn" onclick="runAlignment()">🔗 Alinear y generar Guion Base</button>
+        `}
+        ${guion?.error ? `<div class="audio-error-box"><div class="audio-error-title">⚠️ Error</div><pre class="audio-error-pre">${esc(guion.error)}</pre></div>` : ''}
+      </div>
+    </div>
+    ` : ''}
     ` : ''}
 
   </div>`;
@@ -814,10 +892,7 @@ async function uploadAudio(file) {
     const fd = new FormData();
     fd.append('file', file);
     const res = await fetch(`/api/classes/${S.activeClass.id}/audio`, { method: 'POST', body: fd });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Error al subir');
-    }
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al subir'); }
     const state = await res.json();
     toast('Audio cargado');
     _buildAudioUI(area, state);
@@ -892,26 +967,127 @@ function _startAudioPoll() {
           AIModal.done('✅ Transcripción completada');
         } else if (s.tx_status === 'error') {
           AIModal.error(s.tx_error || 'Error desconocido en la transcripción');
+          const full = await api('GET', `/api/classes/${classId}/audio`);
+          _buildAudioUI(document.getElementById('contentArea'), full);
         }
       }
     } catch(e) { /* network blip — keep polling */ }
   }, 2000);
 }
 
-function copyTranscription() {
-  const pre = document.getElementById('txResultPre');
-  if (!pre) return;
-  navigator.clipboard.writeText(pre.textContent).then(() => toast('Copiado'));
+// ── Transcription exports ─────────────────────────────────
+let _lastAudioState = null;  // cache for export functions
+
+async function _getAudioState() {
+  if (_lastAudioState?.tx_status === 'done') return _lastAudioState;
+  try { _lastAudioState = await api('GET', `/api/classes/${S.activeClass.id}/audio`); } catch(e) {}
+  return _lastAudioState;
 }
 
-function exportTranscription() {
-  const pre = document.getElementById('txResultPre');
-  if (!pre) return;
+async function copyTranscription() {
+  const s = await _getAudioState();
+  if (!s?.tx_raw_text) return toast('Sin transcripción', false);
+  navigator.clipboard.writeText(s.tx_raw_text).then(() => toast('Copiado'));
+}
+
+async function exportTranscription() {
+  const s = await _getAudioState();
+  if (!s?.tx_raw_text) return toast('Sin transcripción', false);
   const name = (S.activeClass?.title || 'transcripcion').replace(/[^a-z0-9_\-]/gi, '_');
-  const blob = new Blob([pre.textContent], { type: 'text/plain;charset=utf-8' });
+  _download(`${name}_whisper.txt`, s.tx_raw_text);
+}
+
+async function exportSRT() {
+  const s = await _getAudioState();
+  if (!s?.tx_srt) return toast('Sin SRT', false);
+  const name = (S.activeClass?.title || 'transcripcion').replace(/[^a-z0-9_\-]/gi, '_');
+  _download(`${name}.srt`, s.tx_srt);
+}
+
+// ── Spell correction ──────────────────────────────────────
+let _spellPollTimer = null;
+
+function _clearSpellPoll() {
+  if (_spellPollTimer) { clearInterval(_spellPollTimer); _spellPollTimer = null; }
+}
+
+async function startSpellCorrection() {
+  try {
+    await api('POST', `/api/classes/${S.activeClass.id}/spell-correction`);
+    AIModal.show('✏️ Corrección Ortográfica', 'Corrigiendo con gpt-4.1-mini en batches de 50 bloques…');
+    AIModal.update('Iniciando…');
+    const area = document.getElementById('contentArea');
+    const state = await api('GET', `/api/classes/${S.activeClass.id}/audio`);
+    const spell = { status: 'running', progress: 0, phase: 'Iniciando…' };
+    _buildAudioUI(area, state, spell);
+    _startSpellPoll();
+  } catch(e) { AIModal.error(e.message); }
+}
+
+function _startSpellPoll() {
+  _clearSpellPoll();
+  const classId = S.activeClass?.id;
+  _spellPollTimer = setInterval(async () => {
+    if (S.activeClass?.id !== classId || S.activePhase !== 'audio') { _clearSpellPoll(); return; }
+    try {
+      const s = await api('GET', `/api/classes/${classId}/spell-correction/status`);
+      AIModal.update(s.phase, s.progress);
+      const fill  = document.getElementById('spellProgressFill');
+      const phase = document.getElementById('spellPhaseLabel');
+      const pct   = document.getElementById('spellProgressPct');
+      if (fill)  fill.style.width  = `${s.progress}%`;
+      if (phase) phase.textContent = s.phase || '';
+      if (pct)   pct.textContent   = `${s.progress}%`;
+      if (s.status !== 'running') {
+        _clearSpellPoll();
+        const state = await api('GET', `/api/classes/${classId}/audio`);
+        let spell = null, guion = null;
+        try { spell = await api('GET', `/api/classes/${classId}/spell-correction`); } catch(e) {}
+        _buildAudioUI(document.getElementById('contentArea'), state, spell, guion);
+        if (s.status === 'done') AIModal.done('✅ Corrección ortográfica completada');
+        else AIModal.error(s.error || 'Error en corrección ortográfica');
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+async function exportSpellCorrection() {
+  try {
+    const spell = await api('GET', `/api/classes/${S.activeClass.id}/spell-correction`);
+    if (!spell?.raw_text) return toast('Sin corrección disponible', false);
+    const name = (S.activeClass?.title || 'clase').replace(/[^a-z0-9_\-]/gi, '_');
+    _download(`${name}_corregido.txt`, spell.raw_text);
+  } catch(e) { toast(e.message, false); }
+}
+
+// ── Alignment ─────────────────────────────────────────────
+async function runAlignment() {
+  AIModal.show('🔗 Alineación con difflib', 'Mapeando timestamps de Whisper a cada pantalla del guion etiquetado…');
+  AIModal.update('Procesando segmentos…');
+  try {
+    const result = await api('POST', `/api/classes/${S.activeClass.id}/alignment`);
+    const state  = await api('GET', `/api/classes/${S.activeClass.id}/audio`);
+    const spell  = await api('GET', `/api/classes/${S.activeClass.id}/spell-correction`);
+    _buildAudioUI(document.getElementById('contentArea'), state, spell, result);
+    AIModal.done(`✅ ${result.segments?.length || 0} segmentos alineados`);
+  } catch(e) { AIModal.error(e.message); }
+}
+
+async function exportGuionBase() {
+  try {
+    const guion = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);
+    if (!guion?.content) return toast('Sin guion base disponible', false);
+    const name = (S.activeClass?.title || 'clase').replace(/[^a-z0-9_\-]/gi, '_');
+    _download(`${name}_guion_base.txt`, guion.content);
+  } catch(e) { toast(e.message, false); }
+}
+
+// ── Download helper ───────────────────────────────────────
+function _download(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `${name}_whisper.txt`;
+  a.href = url; a.download = filename;
   a.click(); URL.revokeObjectURL(url);
 }
 
