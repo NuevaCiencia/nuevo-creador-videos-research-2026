@@ -193,13 +193,36 @@ def root():
 
 # ── Schemas ────────────────────────────────────────────────────────────────────
 
+class VideoConfig(BaseModel):
+    fps:                  Optional[int]   = 30
+    resolution:           Optional[str]   = "1920x1080"
+    main_font:            Optional[str]   = "Inter"
+    background_color:     Optional[str]   = "#fefefe"
+    main_text_color:      Optional[str]   = "#bd0505"
+    highlight_text_color: Optional[str]   = "#e3943b"
+    cover_asset:          Optional[str]   = "videos/portada.mp4"
+
 class CourseIn(BaseModel):
-    title: str
+    title:       str
     description: Optional[str] = ""
+    fps:                  Optional[int] = 30
+    resolution:           Optional[str] = "1920x1080"
+    main_font:            Optional[str] = "Inter"
+    background_color:     Optional[str] = "#fefefe"
+    main_text_color:      Optional[str] = "#bd0505"
+    highlight_text_color: Optional[str] = "#e3943b"
+    cover_asset:          Optional[str] = "videos/portada.mp4"
 
 class CourseUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title:                Optional[str] = None
+    description:          Optional[str] = None
+    fps:                  Optional[int] = None
+    resolution:           Optional[str] = None
+    main_font:            Optional[str] = None
+    background_color:     Optional[str] = None
+    main_text_color:      Optional[str] = None
+    highlight_text_color: Optional[str] = None
+    cover_asset:          Optional[str] = None
 
 class SectionIn(BaseModel):
     title: str
@@ -283,13 +306,21 @@ def ser_course(c: models.Course, db: Session = None):
             .count()
         )
     return {
-        "id": c.id,
-        "title": c.title,
+        "id":          c.id,
+        "title":       c.title,
         "description": c.description or "",
         "section_count": section_count,
         "class_count":   class_count,
-        "created_at": c.created_at.isoformat() if c.created_at else None,
-        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+        "created_at":  c.created_at.isoformat() if c.created_at else None,
+        "updated_at":  c.updated_at.isoformat() if c.updated_at else None,
+        # video config
+        "fps":                  c.fps                  or 30,
+        "resolution":           c.resolution           or "1920x1080",
+        "main_font":            c.main_font            or "Inter",
+        "background_color":     c.background_color     or "#fefefe",
+        "main_text_color":      c.main_text_color      or "#bd0505",
+        "highlight_text_color": c.highlight_text_color or "#e3943b",
+        "cover_asset":          c.cover_asset          or "videos/portada.mp4",
     }
 
 def ser_research_item(item: models.ResearchItem):
@@ -354,7 +385,12 @@ def list_courses(db: Session = Depends(get_db)):
 
 @app.post("/api/courses", status_code=201)
 def create_course(data: CourseIn, db: Session = Depends(get_db)):
-    course = models.Course(title=data.title.strip(), description=data.description or "")
+    course = models.Course(
+        title=data.title.strip(), description=data.description or "",
+        fps=data.fps, resolution=data.resolution, main_font=data.main_font,
+        background_color=data.background_color, main_text_color=data.main_text_color,
+        highlight_text_color=data.highlight_text_color, cover_asset=data.cover_asset,
+    )
     db.add(course)
     db.commit()
     db.refresh(course)
@@ -366,10 +402,12 @@ def update_course(course_id: int, data: CourseUpdate, db: Session = Depends(get_
     course = db.query(models.Course).filter(models.Course.id == course_id).first()
     if not course:
         raise HTTPException(404, "Curso no encontrado")
-    if data.title is not None:
-        course.title = data.title.strip()
-    if data.description is not None:
-        course.description = data.description
+    update_data = data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        if key == "title":
+            setattr(course, key, value.strip())
+        else:
+            setattr(course, key, value)
     course.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(course)

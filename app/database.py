@@ -21,8 +21,36 @@ def get_db():
 def init_db():
     import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+    _migrate()
     _seed_screen_types()
     _seed_remotion_templates()
+
+
+def _migrate():
+    """Non-destructive ALTER TABLE migrations for existing tables."""
+    import sqlite3
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    conn = sqlite3.connect(db_path)
+    try:
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(courses)")}
+        new_cols = [
+            ("fps",                  "INTEGER DEFAULT 30"),
+            ("resolution",           "VARCHAR(20) DEFAULT '1920x1080'"),
+            ("main_font",            "VARCHAR(50) DEFAULT 'Inter'"),
+            ("background_color",     "VARCHAR(20) DEFAULT '#fefefe'"),
+            ("main_text_color",      "VARCHAR(20) DEFAULT '#bd0505'"),
+            ("highlight_text_color", "VARCHAR(20) DEFAULT '#e3943b'"),
+            ("cover_asset",          "VARCHAR(255) DEFAULT 'videos/portada.mp4'"),
+        ]
+        for col, defn in new_cols:
+            if col not in existing:
+                conn.execute(f"ALTER TABLE courses ADD COLUMN {col} {defn}")
+                print(f"  migration: courses.{col} added")
+        conn.commit()
+    except Exception as e:
+        print(f"⚠️ migration error: {e}")
+    finally:
+        conn.close()
 
 
 # ── SEED DATA ─────────────────────────────────────────────────────────────────

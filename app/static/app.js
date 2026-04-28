@@ -786,6 +786,7 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
       <div class="audio-card-head">
         <span class="audio-card-title">📄 Transcripción</span>
         <div class="audio-card-head-right">
+          <button class="seg-action-btn" onclick="viewTranscription()">👁 Ver</button>
           <button class="seg-action-btn" onclick="copyTranscription()">📋 Copiar</button>
           <button class="seg-action-btn" onclick="exportTranscription()">⬇ .txt</button>
           <button class="seg-action-btn" onclick="exportSRT()">⬇ .srt</button>
@@ -1015,6 +1016,24 @@ async function _getAudioState() {
   return _lastAudioState;
 }
 
+async function viewTranscription() {
+  const s = await _getAudioState();
+  if (!s?.tx_raw_text) return toast('Sin transcripción', false);
+  openModal({
+    wide: true,
+    html: `
+      <div class="modal-title">📄 Transcripción — ${esc(S.activeClass?.title || '')}</div>
+      <div class="modal-body">
+        <pre class="tagged-script-ta" style="height:480px;overflow-y:auto">${esc(s.tx_raw_text)}</pre>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+        <button class="btn btn-ghost" onclick="copyTranscription()">📋 Copiar</button>
+        <button class="btn btn-primary" onclick="exportTranscription()">⬇ Exportar .txt</button>
+      </div>`
+  });
+}
+
 async function copyTranscription() {
   const s = await _getAudioState();
   if (!s?.tx_raw_text) return toast('Sin transcripción', false);
@@ -1155,26 +1174,95 @@ function createCourse() {
 }
 
 function editCourse(id) {
-  const c = S.courses.find(x => x.id === id);
-  openModal({
-    title: 'Editar Proyecto',
-    fields: [
-      { key: 'title',       label: 'Nombre', value: c.title, required: true },
-      { key: 'description', label: 'Descripción', value: c.description || '', textarea: true },
-    ],
-    onConfirm: async v => {
-      const updated = await api('PUT', `/api/courses/${id}`, v);
-      Object.assign(c, updated);
-      if (S.activeCourse?.id === id) {
-        S.activeCourse = updated;
-        document.querySelector('.tree-course-name').textContent = updated.title;
-        updateBreadcrumb();
-      }
-      closeModal();
-      if (!S.activeCourse) renderSidebarPicker();
-      toast('Actualizado');
-    }
+  const c = S.courses.find(x => x.id === id) || S.activeCourse;
+  if (!c) return;
+  openModal({ wide: true, html: `
+    <div class="modal-title">Editar Proyecto</div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nombre del proyecto</label>
+        <input id="ec_title" type="text" value="${escA(c.title)}"/>
+      </div>
+      <div class="field">
+        <label>Descripción</label>
+        <textarea id="ec_desc" rows="2">${esc(c.description || '')}</textarea>
+      </div>
+
+      <div class="vc-section-divider">⚙️ Configuración de Video</div>
+      <div class="vc-grid">
+        <div class="field">
+          <label>FPS</label>
+          <input id="ec_fps" type="number" value="${c.fps || 30}" min="24" max="60"/>
+        </div>
+        <div class="field">
+          <label>Resolución</label>
+          <input id="ec_res" type="text" value="${escA(c.resolution || '1920x1080')}"/>
+        </div>
+        <div class="field">
+          <label>Fuente principal</label>
+          <input id="ec_font" type="text" value="${escA(c.main_font || 'Inter')}"/>
+        </div>
+        <div class="field">
+          <label>Color de fondo</label>
+          <div class="vc-color-row">
+            <input id="ec_bg_pick" type="color" value="${escA(c.background_color || '#fefefe')}" oninput="document.getElementById('ec_bg').value=this.value"/>
+            <input id="ec_bg" type="text"  value="${escA(c.background_color || '#fefefe')}" oninput="document.getElementById('ec_bg_pick').value=this.value" class="vc-hex"/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Color de texto</label>
+          <div class="vc-color-row">
+            <input id="ec_txt_pick" type="color" value="${escA(c.main_text_color || '#bd0505')}" oninput="document.getElementById('ec_txt').value=this.value"/>
+            <input id="ec_txt" type="text"  value="${escA(c.main_text_color || '#bd0505')}" oninput="document.getElementById('ec_txt_pick').value=this.value" class="vc-hex"/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Color highlight</label>
+          <div class="vc-color-row">
+            <input id="ec_hl_pick" type="color" value="${escA(c.highlight_text_color || '#e3943b')}" oninput="document.getElementById('ec_hl').value=this.value"/>
+            <input id="ec_hl" type="text"  value="${escA(c.highlight_text_color || '#e3943b')}" oninput="document.getElementById('ec_hl_pick').value=this.value" class="vc-hex"/>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Asset de portada</label>
+        <input id="ec_cover" type="text" value="${escA(c.cover_asset || 'videos/portada.mp4')}"/>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditCourse(${id})">Guardar</button>
+    </div>`
   });
+}
+
+async function saveEditCourse(id) {
+  const title = document.getElementById('ec_title')?.value?.trim();
+  if (!title) { document.getElementById('ec_title').focus(); return; }
+  const payload = {
+    title,
+    description:          document.getElementById('ec_desc').value,
+    fps:                  parseInt(document.getElementById('ec_fps').value) || 30,
+    resolution:           document.getElementById('ec_res').value.trim(),
+    main_font:            document.getElementById('ec_font').value.trim(),
+    background_color:     document.getElementById('ec_bg').value.trim(),
+    main_text_color:      document.getElementById('ec_txt').value.trim(),
+    highlight_text_color: document.getElementById('ec_hl').value.trim(),
+    cover_asset:          document.getElementById('ec_cover').value.trim(),
+  };
+  try {
+    const updated = await api('PUT', `/api/courses/${id}`, payload);
+    const c = S.courses.find(x => x.id === id);
+    if (c) Object.assign(c, updated);
+    if (S.activeCourse?.id === id) {
+      S.activeCourse = updated;
+      document.querySelector('.tree-course-name').textContent = updated.title;
+      updateBreadcrumb();
+    }
+    closeModal();
+    if (!S.activeCourse) renderSidebarPicker();
+    toast('Proyecto actualizado');
+  } catch(e) { toast(e.message, false); }
 }
 
 function deleteCourse(id) {

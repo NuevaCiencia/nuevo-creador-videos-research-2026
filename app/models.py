@@ -13,6 +13,15 @@ class Course(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
     updated_at  = Column(DateTime, default=datetime.utcnow)
 
+    # Video production config — equivalent to video_config.yaml in 0_referencia
+    fps                  = Column(Integer,      default=30)
+    resolution           = Column(String(20),   default="1920x1080")
+    main_font            = Column(String(50),   default="Inter")
+    background_color     = Column(String(20),   default="#fefefe")
+    main_text_color      = Column(String(20),   default="#bd0505")
+    highlight_text_color = Column(String(20),   default="#e3943b")
+    cover_asset          = Column(String(255),  default="videos/portada.mp4")
+
     sections = relationship(
         "Section",
         back_populates="course",
