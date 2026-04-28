@@ -5,6 +5,31 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v0.8.1 — Visualizador de Pantallas: conexión con catálogo + fixes · `96b617f`
+
+### Tipos de pantalla dinámicos desde la DB
+- El select de tipo en la tab Pantallas ahora carga los tipos del catálogo global (`screen_types`)
+  en lugar de un array hardcodeado. Incluye ícono, label y color de cada tipo.
+- El botón ✎ Editar Contenido usa el flag `has_params` de la DB.
+- El color de la columna izquierda viene del campo `color` del catálogo — cambiarlo en el
+  Gestor Global se refleja automáticamente en la tab Pantallas.
+- El endpoint `/api/classes/{id}/visualizador` ahora incluye `screen_types` en la respuesta.
+- Eliminadas las clases CSS `.vt-*` hardcodeadas; los colores se inyectan via `style` inline
+  usando CSS custom properties (`--vt-text`, `--vt-border`).
+
+### Fix — scroll al abrir/cerrar editor de params
+- `vizToggleEdit` y `vizUpdateType` guardaban y restauraban el `scrollTop` del `.viz-phase`
+  antes/después de reconstruir el HTML, evitando el salto al inicio de la lista.
+
+### Fix — templates REMOTION reducidos a los 4 reales
+- `REMOTION_TEMPLATES_SEED` corregido: de 19 a 4 (TypeWriter, MindMap, LinearSteps, FlipCards).
+  Los otros 15 eran aspiracionales sin implementación en `0_referencia`.
+- `_seed_remotion_templates()` ahora sincroniza: elimina de la DB los templates no válidos
+  y agrega los faltantes en cada arranque del servidor.
+- Select en `_vizParamsForm` actualizado con los 4 templates reales.
+
+---
+
 ## v0.8 — Fase Video + Fonts & Colors + Visualizador de Pantallas · `ed9134c`
 
 ### Fase Video (tab 🎬 Video)
