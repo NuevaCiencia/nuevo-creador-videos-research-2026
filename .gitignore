@@ -63,3 +63,7 @@ app/storage/
 models/
 .cache/
 app/assets/
+app/renders/
+app/images/
+app/videos/
+.claude/
