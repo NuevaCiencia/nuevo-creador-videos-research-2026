@@ -5,6 +5,66 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v0.8 — Fase Video + Fonts & Colors + Visualizador de Pantallas · `ed9134c`
+
+### Fase Video (tab 🎬 Video)
+- **Dummy builder inteligente** — genera videos placeholder para cada asset del guion consolidado
+  (imágenes split/full, clips de video) antes del render final; permite probar el timing sin assets reales.
+- **Render final FFmpeg** — pipeline completo: carga guion consolidado + audio de la DB,
+  parsea `#META/#STYLES/#COVER/#SEGMENT`, genera subtítulos `.ass`, mezcla video con `filter_complex_script`,
+  antepone portada y guarda en `renders/clase_{id}_final.mp4`.
+- **ClassRender model** — nueva tabla `class_renders` que trackea `status/progress/phase/error/output_path`
+  para dummy-build y render por separado; polling en tiempo real desde el frontend.
+- **Endpoints nuevos**: `GET/POST /api/classes/{id}/render/build-dummies`, `GET /api/classes/{id}/render/status`,
+  `POST /api/classes/{id}/render`, `GET /api/classes/{id}/render/download`.
+
+### Fix — paths de audio portátiles entre máquinas
+- Al subir audio se guarda `file_path` relativo a `app/` en lugar de absoluto.
+- `_migrate_audio_paths()` en `database.py`: al arrancar convierte automáticamente rutas absolutas rancias
+  que no existen en el sistema actual a rutas relativas.
+- `_resolve_path()` en `render_agent.py`: fallback en runtime — si la ruta absoluta no existe, busca el
+  segmento `assets/` o `renders/` en el path almacenado y reconstruye relativo a `app_dir`.
+
+### Fix — FFmpeg en Windows con paths de ass con letra de unidad
+- `ass=C:/path/sub.ass` falla en Windows: FFmpeg interpreta `:` como separador de opción.
+- Solución: `filter_complex_script` usa `ass='C\:/path/sub.ass'` (escape con backslash + comillas).
+- En `-vf` (argumento de subprocess, no en script): `ass=C\:/path/sub.ass` sin comillas externas.
+
+### Feat — Fonts & Colors (tab 🎨)
+- **Biblioteca de fuentes**: grid de tarjetas con preview tipográfico vivo; botón de upload para
+  agregar `.ttf/.otf`; botón eliminar por fuente; fuentes bundled (Inter, Montserrat, JetBrainsMono)
+  preinstaladas en `app/fonts/` y montadas como estáticas en `/fonts/`.
+- **Color pickers**: fondos, texto principal, highlight — con sincronización hex + input de color nativo.
+- **Live preview**: panel 16:9 con `container-type:size` y unidades `cqh/cqw`; refleja fuente y colores
+  en tiempo real; autosave con debounce 800ms al curso activo.
+- **fontsdir en FFmpeg**: `crear_video_mixto()` recibe `fonts_dir` y lo pasa al filtro `ass=` como
+  `fontsdir=...` para que libass resuelva fuentes bundled sin instalación en el sistema.
+
+### Feat — Visualizador de Pantallas (tab 🖥️ Pantallas)
+- Lista de todas las pantallas de la clase con tarjeta de 3 columnas por pantalla.
+- **Columna izquierda coloreada por tipo**: VIDEO=azul, TEXT=rosa/rojo, SPLIT_LEFT=verde,
+  SPLIT_RIGHT=teal, LIST=ámbar, FULL_IMAGE=violeta, CONCEPT=lila, REMOTION=esmeralda.
+  Implementado con CSS custom properties `--vt-bg/border/text` por clase `.vt-{tipo}`.
+- Muestra número de pantalla, timestamp, duración, selector de tipo con cambio en tiempo real.
+- **Botón ✎ Editar Contenido**: solo visible para LIST/CONCEPT/REMOTION; toggle abre/cierra el
+  formulario de params inplace sin recargar la lista completa (`_vizEditingIdx` state).
+- Formulario de params por tipo: LIST → campos título + 7 ítems; CONCEPT → nombre + definición;
+  REMOTION → select de los 19 templates. Guardado automático al editar.
+- **Preview canvas** por pantalla: renderizado fiel de cada tipo (split 50/50, full image,
+  texto centrado, lista con ghost title, concepto, remotion con degradado).
+- Cambiar tipo invalida `guion_base` y `guion_consolidado` en cascada.
+
+### Fix — scroll en tab Pantallas
+- `.viz-phase` ahora tiene `flex:1; overflow-y:auto` para ser su propio contenedor de scroll.
+- `.viz-card` tiene `min-height:180px; flex-shrink:0` para no colapsarse.
+
+### Fix — preview SPLIT descuadrado
+- `.viz-preview-canvas` tiene `flex-direction:column` en CSS; SPLIT necesita `row`.
+- Se añade `canvas.style.flexDirection = 'row'` para SPLIT y reset a `''` en el bloque de reset
+  para que no contamine tipos subsiguientes.
+
+---
+
 ## v0.7 — Robustez del pipeline + UX mejoras
 
 ### Distribución de pantallas (screen_agent)
