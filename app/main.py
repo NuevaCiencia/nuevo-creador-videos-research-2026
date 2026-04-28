@@ -42,6 +42,150 @@ def get_audio_duration(file_path: str) -> float:
         return 0.0
 
 
+_WPM           = 130    # palabras/min — ritmo estándar de locución en español
+_VIDEO_OVERHEAD = 1.15  # 15% extra para transiciones, pausas y énfasis visuales
+
+
+@app.get("/api/courses/{course_id}/stats")
+def get_course_stats(course_id: int, db: Session = Depends(get_db)):
+    from collections import Counter, defaultdict
+
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(404, "Curso no encontrado")
+
+    sections = (db.query(models.Section)
+                .filter(models.Section.course_id == course_id)
+                .order_by(models.Section.order).all())
+    section_ids = [s.id for s in sections]
+
+    all_classes = (db.query(models.Class)
+                   .filter(models.Class.section_id.in_(section_ids)).all()
+                   if section_ids else [])
+    class_ids = [c.id for c in all_classes]
+
+    def _map(rows, key):
+        return {getattr(r, key): r for r in rows}
+
+    audio_map  = _map(db.query(models.ClassAudio).filter(models.ClassAudio.class_id.in_(class_ids)).all(), "class_id") if class_ids else {}
+    spell_map  = _map(db.query(models.ClassSpellCorrection).filter(models.ClassSpellCorrection.class_id.in_(class_ids)).all(), "class_id") if class_ids else {}
+    guion_map  = _map(db.query(models.ClassGuionBase).filter(models.ClassGuionBase.class_id.in_(class_ids)).all(), "class_id") if class_ids else {}
+
+    seg_rows      = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id.in_(class_ids)).all() if class_ids else []
+    research_rows = db.query(models.ResearchItem).filter(models.ResearchItem.class_id.in_(class_ids)).all()   if class_ids else []
+
+    segs_by_class   = defaultdict(int)
+    for s in seg_rows: segs_by_class[s.class_id] += 1
+    screen_type_cnt = Counter(s.screen_type for s in seg_rows)
+    research_status = Counter(r.status for r in research_rows)
+
+    st_rows  = db.query(models.ScreenType).filter(models.ScreenType.name.in_(list(screen_type_cnt.keys()))).all() if screen_type_cnt else []
+    st_info  = {s.name: {"color": s.color, "icon": s.icon, "label": s.label} for s in st_rows}
+
+    cls_by_section = defaultdict(list)
+    for c in all_classes: cls_by_section[c.section_id].append(c)
+
+    total_words = total_chars = 0
+    p_guion = p_seg = p_audio = p_tx = p_spell = p_align = 0
+    word_counts = []
+    section_stats = []
+
+    for sec in sections:
+        sw = sc = 0
+        cls_list = sorted(cls_by_section.get(sec.id, []), key=lambda x: x.order)
+        cls_stats = []
+
+        for cls in cls_list:
+            txt   = cls.raw_narration or ""
+            words = len(txt.split()) if txt.strip() else 0
+            chars = len(txt)
+            sw += words; sc += chars
+            total_words += words; total_chars += chars
+            word_counts.append(words)
+
+            audio = audio_map.get(cls.id)
+            spell = spell_map.get(cls.id)
+            guion = guion_map.get(cls.id)
+            hg = words > 0
+            hs = segs_by_class.get(cls.id, 0) > 0
+            ha = audio is not None
+            ht = ha and audio.tx_status == "done"
+            hsp= spell is not None and spell.status == "done"
+            hal= guion is not None and guion.status == "done"
+
+            if hg:  p_guion += 1
+            if hs:  p_seg   += 1
+            if ha:  p_audio += 1
+            if ht:  p_tx    += 1
+            if hsp: p_spell += 1
+            if hal: p_align += 1
+
+            stage = sum([hg, hs, ht, hsp, hal])  # 0-5
+            cls_stats.append({
+                "id": cls.id, "title": cls.title,
+                "words": words, "chars": chars,
+                "narration_min": round(words / _WPM, 1),
+                "stage": stage,
+                "flags": {"guion": hg, "segments": hs, "audio": ha,
+                          "transcription": ht, "spell": hsp, "alignment": hal},
+            })
+
+        nm = sw / _WPM
+        section_stats.append({
+            "id": sec.id, "title": sec.title,
+            "class_count": len(cls_list),
+            "words": sw, "chars": sc,
+            "narration_min": round(nm, 1),
+            "video_min": round(nm * _VIDEO_OVERHEAD, 1),
+            "classes": cls_stats,
+        })
+
+    n  = len(all_classes)
+    nm = total_words / _WPM
+
+    return {
+        "course": {"id": course.id, "title": course.title},
+        "overview": {
+            "total_sections":         len(sections),
+            "total_classes":          n,
+            "avg_classes_per_section":round(n / len(sections), 1) if sections else 0,
+            "total_words":            total_words,
+            "total_chars":            total_chars,
+            "avg_words_per_class":    round(total_words / n) if n else 0,
+            "avg_words_per_section":  round(total_words / len(sections)) if sections else 0,
+            "max_words_class":        max(word_counts) if word_counts else 0,
+            "min_words_class":        min(w for w in word_counts if w > 0) if any(word_counts) else 0,
+            "narration_min":          round(nm, 1),
+            "narration_fmt":          f"{int(nm//60)}h {int(nm%60)}m" if nm >= 60 else f"{round(nm,1)}min",
+            "video_min":              round(nm * _VIDEO_OVERHEAD, 1),
+            "video_fmt":              f"{int(nm*_VIDEO_OVERHEAD//60)}h {int(nm*_VIDEO_OVERHEAD%60)}m" if nm*_VIDEO_OVERHEAD >= 60 else f"{round(nm*_VIDEO_OVERHEAD,1)}min",
+            "total_screens":          len(seg_rows),
+            "completion_pct":         round(p_align / n * 100, 1) if n else 0,
+            "wpm_rate":               _WPM,
+        },
+        "pipeline": {
+            "guion": p_guion, "segments": p_seg, "audio": p_audio,
+            "transcription": p_tx, "spell": p_spell, "alignment": p_align,
+            "total": n,
+        },
+        "research": {
+            "total":     len(research_rows),
+            "verified":  research_status.get("verified",  0),
+            "disputed":  research_status.get("disputed",  0),
+            "not_found": research_status.get("not_found", 0),
+            "error":     research_status.get("error",     0),
+        },
+        "screen_types": sorted([
+            {"name": k, "count": v,
+             "color": st_info.get(k, {}).get("color", "#666"),
+             "icon":  st_info.get(k, {}).get("icon",  "▪"),
+             "label": st_info.get(k, {}).get("label",  k)}
+            for k, v in screen_type_cnt.items()
+        ], key=lambda x: -x["count"]),
+        "sections": section_stats,
+    }
+
+
 @app.get("/")
 def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))

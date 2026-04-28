@@ -18,6 +18,9 @@
     </div>
     <div class="tb-breadcrumb" id="breadcrumb"></div>
     <div class="tb-right">
+      <button class="tb-btn" onclick="openStats()" title="Estadísticas del proyecto" id="statsBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </button>
       <button class="tb-btn" onclick="renderContent('global_manager')" title="Gestor de Pantallas" id="globalManagerBtn">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       </button>
@@ -102,6 +105,32 @@
   <!-- Modals -->
   <div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div id="modalBox" class="modal-box"></div>
+  </div>
+
+  <!-- AI Work Modal (blocking) -->
+  <div id="aiModalBackdrop" class="ai-modal-backdrop">
+    <div class="ai-modal-box">
+      <div class="ai-modal-header">
+        <div class="ai-modal-spinner-wrap" id="aiSpinnerWrap">
+          <div class="ai-spinner-ring" id="aiSpinnerRing"></div>
+          <span class="ai-spinner-icon" id="aiSpinnerIcon"></span>
+        </div>
+        <div class="ai-modal-titles">
+          <div class="ai-modal-title" id="aiModalTitle">Procesando…</div>
+          <div class="ai-modal-subtitle" id="aiModalSubtitle"></div>
+        </div>
+      </div>
+      <div class="ai-modal-progress" id="aiModalProgress" style="display:none">
+        <div class="ai-modal-bar">
+          <div class="ai-modal-bar-fill running" id="aiModalBarFill"></div>
+        </div>
+        <span class="ai-modal-pct" id="aiModalPct">0%</span>
+      </div>
+      <div class="ai-modal-log" id="aiModalLog"></div>
+      <div class="ai-modal-foot" id="aiModalFoot" style="display:none">
+        <button class="btn btn-ghost" onclick="AIModal.close()">Cerrar</button>
+      </div>
+    </div>
   </div>
 
   <!-- Toasts -->

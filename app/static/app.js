@@ -398,19 +398,17 @@ function switchGuionTab(tab) {
 
 async function runResearch() {
   const cls = S.activeClass;
-  if (!cls.raw_narration && !document.getElementById('guionTA').value) {
+  if (!cls.raw_narration && !document.getElementById('guionTA')?.value) {
     return toast('Pega un guion primero', false);
   }
-  
-  const body = document.getElementById('researchBody');
-  body.innerHTML = '<div class="rp-loading">🤖 Analizando y consultando Tavily...</div>';
-  
+  AIModal.show('🔍 Verificando con Tavily', 'Extrayendo afirmaciones y consultando fuentes académicas…');
+  AIModal.update('Analizando el guion con GPT…');
   try {
     const results = await api('POST', `/api/classes/${cls.id}/research`);
-    toast('Investigación completada');
+    AIModal.done(`✅ ${results.length} afirmaciones procesadas`);
     renderResearchItems(results);
   } catch(e) {
-    toast('Error en investigación', false);
+    AIModal.error(e.message);
     renderResearchItems();
   }
 }
@@ -454,15 +452,17 @@ async function renderResearchItems(providedItems = null) {
 }
 
 async function reexamineItem(id) {
-  const btn = document.getElementById(`rex_${id}`);
-  if (btn) { btn.disabled = true; btn.textContent = '↻ Buscando…'; }
+  AIModal.show('↻ Re-examinando con Tavily', 'Buscando fuentes más actualizadas para este claim…');
+  AIModal.update('Generando query alternativo con filtros de recencia 2023–2025…');
   try {
     const updated = await api('POST', `/api/research-items/${id}/reexamine`);
-    toast(updated.status === 'verified' ? '✓ Verificado con fuentes actualizadas' : `Re-examinado: ${updated.status}`);
+    const msg = updated.status === 'verified'
+      ? '✅ Verificado con fuentes actualizadas'
+      : `✅ Re-examinado — estado: ${updated.status}`;
+    AIModal.done(msg);
     renderResearchItems();
   } catch(e) {
-    toast('Error al re-examinar', false);
-    if (btn) { btn.disabled = false; btn.textContent = '↻ Actualizar'; }
+    AIModal.error(e.message);
   }
 }
 
@@ -479,17 +479,14 @@ async function runSegmentation() {
   if (!(cls.raw_narration || '').trim() && !document.getElementById('guionTA')?.value.trim()) {
     return toast('Pega un guion primero', false);
   }
-
-  const body = document.getElementById('screensBody');
-  if (!body) return;
-  body.innerHTML = '<div class="rp-loading">✦ Segmentando con IA…</div>';
-
+  AIModal.show('✦ Segmentando en Pantallas', 'La IA divide el guion y elige el tipo de pantalla más adecuado para cada fragmento…');
+  AIModal.update('Enviando guion al modelo…');
   try {
     const segments = await api('POST', `/api/classes/${cls.id}/segment`);
-    toast(`${segments.length} pantallas generadas`);
+    AIModal.done(`✅ ${segments.length} pantallas generadas`);
     renderSegmentCards(segments);
   } catch(e) {
-    toast('Error al segmentar', false);
+    AIModal.error(e.message);
     renderSegmentCards();
   }
 }
@@ -807,12 +804,12 @@ async function startWhisperATT() {
     fd.append('model', model);
     const res = await fetch(`/api/classes/${S.activeClass.id}/transcription`, { method: 'POST', body: fd });
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
-    toast(`Transcripción iniciada con ${model}`);
-    // Re-fetch state and start polling
+    AIModal.show(`🎙️ Transcripción con Whisper (${model})`, 'Procesando audio… esto puede tardar varios minutos según el modelo y la duración.');
+    AIModal.update(`Cargando modelo ${model}…`);
     const state = await api('GET', `/api/classes/${S.activeClass.id}/audio`);
     _buildAudioUI(document.getElementById('contentArea'), state);
     _startAudioPoll();
-  } catch(e) { toast(e.message, false); }
+  } catch(e) { AIModal.error(e.message); }
 }
 
 function _startAudioPoll() {
@@ -841,17 +838,19 @@ function _startAudioPoll() {
         errBox.innerHTML = `<div class="audio-error-title">⚠️ Error de transcripción</div><pre class="audio-error-pre">${esc(s.tx_error)}</pre>`;
       }
 
+      // Mirror progress into AIModal
+      AIModal.update(s.tx_phase, s.tx_progress);
+
       if (!RUNNING_STATUSES.has(s.tx_status)) {
         _clearAudioPoll();
         if (fill) fill.classList.remove('running');
         if (attBtn) { attBtn.disabled = false; attBtn.textContent = '🎙️ ATT con Whisper'; }
         if (s.tx_status === 'done') {
-          // Full re-render to show result card
           const full = await api('GET', `/api/classes/${classId}/audio`);
           _buildAudioUI(document.getElementById('contentArea'), full);
-          toast('✅ Transcripción completada');
+          AIModal.done('✅ Transcripción completada');
         } else if (s.tx_status === 'error') {
-          toast('Error en transcripción — revisa el panel', false);
+          AIModal.error(s.tx_error || 'Error desconocido en la transcripción');
         }
       }
     } catch(e) { /* network blip — keep polling */ }
@@ -1342,6 +1341,251 @@ async function deleteRemotionTemplate(id) {
 /* ═══════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   AI WORK MODAL — bloquea toda la UI mientras trabaja la IA
+═══════════════════════════════════════════════════════ */
+const AIModal = (() => {
+  let _open = false;
+
+  const $ = id => document.getElementById(id);
+
+  function show(title, subtitle = '') {
+    $('aiModalTitle').textContent    = title;
+    $('aiModalSubtitle').textContent = subtitle;
+    $('aiModalLog').innerHTML        = '';
+    $('aiModalProgress').style.display = 'none';
+    $('aiModalBarFill').style.width    = '0%';
+    $('aiModalPct').textContent        = '0%';
+    $('aiModalFoot').style.display     = 'none';
+    // Spinner: spinning state
+    $('aiSpinnerRing').className  = 'ai-spinner-ring spinning';
+    $('aiSpinnerIcon').textContent = '';
+    $('aiModalBackdrop').classList.add('open');
+    _open = true;
+  }
+
+  function update(msg, pct = null) {
+    if (!_open) return;
+    if (msg) {
+      const log  = $('aiModalLog');
+      const line = document.createElement('div');
+      line.className   = 'ai-log-line';
+      line.textContent = msg;
+      log.appendChild(line);
+      // Keep last 12 lines
+      while (log.children.length > 12) log.removeChild(log.firstChild);
+      log.scrollTop = log.scrollHeight;
+    }
+    if (pct !== null) {
+      $('aiModalProgress').style.display = 'flex';
+      $('aiModalBarFill').style.width    = `${pct}%`;
+      $('aiModalPct').textContent        = `${pct}%`;
+    }
+  }
+
+  function done(msg = '✅ Completado') {
+    if (!_open) return;
+    $('aiSpinnerRing').className   = 'ai-spinner-ring';
+    $('aiSpinnerIcon').textContent = '✅';
+    $('aiModalTitle').textContent  = msg;
+    $('aiModalProgress').style.display = 'none';
+    setTimeout(close, 1400);
+  }
+
+  function error(msg) {
+    if (!_open) return;
+    $('aiSpinnerRing').className   = 'ai-spinner-ring error-ring';
+    $('aiSpinnerIcon').textContent = '❌';
+    $('aiModalTitle').textContent  = 'Ocurrió un error';
+    const log  = $('aiModalLog');
+    const line = document.createElement('div');
+    line.className   = 'ai-log-line ai-log-error';
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    $('aiModalFoot').style.display = 'flex';
+  }
+
+  function close() {
+    $('aiModalBackdrop').classList.remove('open');
+    _open = false;
+  }
+
+  return { show, update, done, error, close };
+})();
+
+/* ═══════════════════════════════════════════════════════
+   STATISTICS MODAL
+═══════════════════════════════════════════════════════ */
+async function openStats() {
+  if (!S.activeCourse) return toast('Abre un proyecto primero', false);
+  openModal({ wide: true, html: `
+    <div class="modal-title">📊 Estadísticas — ${esc(S.activeCourse.title)}</div>
+    <div class="modal-body stats-modal-body">
+      <div class="rp-loading" style="padding:40px">Calculando estadísticas…</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+      <button class="btn btn-ghost" onclick="openStats()">↻ Actualizar</button>
+    </div>` });
+
+  try {
+    const d = await api('GET', `/api/courses/${S.activeCourse.id}/stats`);
+    document.querySelector('.stats-modal-body').innerHTML = _renderStats(d);
+  } catch(e) {
+    document.querySelector('.stats-modal-body').innerHTML =
+      `<div class="rp-empty">Error cargando estadísticas: ${esc(e.message)}</div>`;
+  }
+}
+
+function _pct(v, total) { return total ? Math.round(v / total * 100) : 0; }
+function _bar(v, total, color = 'var(--accent)') {
+  const p = _pct(v, total);
+  return `<div class="stat-bar-wrap">
+    <div class="stat-bar-fill" style="width:${p}%;background:${color}"></div>
+  </div>`;
+}
+function _fmtN(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n); }
+
+function _renderStats(d) {
+  const o  = d.overview;
+  const pi = d.pipeline;
+  const re = d.research;
+  const n  = pi.total;
+
+  const PIPE_STEPS = [
+    { key: 'guion',         label: '📝 Guion escrito',       color: '#6366f1' },
+    { key: 'segments',      label: '🎬 Pantallas segmentadas', color: '#8b5cf6' },
+    { key: 'audio',         label: '🎵 Audio cargado',        color: '#06b6d4' },
+    { key: 'transcription', label: '🎙️ Whisper completado',   color: '#0ea5e9' },
+    { key: 'spell',         label: '✏️ Corrección ortográfica',color: '#f59e0b' },
+    { key: 'alignment',     label: '🔗 Alineación completada', color: '#10b981' },
+  ];
+
+  const maxST = d.screen_types.length ? d.screen_types[0].count : 1;
+
+  return `
+  <!-- ① OVERVIEW CARDS -->
+  <div class="stat-section-label">Vista General</div>
+  <div class="stat-cards-row">
+    ${_statCard('📝', _fmtN(o.total_words), 'Palabras totales', `${_fmtN(o.avg_words_per_class)} prom/clase`)}
+    ${_statCard('⏱', o.narration_fmt, 'Tiempo de locución', `a ${o.wpm_rate} pal/min`)}
+    ${_statCard('🎬', o.video_fmt, 'Video estimado', '+15% transiciones')}
+    ${_statCard('📚', o.total_sections, 'Secciones', `${o.avg_classes_per_section} clases/secc. prom.`)}
+    ${_statCard('🎓', o.total_classes, 'Clases', `${_fmtN(o.avg_words_per_section)} pal/secc. prom.`)}
+    ${_statCard('🖼', o.total_screens, 'Pantallas', `${d.screen_types.length} tipos distintos`)}
+  </div>
+
+  <!-- ② DETAIL ROW -->
+  <div class="stat-two-col">
+    <div class="stat-block">
+      <div class="stat-section-label">Distribución de palabras</div>
+      <div class="stat-kv-grid">
+        <span class="stat-kv-k">Mayor clase</span><span class="stat-kv-v">${_fmtN(o.max_words_class)} pal</span>
+        <span class="stat-kv-k">Menor clase</span><span class="stat-kv-v">${_fmtN(o.min_words_class)} pal</span>
+        <span class="stat-kv-k">Promedio/clase</span><span class="stat-kv-v">${_fmtN(o.avg_words_per_class)} pal</span>
+        <span class="stat-kv-k">Total caracteres</span><span class="stat-kv-v">${_fmtN(o.total_chars)}</span>
+        <span class="stat-kv-k">Locución/clase prom.</span><span class="stat-kv-v">${Math.round(o.narration_min/Math.max(n,1)*10)/10} min</span>
+      </div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-section-label">Investigación Tavily</div>
+      ${re.total === 0
+        ? `<div class="rp-empty" style="padding:16px 0">Sin claims verificados</div>`
+        : `<div class="stat-research-grid">
+            ${_resBadge('✓', re.verified,  'Verificados',  'var(--green)')}
+            ${_resBadge('⚠', re.disputed,  'Disputados',   'var(--yellow)')}
+            ${_resBadge('?', re.not_found, 'No encontrado','var(--tx3)')}
+            ${_resBadge('✕', re.error,     'Error',        'var(--red)')}
+          </div>
+          <div style="font-size:10px;color:var(--tx3);margin-top:8px">${re.total} claims analizados en total</div>`}
+    </div>
+  </div>
+
+  <!-- ③ PIPELINE -->
+  <div class="stat-section-label">Pipeline de Producción</div>
+  <div class="stat-block">
+    ${PIPE_STEPS.map(step => {
+      const v = pi[step.key];
+      return `<div class="stat-pipe-row">
+        <span class="stat-pipe-label">${step.label}</span>
+        ${_bar(v, n, step.color)}
+        <span class="stat-pipe-count">${v}/${n}</span>
+        <span class="stat-pipe-pct">${_pct(v,n)}%</span>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <!-- ④ SCREEN TYPES -->
+  ${d.screen_types.length ? `
+  <div class="stat-section-label">Tipos de Pantalla Utilizados</div>
+  <div class="stat-block stat-st-grid">
+    ${d.screen_types.map(st => `
+      <div class="stat-st-row">
+        <span class="stat-st-badge" style="background:${st.color}22;color:${st.color};border-color:${st.color}44">${st.icon} ${st.name}</span>
+        <div class="stat-bar-wrap" style="flex:1">
+          <div class="stat-bar-fill" style="width:${Math.round(st.count/maxST*100)}%;background:${st.color}"></div>
+        </div>
+        <span class="stat-st-count">${st.count}</span>
+      </div>`).join('')}
+  </div>` : ''}
+
+  <!-- ⑤ PER-SECTION TABLE -->
+  <div class="stat-section-label">Detalle por Sección</div>
+  ${d.sections.map(sec => `
+    <div class="stat-block stat-section-block">
+      <div class="stat-sec-hdr">
+        <span class="stat-sec-title">${esc(sec.title)}</span>
+        <span class="stat-sec-meta">${sec.class_count} clases · ${_fmtN(sec.words)} pal · ${sec.narration_min}min loc. · ${sec.video_min}min video</span>
+      </div>
+      <table class="stat-cls-table">
+        <thead><tr>
+          <th>Clase</th><th>Palabras</th><th>Locución</th><th>Pipeline</th>
+        </tr></thead>
+        <tbody>
+          ${sec.classes.map(cls => `
+            <tr>
+              <td class="stat-cls-name">${esc(cls.title)}</td>
+              <td class="stat-cls-num">${_fmtN(cls.words)}</td>
+              <td class="stat-cls-num">${cls.narration_min}min</td>
+              <td><div class="stat-stage-dots">${_stageDots(cls.flags)}</div></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('')}
+  `;
+}
+
+function _statCard(icon, value, label, sub) {
+  return `<div class="stat-card">
+    <div class="stat-card-icon">${icon}</div>
+    <div class="stat-card-value">${value}</div>
+    <div class="stat-card-label">${label}</div>
+    <div class="stat-card-sub">${sub}</div>
+  </div>`;
+}
+
+function _resBadge(icon, count, label, color) {
+  return `<div class="stat-res-item">
+    <span class="stat-res-icon" style="color:${color}">${icon}</span>
+    <span class="stat-res-count">${count}</span>
+    <span class="stat-res-label">${label}</span>
+  </div>`;
+}
+
+function _stageDots(flags) {
+  const steps = [
+    { key: 'guion',         color: '#6366f1', title: 'Guion' },
+    { key: 'segments',      color: '#8b5cf6', title: 'Pantallas' },
+    { key: 'transcription', color: '#0ea5e9', title: 'Whisper' },
+    { key: 'spell',         color: '#f59e0b', title: 'Corrección' },
+    { key: 'alignment',     color: '#10b981', title: 'Alineación' },
+  ];
+  return steps.map(s =>
+    `<span class="stat-dot ${flags[s.key] ? 'done' : ''}" style="${flags[s.key] ? `background:${s.color}` : ''}" title="${s.title}"></span>`
+  ).join('');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Theme
   applyTheme(localStorage.getItem('vc_theme') || 'dark');
