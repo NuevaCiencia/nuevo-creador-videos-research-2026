@@ -1551,6 +1551,7 @@ function vizRenderPreview(i) {
   // Reset canvas state
   canvas.style.backgroundColor = 'transparent';
   canvas.style.display = '';
+  canvas.style.flexDirection = '';
   canvas.className = 'viz-preview-canvas';
 
   const text   = seg.text_on_screen || '';
@@ -1576,6 +1577,7 @@ function vizRenderPreview(i) {
   } else if (seg.screen_type === 'SPLIT_LEFT' || seg.screen_type === 'SPLIT_RIGHT') {
     canvas.style.backgroundColor = course.background_color;
     canvas.style.display = 'flex';
+    canvas.style.flexDirection = 'row';
     const assetSide = `<div style="width:50%;height:100%;position:relative;overflow:hidden">${mediaEl || placeholder('Sin asset')}</div>`;
     const textSide  = `<div style="width:50%;height:100%;display:flex;align-items:center;justify-content:center;padding:10%;text-align:center;font-size:5cqh;font-weight:700;line-height:1.2;color:${escA(txtCol)};font-family:'${escA(font)}'">${esc(text)}</div>`;
     html = seg.screen_type === 'SPLIT_LEFT' ? assetSide + textSide : textSide + assetSide;
