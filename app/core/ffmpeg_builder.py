@@ -1,0 +1,42 @@
+def construir_filtro_ffmpeg(recursos, W, H, fps, ass_path_ffmpeg, filtro_path,
+                            use_trans=False, dur_t=0.5):
+    half = W // 2
+    with open(filtro_path, "w") as f:
+        f.write("[0:v]null[bg];\n")
+        idx_in, overlay_idx = 1, 0
+
+        for r in recursos:
+            ini, dur, fin = r["ini"], r["dur"], r["fin"]
+            margen = 0.01
+
+            fade_filter = ""
+            if use_trans and dur_t > 0 and dur > dur_t * 2:
+                fade_filter = (f",format=rgba,"
+                               f"fade=t=in:st={ini}:d={dur_t}:alpha=1,"
+                               f"fade=t=out:st={fin-dur_t}:d={dur_t}:alpha=1")
+
+            if r["tipo"] == "img":
+                if r["pos"] == "COMPLETA":
+                    scale_str = f"scale={W}:{H},setsar=1"
+                else:
+                    scale_str = (f"scale={half}:-1,setsar=1,"
+                                 f"pad={half}:{H}:(ow-iw)/2:(oh-ih)/2:color=white")
+                f.write(f"[{idx_in}:v]{scale_str},setpts=PTS-STARTPTS+{ini}/TB{fade_filter}[img{overlay_idx}];\n")
+                x_pos = "0" if r["pos"] in ("COMPLETA", "IZQUIERDA") else str(half)
+                tag = f"img{overlay_idx}"
+                ovl = f"overlay=x={x_pos}:y=0:enable='between(t,{ini-margen},{fin+margen})'"
+            else:
+                f.write(f"[{idx_in}:v]trim=duration={dur},setpts=PTS-STARTPTS+{ini}/TB,"
+                        f"scale={W}:{H},setsar=1,fps={fps}:round=near{fade_filter}[vid{overlay_idx}];\n")
+                tag = f"vid{overlay_idx}"
+                ovl = f"overlay=enable='between(t,{ini-margen},{fin+margen})'"
+
+            base = "bg" if overlay_idx == 0 else f"v{overlay_idx-1}"
+            f.write(f"[{base}][{tag}]{ovl}[v{overlay_idx}];\n")
+
+            idx_in     += 1
+            overlay_idx += 1
+
+        f.write(f"[v{overlay_idx-1}]ass={ass_path_ffmpeg}[vout]")
+
+    return overlay_idx

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db, init_db
 import models
-from ai_agents import research_agent, screen_agent, whisper_agent, spell_agent, aligner_agent, visual_agent
+from ai_agents import research_agent, screen_agent, whisper_agent, spell_agent, aligner_agent, visual_agent, dummy_builder, render_agent
 
 _whisper_pool = ThreadPoolExecutor(max_workers=1)  # one transcription at a time
 
@@ -1155,3 +1155,127 @@ def delete_remotion_template(rt_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Template no encontrado")
     db.delete(rt)
     db.commit()
+
+
+# ── VIDEO: Assets status + Dummy builder + Final Render ───────────────────────
+
+@app.get("/api/classes/{class_id}/render/assets-status")
+def get_assets_status(class_id: int, db: Session = Depends(get_db)):
+    """Returns exists/missing status for every asset in the guion consolidado."""
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    guion = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if not guion or not guion.recursos_json:
+        raise HTTPException(400, "No hay guion visual — ejecuta la fase Visual primero")
+
+    section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
+    course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
+    assets_base = os.path.join(os.path.dirname(__file__))  # app/ dir
+
+    result = dummy_builder.check_assets_status(
+        guion.recursos_json, assets_base, course.cover_asset or "videos/portada.mp4"
+    )
+    return result
+
+
+@app.post("/api/classes/{class_id}/render/build-dummies")
+def build_dummies(class_id: int, db: Session = Depends(get_db)):
+    """Launches background task to build placeholder files for missing assets."""
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    guion = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if not guion or not guion.recursos_json:
+        raise HTTPException(400, "No hay guion visual — ejecuta la fase Visual primero")
+
+    section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
+    course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
+    assets_base = os.path.dirname(__file__)
+
+    # Upsert render row
+    row = db.query(models.ClassRender).filter(models.ClassRender.class_id == class_id).first()
+    if row:
+        row.status = "building_dummies"; row.progress = 0; row.phase = "⏳ Iniciando dummies…"; row.error = None
+    else:
+        row = models.ClassRender(class_id=class_id, status="building_dummies",
+                                 progress=0, phase="⏳ Iniciando dummies…")
+        db.add(row)
+    db.commit()
+
+    _whisper_pool.submit(
+        dummy_builder.build_missing_dummies,
+        class_id, guion.recursos_json, assets_base,
+        course.cover_asset or "videos/portada.mp4"
+    )
+    return {"status": "started"}
+
+
+@app.get("/api/classes/{class_id}/render/status")
+def get_render_status(class_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.ClassRender).filter(models.ClassRender.class_id == class_id).first()
+    if not row:
+        return {"status": "idle", "progress": 0, "phase": "", "error": None, "output_path": None}
+    return {
+        "status":      row.status,
+        "progress":    row.progress,
+        "phase":       row.phase or "",
+        "error":       row.error,
+        "output_path": row.output_path,
+    }
+
+
+@app.post("/api/classes/{class_id}/render")
+def start_render(class_id: int, db: Session = Depends(get_db)):
+    """Launches the final video render in background."""
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    # Prerequisites
+    audio = db.query(models.ClassAudio).filter(models.ClassAudio.class_id == class_id).first()
+    if not audio or not audio.file_path:
+        raise HTTPException(400, "No hay audio — sube el audio primero")
+
+    guion = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if not guion or guion.status not in ("done",) or not guion.content:
+        raise HTTPException(400, "El guion visual no está listo — ejecuta la fase Visual primero")
+
+    # Upsert render row
+    row = db.query(models.ClassRender).filter(models.ClassRender.class_id == class_id).first()
+    if row:
+        row.status = "rendering"; row.progress = 0; row.phase = "⏳ Iniciando render…"
+        row.error  = None; row.output_path = None
+    else:
+        row = models.ClassRender(class_id=class_id, status="rendering",
+                                 progress=0, phase="⏳ Iniciando render…")
+        db.add(row)
+    db.commit()
+
+    _whisper_pool.submit(render_agent.run_render, class_id)
+    return {"status": "started"}
+
+
+@app.get("/api/classes/{class_id}/render/download")
+def download_render(class_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.ClassRender).filter(models.ClassRender.class_id == class_id).first()
+    if not row or not row.output_path:
+        raise HTTPException(404, "No hay video renderizado")
+
+    abs_path = os.path.join(os.path.dirname(__file__), row.output_path)
+    if not os.path.exists(abs_path):
+        raise HTTPException(404, "Archivo no encontrado en disco")
+
+    return FileResponse(
+        abs_path,
+        media_type="video/mp4",
+        filename=os.path.basename(abs_path),
+    )

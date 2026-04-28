@@ -300,13 +300,14 @@ function renderPhase(phase) {
   _clearAudioPoll();
   _clearSpellPoll();
   _clearVisualPoll();
+  _clearRenderPoll();
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
   switch(phase) {
     case 'guion':    renderGuion(area);    break;
     case 'audio':    renderAudio(area);    break;
     case 'visuales': renderVisuales(area); break;
-    case 'video':    renderPlaceholder(area, '🎬', 'Fase: Video', 'Aquí se configurará y lanzará el render final con FFmpeg.'); break;
+    case 'video':    renderVideo(area); break;
   }
 }
 
@@ -1334,6 +1335,192 @@ async function viewGuionConsolidado() {
       </div>`
     });
   } catch(e) { toast(e.message, false); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   VIDEO PHASE — Dummy Builder + Final Render
+═══════════════════════════════════════════════════════ */
+let _renderPollTimer = null;
+function _clearRenderPoll() {
+  if (_renderPollTimer) { clearInterval(_renderPollTimer); _renderPollTimer = null; }
+}
+
+async function renderVideo(area) {
+  _clearRenderPoll();
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estado de render…</div></div>`;
+
+  let visual = null, renderStatus = null, assetsStatus = null;
+  try { visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`); } catch(e) {}
+  try { renderStatus = await api('GET', `/api/classes/${S.activeClass.id}/render/status`); } catch(e) {}
+  if (visual?.status === 'done') {
+    try { assetsStatus = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`); } catch(e) {}
+  }
+  _buildVideoUI(area, visual, renderStatus, assetsStatus);
+  if (renderStatus?.status === 'building_dummies' || renderStatus?.status === 'rendering') {
+    _startRenderPoll();
+  }
+}
+
+function _buildVideoUI(area, visual, renderStatus, assetsStatus) {
+  const visualOk      = visual?.status === 'done';
+  const st            = renderStatus?.status || 'idle';
+  const isBuilding    = st === 'building_dummies';
+  const isDummiesDone = st === 'dummies_done';
+  const isRendering   = st === 'rendering';
+  const isDone        = st === 'done';
+  const isError       = st === 'error';
+  const isBusy        = isBuilding || isRendering;
+
+  // Assets table rows
+  let assetsRows = '';
+  let missingCount = assetsStatus?.missing ?? 0;
+  let totalCount   = assetsStatus?.total   ?? 0;
+  if (assetsStatus?.items) {
+    assetsRows = assetsStatus.items.map(item => `
+      <tr>
+        <td style="font-family:monospace;font-size:11px;padding:6px 10px">${esc(item.nombre)}</td>
+        <td style="padding:6px 10px"><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(item.tipo)}</span></td>
+        <td style="font-family:monospace;font-size:11px;padding:6px 10px;color:var(--tx3)">${esc(item.ubicacion || '')}</td>
+        <td style="padding:6px 10px;text-align:center">
+          ${item.exists
+            ? `<span style="color:#22c55e;font-weight:700">✓</span>`
+            : `<span style="color:#ef4444;font-weight:700">✗</span>`}
+        </td>
+      </tr>`).join('');
+  }
+
+  area.innerHTML = `<div class="audio-phase">
+
+    <!-- Prerequisite / status card -->
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🎬 Render Final</span>
+        ${isDone ? `<span class="audio-done-badge">✓ Video listo</span>` : ''}
+      </div>
+      <div class="audio-card-body">
+        ${!visualOk ? `
+          <div class="vis-prereq">
+            <span class="vis-prereq-icon">🔒</span>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px">Requiere Arquitectura Visual completada</div>
+              <div style="font-size:12px;color:var(--tx3)">Completa la fase Visual antes de renderizar.</div>
+            </div>
+          </div>
+        ` : isDone ? `
+          <div class="tx-summary-row" style="margin-bottom:12px">
+            <div class="tx-summary-stat"><span class="tx-stat-val" style="color:#22c55e">✓</span><span class="tx-stat-lbl">completado</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${totalCount}</span><span class="tx-stat-lbl">assets</span></div>
+          </div>
+          <div class="audio-exports">
+            <a href="/api/classes/${S.activeClass.id}/render/download" class="btn btn-primary" download>⬇ Descargar Video</a>
+          </div>
+          <div style="margin-top:10px">
+            <button class="btn btn-ghost audio-att-btn" onclick="startFinalRender()">↻ Re-renderizar</button>
+          </div>
+        ` : `
+          <p class="audio-card-desc">
+            Genera el video final mezclando audio, assets (imágenes/videos) y subtítulos ASS con FFmpeg.
+            Si faltan assets, construye dummies primero.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            ${assetsStatus && missingCount > 0 ? `
+              <button class="btn btn-secondary audio-att-btn" onclick="buildDummies()" ${isBusy ? 'disabled' : ''}>
+                ${isBuilding ? '⏳ Construyendo dummies…' : `🏗 Construir ${missingCount} dummy${missingCount>1?'s':''}`}
+              </button>
+            ` : ''}
+            <button class="btn btn-primary audio-att-btn" onclick="startFinalRender()" ${isBusy || !assetsStatus ? 'disabled' : ''}>
+              ${isRendering ? '⏳ Renderizando…' : '🎬 Renderizar Video'}
+            </button>
+          </div>
+          ${isBusy ? `
+          <div class="audio-progress-wrap">
+            <div class="audio-progress-bar">
+              <div class="audio-progress-fill running" id="renderProgressFill" style="width:${renderStatus?.progress||0}%"></div>
+            </div>
+            <div class="audio-progress-foot">
+              <span id="renderPhaseLabel" class="audio-phase-label">${esc(renderStatus?.phase||'')}</span>
+              <span id="renderProgressPct" class="audio-progress-pct">${renderStatus?.progress||0}%</span>
+            </div>
+          </div>` : ''}
+          ${isError ? `<div class="audio-error-box"><div class="audio-error-title">⚠️ Error</div><pre class="audio-error-pre">${esc(renderStatus?.error||'')}</pre></div>` : ''}
+        `}
+      </div>
+    </div>
+
+    <!-- Assets status table -->
+    ${visualOk && assetsStatus ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">📦 Estado de Assets</span>
+        <span style="font-size:12px;color:${missingCount>0?'#ef4444':'#22c55e'};font-weight:600">
+          ${missingCount > 0 ? `${missingCount} faltantes` : 'Todos presentes ✓'}
+        </span>
+      </div>
+      <div class="audio-card-body" style="padding:0">
+        <table class="stat-cls-table">
+          <thead><tr>
+            <th>Archivo</th><th>Tipo</th><th>Ubicación</th><th style="text-align:center">¿Existe?</th>
+          </tr></thead>
+          <tbody>${assetsRows}</tbody>
+        </table>
+      </div>
+    </div>
+    ` : ''}
+
+  </div>`;
+}
+
+async function buildDummies() {
+  try {
+    await api('POST', `/api/classes/${S.activeClass.id}/render/build-dummies`);
+    const area = document.getElementById('contentArea');
+    const visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    const rs = { status: 'building_dummies', progress: 0, phase: 'Iniciando…' };
+    const as = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`);
+    _buildVideoUI(area, visual, rs, as);
+    _startRenderPoll();
+  } catch(e) { toast(e.message, false); }
+}
+
+async function startFinalRender() {
+  try {
+    await api('POST', `/api/classes/${S.activeClass.id}/render`);
+    const area = document.getElementById('contentArea');
+    const visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    const rs = { status: 'rendering', progress: 0, phase: 'Iniciando render…' };
+    const as = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`);
+    _buildVideoUI(area, visual, rs, as);
+    _startRenderPoll();
+  } catch(e) { toast(e.message, false); }
+}
+
+function _startRenderPoll() {
+  _clearRenderPoll();
+  const classId = S.activeClass?.id;
+  _renderPollTimer = setInterval(async () => {
+    if (S.activeClass?.id !== classId || S.activePhase !== 'video') { _clearRenderPoll(); return; }
+    try {
+      const s = await api('GET', `/api/classes/${classId}/render/status`);
+      const fill = document.getElementById('renderProgressFill');
+      const lbl  = document.getElementById('renderPhaseLabel');
+      const pct  = document.getElementById('renderProgressPct');
+      if (fill) fill.style.width = `${s.progress}%`;
+      if (lbl)  lbl.textContent  = s.phase || '';
+      if (pct)  pct.textContent  = `${s.progress}%`;
+      if (s.status !== 'building_dummies' && s.status !== 'rendering') {
+        _clearRenderPoll();
+        // Full refresh
+        const area = document.getElementById('contentArea');
+        let visual = null, assetsStatus = null;
+        try { visual = await api('GET', `/api/classes/${classId}/visual`); } catch(e) {}
+        try { assetsStatus = await api('GET', `/api/classes/${classId}/render/assets-status`); } catch(e) {}
+        _buildVideoUI(area, visual, s, assetsStatus);
+        if (s.status === 'dummies_done') toast('✅ Dummies construidos');
+        else if (s.status === 'done')    toast('✅ Video renderizado');
+        else if (s.status === 'error')   toast('❌ Error en render', false);
+      }
+    } catch(e) {}
+  }, 2000);
 }
 
 /* ─── PLACEHOLDER PHASES ──────────────────────────────── */

@@ -71,6 +71,7 @@ class Class(Base):
     spell_correction    = relationship("ClassSpellCorrection",    back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
     guion_base          = relationship("ClassGuionBase",          back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
     guion_consolidado   = relationship("ClassGuionConsolidado",   back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    render              = relationship("ClassRender",             back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
 
 
 class ResearchItem(Base):
@@ -182,6 +183,26 @@ class ClassGuionConsolidado(Base):
     created_at = Column(DateTime,    default=datetime.utcnow)
 
     class_obj = relationship("Class", back_populates="guion_consolidado")
+
+
+# ── Per-class: Render ──────────────────────────────────────────────────────────
+# Tracks the final video render job for a class.
+# Status flow: idle → building_dummies → dummies_done → rendering → done | error
+
+class ClassRender(Base):
+    __tablename__ = "class_renders"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    class_id    = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True)
+    status      = Column(String(30),  default="idle")   # idle | building_dummies | dummies_done | rendering | done | error
+    progress    = Column(Integer,     default=0)         # 0-100
+    phase       = Column(String(255), default="")        # human-readable step
+    error       = Column(Text,        nullable=True)
+    output_path = Column(String(500), nullable=True)     # relative to app/
+    created_at  = Column(DateTime,    default=datetime.utcnow)
+    updated_at  = Column(DateTime,    nullable=True)
+
+    class_obj = relationship("Class", back_populates="render")
 
 
 # ── Per-class: Screen Segments ────────────────────────────────────────────────
