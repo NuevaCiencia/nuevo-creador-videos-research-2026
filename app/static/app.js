@@ -1505,7 +1505,8 @@ function _vizParamsForm(seg, i) {
     </div>`;
   }
   if (seg.screen_type === 'REMOTION') {
-    const TEMPLATES = ["TypeWriter","MindMap","LinearSteps","CycleLoop","Timeline","FunnelDiagram","StatCounter","FlipCards","TwoColumns","FourBoxes","MatrixGrid","PyramidLevels","HorizontalBars","PieDonut","RadarChart","WaveTrend","OrgChart","VennDiagram","Spotlight"];
+    // Only the 4 templates with real implementations in 0_referencia
+    const TEMPLATES = ["TypeWriter","MindMap","LinearSteps","FlipCards"];
     const selected = (parts[0]||'').replace('$','').trim();
     return `<div class="viz-params-form">
       <select id="viz-rt-${i}" onchange="vizSyncParams(${i})">

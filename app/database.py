@@ -208,8 +208,8 @@ SCREEN_TYPES_SEED = [
     },
 ]
 
+# Only the 4 templates that have real implementations in 0_referencia/ai_remotion_templates.yaml
 REMOTION_TEMPLATES_SEED = [
-    # ── Narrativos ──────────────────────────────────────────────────────────────
     {
         "name": "TypeWriter",
         "label": "Terminal / TypeWriter",
@@ -220,32 +220,13 @@ REMOTION_TEMPLATES_SEED = [
         "sort_order": 1,
     },
     {
-        "name": "Spotlight",
-        "label": "Spotlight",
-        "category": "narrativo",
-        "description": "Foco de luz que ilumina puntos en la pantalla secuencialmente.",
-        "limits": "min 2 puntos — max 6 puntos",
-        "data_schema": '{"title": "string", "points": [{"label": "string", "description": "string"}]}',
-        "sort_order": 2,
-    },
-    {
-        "name": "Timeline",
-        "label": "Línea de Tiempo",
-        "category": "narrativo",
-        "description": "Línea de tiempo horizontal con eventos que aparecen en secuencia.",
-        "limits": "min 3 eventos — max 7 eventos",
-        "data_schema": '{"title": "string", "events": [{"year": "string", "label": "string", "description": "string"}]}',
-        "sort_order": 3,
-    },
-    # ── Flujo ───────────────────────────────────────────────────────────────────
-    {
         "name": "MindMap",
         "label": "Mapa Mental",
         "category": "flujo",
         "description": "Concepto central rodeado de ramas distribuidas radialmente. Nodos y colores automáticos.",
         "limits": "min 3 nodos — max 8 nodos — recomendado 4-6",
         "data_schema": '{"center": "string", "nodes": [{"text": "string", "sub": "string (opcional)"}]}',
-        "sort_order": 4,
+        "sort_order": 2,
     },
     {
         "name": "LinearSteps",
@@ -254,126 +235,7 @@ REMOTION_TEMPLATES_SEED = [
         "description": "Tarjetas horizontales conectadas por flechas, de izquierda a derecha.",
         "limits": "min 2 pasos — max 6 — recomendado 3-4",
         "data_schema": '{"title": "string (opcional)", "steps": [{"title": "string", "description": "string"}]}',
-        "sort_order": 5,
-    },
-    {
-        "name": "CycleLoop",
-        "label": "Ciclo / Loop",
-        "category": "flujo",
-        "description": "Pasos dispuestos en círculo que muestran un proceso cíclico.",
-        "limits": "min 3 pasos — max 6 pasos",
-        "data_schema": '{"title": "string (opcional)", "steps": [{"label": "string", "description": "string"}]}',
-        "sort_order": 6,
-    },
-    {
-        "name": "OrgChart",
-        "label": "Árbol Jerárquico",
-        "category": "flujo",
-        "description": "Árbol organizacional con nodo raíz y ramas subordinadas.",
-        "limits": "1 raíz — max 4 hijos directos — max 3 nietos por hijo",
-        "data_schema": '{"root": "string", "children": [{"label": "string", "children": ["string"]}]}',
-        "sort_order": 7,
-    },
-    {
-        "name": "FunnelDiagram",
-        "label": "Embudo de Etapas",
-        "category": "flujo",
-        "description": "Embudo visual donde cada etapa es más pequeña que la anterior.",
-        "limits": "min 3 etapas — max 6 etapas",
-        "data_schema": '{"title": "string (opcional)", "stages": [{"label": "string", "value": "string"}]}',
-        "sort_order": 8,
-    },
-    # ── Datos ───────────────────────────────────────────────────────────────────
-    {
-        "name": "StatCounter",
-        "label": "Contador de Estadísticas",
-        "category": "datos",
-        "description": "Números grandes que cuentan desde 0. Ideal para datos impactantes.",
-        "limits": "min 1 stat — max 4 stats",
-        "data_schema": '{"stats": [{"value": "number", "label": "string", "suffix": "string (ej: %, M, K)"}]}',
-        "sort_order": 9,
-    },
-    {
-        "name": "HorizontalBars",
-        "label": "Barras Horizontales",
-        "category": "datos",
-        "description": "Barras comparativas horizontales con etiqueta y valor.",
-        "limits": "min 2 barras — max 8 barras",
-        "data_schema": '{"title": "string (opcional)", "bars": [{"label": "string", "value": "number (0-100)"}]}',
-        "sort_order": 10,
-    },
-    {
-        "name": "PieDonut",
-        "label": "Gráfico Donut / Pie",
-        "category": "datos",
-        "description": "Gráfico circular o donut con segmentos proporcionales.",
-        "limits": "min 2 segmentos — max 6 segmentos",
-        "data_schema": '{"title": "string (opcional)", "segments": [{"label": "string", "value": "number"}]}',
-        "sort_order": 11,
-    },
-    {
-        "name": "RadarChart",
-        "label": "Gráfico Radar / Araña",
-        "category": "datos",
-        "description": "Gráfico de araña para comparar múltiples dimensiones.",
-        "limits": "min 3 dimensiones — max 8 dimensiones",
-        "data_schema": '{"title": "string (opcional)", "axes": [{"label": "string", "value": "number (0-100)"}]}',
-        "sort_order": 12,
-    },
-    {
-        "name": "WaveTrend",
-        "label": "Tendencia / Wave",
-        "category": "datos",
-        "description": "Línea de tendencia animada que muestra evolución de datos en el tiempo.",
-        "limits": "min 4 puntos — max 12 puntos",
-        "data_schema": '{"title": "string (opcional)", "points": [{"x": "string", "y": "number"}]}',
-        "sort_order": 13,
-    },
-    # ── Clasificación / Concepto ────────────────────────────────────────────────
-    {
-        "name": "VennDiagram",
-        "label": "Diagrama de Venn",
-        "category": "clasificacion",
-        "description": "Dos círculos con zona de intersección. Para mostrar relaciones y similitudes.",
-        "limits": "Exactamente 2 conjuntos con 1 intersección",
-        "data_schema": '{"left": {"label": "string", "items": ["string"]}, "right": {"label": "string", "items": ["string"]}, "intersection": ["string"]}',
-        "sort_order": 14,
-    },
-    {
-        "name": "TwoColumns",
-        "label": "Dos Columnas (Comparación)",
-        "category": "clasificacion",
-        "description": "Comparación lado a lado. Columna A (✓) vs Columna B (✗).",
-        "limits": "min 2 ítems por columna — max 6 ítems",
-        "data_schema": '{"left": {"label": "string", "items": ["string"]}, "right": {"label": "string", "items": ["string"]}}',
-        "sort_order": 15,
-    },
-    {
-        "name": "FourBoxes",
-        "label": "Cuatro Cajas",
-        "category": "clasificacion",
-        "description": "Cuatro tarjetas con ícono y descripción. Para categorías o pilares.",
-        "limits": "Exactamente 4 cajas",
-        "data_schema": '{"title": "string (opcional)", "boxes": [{"icon": "emoji", "label": "string", "description": "string"}]}',
-        "sort_order": 16,
-    },
-    {
-        "name": "MatrixGrid",
-        "label": "Matriz 2x2",
-        "category": "clasificacion",
-        "description": "Cuadrante 2x2 tipo matriz (ej: Eisenhower, BCG). Ejes X e Y configurables.",
-        "limits": "Exactamente 4 cuadrantes",
-        "data_schema": '{"x_label": "string", "y_label": "string", "quadrants": [{"label": "string", "description": "string"}]}',
-        "sort_order": 17,
-    },
-    {
-        "name": "PyramidLevels",
-        "label": "Pirámide de Niveles",
-        "category": "clasificacion",
-        "description": "Pirámide de niveles (base ancha → cima). Para jerarquías o prioridades.",
-        "limits": "min 3 niveles — max 6 niveles",
-        "data_schema": '{"title": "string (opcional)", "levels": [{"label": "string", "description": "string"}]}',
-        "sort_order": 18,
+        "sort_order": 3,
     },
     {
         "name": "FlipCards",
@@ -382,7 +244,7 @@ REMOTION_TEMPLATES_SEED = [
         "description": "Tarjetas que aparecen y giran para revelar título y descripción en el reverso.",
         "limits": "min 2 tarjetas — max 6 — recomendado 3-4",
         "data_schema": '{"title": "string (opcional)", "items": [{"icon": "emoji", "label": "string", "title": "string", "description": "string"}]}',
-        "sort_order": 19,
+        "sort_order": 4,
     },
 ]
 
@@ -406,16 +268,26 @@ def _seed_screen_types():
 
 
 def _seed_remotion_templates():
+    """Sync remotion_templates table with REMOTION_TEMPLATES_SEED.
+    Removes templates not in the seed list and adds missing ones."""
     from models import RemotionTemplate
     db = SessionLocal()
     try:
-        existing = db.query(RemotionTemplate).count()
-        if existing > 0:
-            return  # Already seeded
+        valid_names = {item["name"] for item in REMOTION_TEMPLATES_SEED}
+        # Remove any template not in the current seed list
+        db.query(RemotionTemplate).filter(
+            RemotionTemplate.name.notin_(list(valid_names))
+        ).delete(synchronize_session=False)
+        # Add missing templates
+        existing_names = {r.name for r in db.query(RemotionTemplate.name).all()}
+        added = 0
         for item in REMOTION_TEMPLATES_SEED:
-            db.add(RemotionTemplate(**item))
+            if item["name"] not in existing_names:
+                db.add(RemotionTemplate(**item))
+                added += 1
         db.commit()
-        print(f"✅ Seeded {len(REMOTION_TEMPLATES_SEED)} Remotion templates.")
+        if added:
+            print(f"✅ Seeded {added} Remotion template(s).")
     except Exception as e:
         db.rollback()
         print(f"⚠️ Remotion templates seed error: {e}")
