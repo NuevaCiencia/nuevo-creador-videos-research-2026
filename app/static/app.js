@@ -714,6 +714,7 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
         <span class="audio-card-title">🎵 Archivo de Audio</span>
         ${state ? `<button class="audio-ghost-btn" onclick="deleteAudio()" ${running ? 'disabled' : ''}>✕ Quitar</button>` : ''}
       </div>
+
       <div class="audio-card-body">
         ${state ? `
           <div class="audio-file-info">
@@ -757,7 +758,7 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
         </div>
 
         <!-- Progress -->
-        <div class="audio-progress-wrap" id="audioProgressWrap" style="${running || done ? '' : 'display:none'}">
+        <div class="audio-progress-wrap" id="audioProgressWrap" style="${running || txDone ? '' : 'display:none'}">
           <div class="audio-progress-bar">
             <div class="audio-progress-fill ${running ? 'running' : ''}"
                  id="audioProgressFill"
@@ -779,12 +780,12 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
     </div>
     ` : ''}
 
-    <!-- ③ Transcription summary (compact) -->
+    <!-- ③ Transcription summary -->
     ${txDone ? `
     <div class="audio-card">
       <div class="audio-card-head">
         <span class="audio-card-title">📄 Transcripción</span>
-        <div style="display:flex;gap:6px">
+        <div class="audio-card-head-right">
           <button class="seg-action-btn" onclick="copyTranscription()">📋 Copiar</button>
           <button class="seg-action-btn" onclick="exportTranscription()">⬇ .txt</button>
           <button class="seg-action-btn" onclick="exportSRT()">⬇ .srt</button>
@@ -792,9 +793,18 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
       </div>
       <div class="audio-card-body">
         <div class="tx-summary-row">
-          <div class="tx-summary-stat"><span class="tx-stat-val">${state.tx_segments?.length || 0}</span><span class="tx-stat-lbl">bloques</span></div>
-          <div class="tx-summary-stat"><span class="tx-stat-val">${(state.tx_raw_text||'').split('\n').filter(Boolean).reduce((a,l)=>a+l.split(']:')[1]?.trim().split(/\s+/).length||0,0)}</span><span class="tx-stat-lbl">palabras</span></div>
-          <div class="tx-summary-stat"><span class="tx-stat-val">${_fmtDuration(state.duration)}</span><span class="tx-stat-lbl">duración</span></div>
+          <div class="tx-summary-stat">
+            <span class="tx-stat-val">${state.tx_segments?.length || 0}</span>
+            <span class="tx-stat-lbl">bloques</span>
+          </div>
+          <div class="tx-summary-stat">
+            <span class="tx-stat-val">${_countWords(state.tx_raw_text)}</span>
+            <span class="tx-stat-lbl">palabras</span>
+          </div>
+          <div class="tx-summary-stat">
+            <span class="tx-stat-val">${_fmtDuration(state.duration)}</span>
+            <span class="tx-stat-lbl">duración</span>
+          </div>
         </div>
         <details class="tx-preview-details">
           <summary>Ver muestra</summary>
@@ -812,20 +822,28 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
       <div class="audio-card-body">
         ${spellDone ? `
           <div class="tx-summary-row">
-            <div class="tx-summary-stat"><span class="tx-stat-val">${spell.segments?.length || 0}</span><span class="tx-stat-lbl">bloques corregidos</span></div>
+            <div class="tx-summary-stat">
+              <span class="tx-stat-val">${spell.segments?.length || 0}</span>
+              <span class="tx-stat-lbl">bloques corregidos</span>
+            </div>
           </div>
-          <div style="display:flex;gap:6px">
+          <div class="audio-exports">
             <button class="seg-action-btn" onclick="exportSpellCorrection()">⬇ .txt corregido</button>
             <button class="seg-action-btn" style="color:var(--tx3)" onclick="startSpellCorrection()">↻ Re-corregir</button>
           </div>
         ` : `
-          <p class="audio-card-desc">Corrige errores ortográficos del audio usando el guion original como referencia. Modelo: <strong>gpt-4.1-mini</strong> · batches de 50 bloques.</p>
-          <button class="btn btn-primary audio-att-btn" onclick="startSpellCorrection()" ${spellRunning ? 'disabled' : ''}>
-            ${spellRunning ? '⏳ Corrigiendo…' : '✏️ Corregir con GPT'}
-          </button>
+          <p class="audio-card-desc">Corrige errores ortográficos del audio usando el guion original como referencia.<br>
+          Modelo: <strong>gpt-4.1-mini</strong> · batches de 50 bloques.</p>
+          <div>
+            <button class="btn btn-primary audio-att-btn" onclick="startSpellCorrection()" ${spellRunning ? 'disabled' : ''}>
+              ${spellRunning ? '⏳ Corrigiendo…' : '✏️ Corregir con GPT'}
+            </button>
+          </div>
           ${spellRunning ? `
           <div class="audio-progress-wrap">
-            <div class="audio-progress-bar"><div class="audio-progress-fill running" id="spellProgressFill" style="width:${spell?.progress||0}%"></div></div>
+            <div class="audio-progress-bar">
+              <div class="audio-progress-fill running" id="spellProgressFill" style="width:${spell?.progress||0}%"></div>
+            </div>
             <div class="audio-progress-foot">
               <span id="spellPhaseLabel" class="audio-phase-label">${esc(spell?.phase||'')}</span>
               <span id="spellProgressPct" class="audio-progress-pct">${spell?.progress||0}%</span>
@@ -846,15 +864,20 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
       <div class="audio-card-body">
         ${guionDone ? `
           <div class="tx-summary-row">
-            <div class="tx-summary-stat"><span class="tx-stat-val">${guion.segments?.length || 0}</span><span class="tx-stat-lbl">segmentos alineados</span></div>
+            <div class="tx-summary-stat">
+              <span class="tx-stat-val">${guion.segments?.length || 0}</span>
+              <span class="tx-stat-lbl">segmentos alineados</span>
+            </div>
           </div>
-          <div style="display:flex;gap:6px">
+          <div class="audio-exports">
             <button class="seg-action-btn" onclick="exportGuionBase()">⬇ guion_base.txt</button>
             <button class="seg-action-btn" style="color:var(--tx3)" onclick="runAlignment()">↻ Re-alinear</button>
           </div>
         ` : `
           <p class="audio-card-desc">Mapea los timestamps de Whisper a cada pantalla del guion etiquetado usando difflib — mismo algoritmo de <code>0_referencia</code>.</p>
-          <button class="btn btn-primary audio-att-btn" onclick="runAlignment()">🔗 Alinear y generar Guion Base</button>
+          <div>
+            <button class="btn btn-primary audio-att-btn" onclick="runAlignment()">🔗 Alinear y generar Guion Base</button>
+          </div>
         `}
         ${guion?.error ? `<div class="audio-error-box"><div class="audio-error-title">⚠️ Error</div><pre class="audio-error-pre">${esc(guion.error)}</pre></div>` : ''}
       </div>
@@ -867,6 +890,14 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
   // Wire up file input
   const fi = document.getElementById('audioFileInput');
   if (fi) fi.addEventListener('change', e => { if (e.target.files[0]) uploadAudio(e.target.files[0]); });
+}
+
+function _countWords(rawText) {
+  if (!rawText) return 0;
+  return rawText.split('\n').filter(Boolean).reduce((acc, line) => {
+    const part = line.split(']: ')[1];
+    return acc + (part ? part.trim().split(/\s+/).length : 0);
+  }, 0);
 }
 
 function _fmtDuration(secs) {
