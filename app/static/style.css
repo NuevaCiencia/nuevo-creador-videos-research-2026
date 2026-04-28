@@ -893,6 +893,8 @@ input,textarea{font-family:inherit;outline:none}
 
 /* ─── VISUALIZADOR DE PANTALLAS ─────────────────────── */
 .viz-phase {
+  flex: 1;               /* fill content-area height */
+  overflow-y: auto;      /* own scroll container */
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -911,7 +913,7 @@ input,textarea{font-family:inherit;outline:none}
   z-index: 10;
 }
 .viz-header-info { font-weight: 600; }
-.viz-list { display: flex; flex-direction: column; }
+.viz-list { display: flex; flex-direction: column; flex: 1; }
 
 .viz-card {
   display: grid;
@@ -920,6 +922,8 @@ input,textarea{font-family:inherit;outline:none}
   border-bottom: 1px solid var(--border);
   background: var(--bg1);
   transition: background .15s;
+  min-height: 160px;   /* prevent collapse */
+  flex-shrink: 0;      /* don't compress in flex parent */
 }
 .viz-card:hover { background: var(--bg2); }
 
