@@ -661,11 +661,15 @@ async def upload_audio(class_id: int, file: UploadFile = File(...), db: Session 
 
     duration = get_audio_duration(file_path)
 
+    # Store relative path from app/ so DB is portable across machines
+    app_dir       = os.path.dirname(__file__)
+    file_path_rel = os.path.relpath(file_path, app_dir)
+
     # Upsert
     row = db.query(models.ClassAudio).filter(models.ClassAudio.class_id == class_id).first()
     if row:
         row.filename   = safe_name
-        row.file_path  = file_path
+        row.file_path  = file_path_rel
         row.duration   = duration
         row.size_bytes = len(content)
         row.tx_status  = "idle"
@@ -679,7 +683,7 @@ async def upload_audio(class_id: int, file: UploadFile = File(...), db: Session 
         row = models.ClassAudio(
             class_id=class_id,
             filename=safe_name,
-            file_path=file_path,
+            file_path=file_path_rel,
             duration=duration,
             size_bytes=len(content),
         )

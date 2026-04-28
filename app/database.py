@@ -47,10 +47,48 @@ def _migrate():
                 conn.execute(f"ALTER TABLE courses ADD COLUMN {col} {defn}")
                 print(f"  migration: courses.{col} added")
         conn.commit()
+
+        # Sanitize absolute audio paths stored from a different machine
+        _migrate_audio_paths(conn)
+
     except Exception as e:
         print(f"⚠️ migration error: {e}")
     finally:
         conn.close()
+
+
+def _migrate_audio_paths(conn):
+    """Convert stale absolute file_path values in class_audio to relative (assets/...)."""
+    import os
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        rows = conn.execute("SELECT id, file_path FROM class_audio").fetchall()
+        for row_id, fp in rows:
+            if not fp or not os.path.isabs(fp):
+                continue  # already relative or empty
+            if os.path.exists(fp):
+                # Absolute but valid on this machine — make relative
+                rel = os.path.relpath(fp, app_dir)
+                conn.execute("UPDATE class_audio SET file_path=? WHERE id=?", (rel, row_id))
+                print(f"  migration: class_audio.{row_id} path made relative")
+            else:
+                # Absolute from another machine — try to find assets/ segment
+                from pathlib import Path
+                parts = Path(fp).parts
+                for marker in ("assets",):
+                    try:
+                        idx = parts.index(marker)
+                        rel = str(Path(*parts[idx:]))
+                        candidate = os.path.join(app_dir, rel)
+                        if os.path.exists(candidate):
+                            conn.execute("UPDATE class_audio SET file_path=? WHERE id=?", (rel, row_id))
+                            print(f"  migration: class_audio.{row_id} path resolved from {fp} → {rel}")
+                            break
+                    except ValueError:
+                        continue
+        conn.commit()
+    except Exception as e:
+        print(f"⚠️ audio path migration error: {e}")
 
 
 # ── SEED DATA ─────────────────────────────────────────────────────────────────

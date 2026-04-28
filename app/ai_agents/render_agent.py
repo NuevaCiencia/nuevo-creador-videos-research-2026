@@ -19,6 +19,35 @@ import tempfile
 from pathlib import Path
 
 
+def _resolve_path(stored_path: str, app_dir: Path) -> str:
+    """
+    Resolve a file path that may have been stored as an absolute path on a
+    different machine. Strategy:
+    1. If not absolute, join with app_dir.
+    2. If absolute and exists, use it.
+    3. If absolute and missing, find the 'assets/' subtree portion and
+       rebuild relative to app_dir (handles DB migration across machines).
+    """
+    if not os.path.isabs(stored_path):
+        return str(app_dir / stored_path)
+    if os.path.exists(stored_path):
+        return stored_path
+    # Try to salvage by finding 'assets/' in the stored path
+    p = Path(stored_path)
+    parts = p.parts
+    for marker in ("assets", "renders"):
+        try:
+            idx = parts.index(marker)
+            rel = Path(*parts[idx:])
+            candidate = str(app_dir / rel)
+            if os.path.exists(candidate):
+                return candidate
+        except ValueError:
+            continue
+    # Last resort: use basename under expected folder
+    return str(app_dir / "assets" / p.name)
+
+
 def _update_render(class_id: int, status: str, pct: int, msg: str, error=None, output_path=None):
     from database import SessionLocal
     import models
@@ -93,11 +122,12 @@ def run_render(class_id: int):
 
         # Resolve absolute paths
         app_dir    = Path(__file__).parent.parent   # app/
-        audio_abs  = str(app_dir / audio_path) if not os.path.isabs(audio_path) else audio_path
         assets_dir = str(app_dir)                   # assets live relative to app/
 
         cfg["FILES_FOLDER"] = assets_dir
 
+        # Resolve audio — stored path may be absolute from a different machine
+        audio_abs = _resolve_path(audio_path, app_dir)
         if not os.path.exists(audio_abs):
             raise FileNotFoundError(f"Audio no encontrado: {audio_abs}")
 
