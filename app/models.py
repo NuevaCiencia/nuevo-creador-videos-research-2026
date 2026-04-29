@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -284,3 +284,21 @@ class RemotionTemplate(Base):
     data_schema = Column(Text, default="")         # JSON schema of data fields
     enabled     = Column(Boolean, default=True)
     sort_order  = Column(Integer, default=0)
+
+
+# ── Per-class: Image Prompts ───────────────────────────────────────────────────
+# Stores user-edited or AI-fixed prompts for each image asset (S***.png, F***.png).
+# One row per (class_id, asset_name). Overrides the auto-generated ASSET_DESCRIPCION
+# from the visual orchestration phase when generating images.
+
+class ClassImgPrompt(Base):
+    __tablename__ = "class_img_prompts"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    class_id   = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False)
+    asset_name = Column(String(100), nullable=False)   # "S001.png", "F001.png"
+    prompt     = Column(Text, nullable=False)
+    fixed_by   = Column(String(20), default="user")    # "user" | "ai"
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("class_id", "asset_name", name="uq_class_img_prompt"),)

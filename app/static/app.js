@@ -331,6 +331,7 @@ function renderPhase(phase) {
     case 'guion':      renderGuion(area);       break;
     case 'estructura': renderEstructura(area); break;
     case 'audio':      renderAudio(area);       break;
+    case 'img-prompts': renderImgPrompts(area); break;
     case 'fonts':    renderFontsColors(area);  break;
     case 'viz':      renderViz(area);          break;
     case 'visuales': renderVisuales(area);     break;
@@ -2071,6 +2072,192 @@ async function saveEstructura() {
     toast(e.message, false);
     if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   IMG PROMPTS PHASE — Revisión y mejora de prompts de imagen
+═══════════════════════════════════════════════════════ */
+
+let _imgData = null;
+
+async function renderImgPrompts(area) {
+  area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando prompts…</div></div>`;
+  const classId = S.activeClass?.id;
+  if (!classId) return;
+  try {
+    _imgData = await api('GET', `/api/classes/${classId}/img-prompts`);
+    _buildImgUI(area);
+  } catch(e) {
+    area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px;color:var(--err)">${esc(e.message)}</div></div>`;
+  }
+}
+
+function _buildImgUI(area) {
+  const d = _imgData;
+  if (!d) return;
+
+  if (!d.has_guion || !d.items.length) {
+    area.innerHTML = `<div class="audio-phase">
+      <div class="ap-empty" style="padding:60px;text-align:center">
+        <div style="font-size:2.5rem">🖼️</div>
+        <div style="margin-top:14px;color:var(--tx2);line-height:1.6">
+          ${!d.has_guion
+            ? 'Ejecuta la fase <strong>Visuales</strong> primero para generar los prompts de imagen.'
+            : 'Esta clase no tiene segmentos de imagen (SPLIT_LEFT, SPLIT_RIGHT, FULL_IMAGE).'}
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const TYPE_COLORS = { SPLIT_LEFT:'#8b5cf6', SPLIT_RIGHT:'#a78bfa', FULL_IMAGE:'#06b6d4' };
+
+  const rows = d.items.map((item, i) => {
+    const active   = item.custom_prompt || item.original_prompt || '';
+    const hasCustom = !!item.custom_prompt;
+    const badgeHtml = hasCustom
+      ? `<span class="imp-badge imp-badge-custom">${item.fixed_by === 'ai' ? '🤖 IA' : '✏️ editado'}</span>`
+      : `<span class="imp-badge imp-badge-orig">auto</span>`;
+    const col = TYPE_COLORS[item.screen_type] || '#666';
+    const narr = (item.narration || '').trim();
+    const narr_short = narr.length > 130 ? narr.substring(0, 130) + '…' : narr;
+    return `<tr class="imp-row" data-idx="${i}">
+      <td class="imp-td-num">${item.order + 1}</td>
+      <td class="imp-td-asset">
+        <span class="imp-asset-name">${esc(item.asset_name || '—')}</span>
+        <span class="imp-type-pill" style="background:${col}22;color:${col};border:1px solid ${col}55">${esc(item.screen_type)}</span>
+      </td>
+      <td class="imp-td-prompt">
+        <textarea class="imp-ta" id="imp_ta_${i}" rows="4" oninput="impDirty(${i})"
+          placeholder="${active ? '' : 'Sin prompt — pulsa 🤖 Fix para generar, o escribe uno manualmente'}"
+        >${esc(active)}</textarea>
+        <div class="imp-ta-foot">
+          ${badgeHtml}
+          <span class="imp-chars" id="imp_cc_${i}">${active.length} chars</span>
+        </div>
+      </td>
+      <td class="imp-td-narr">
+        <div class="imp-narr" id="imp_narr_${i}" onclick="impToggleNarr(${i})">${esc(narr_short)}</div>
+      </td>
+      <td class="imp-td-actions">
+        <button class="imp-act imp-act-fix" id="imp_fix_${i}" onclick="impFixOne(${i})">🤖 Fix</button>
+        <button class="imp-act imp-act-save" id="imp_save_${i}" onclick="impSaveOne(${i})" style="display:none">💾 Guardar</button>
+        ${hasCustom ? `<button class="imp-act imp-act-reset" onclick="impResetOne(${i})">↩</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `<div class="imp-phase">
+    <div class="imp-bar">
+      <span class="imp-bar-title">🖼️ Img Prompts <span class="imp-bar-count">${d.items.length} assets</span></span>
+      <button class="btn btn-primary" onclick="impFixAll()" style="font-size:12px;padding:5px 14px">🤖 Fix All</button>
+    </div>
+    <div class="imp-scroll">
+      <table class="imp-table">
+        <thead><tr>
+          <th class="imp-th" style="width:32px">#</th>
+          <th class="imp-th" style="width:130px">Asset</th>
+          <th class="imp-th">Prompt activo</th>
+          <th class="imp-th" style="width:210px">Narración</th>
+          <th class="imp-th" style="width:130px">Acciones</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function impDirty(i) {
+  const btn = document.getElementById(`imp_save_${i}`);
+  const ta  = document.getElementById(`imp_ta_${i}`);
+  const cc  = document.getElementById(`imp_cc_${i}`);
+  if (btn) btn.style.display = '';
+  if (cc && ta) cc.textContent = `${ta.value.length} chars`;
+}
+
+function impToggleNarr(i) {
+  const el = document.getElementById(`imp_narr_${i}`);
+  if (!el || !_imgData) return;
+  const full = (_imgData.items[i].narration || '').trim();
+  if (el.classList.toggle('imp-narr-open')) {
+    el.textContent = full;
+  } else {
+    const s = full.substring(0, 130);
+    el.textContent = full.length > 130 ? s + '…' : s;
+  }
+}
+
+async function impSaveOne(i) {
+  if (!_imgData) return;
+  const item    = _imgData.items[i];
+  const ta      = document.getElementById(`imp_ta_${i}`);
+  const classId = S.activeClass?.id;
+  if (!ta || !item.asset_name) return;
+  try {
+    await api('PUT', `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}`,
+      { prompt: ta.value });
+    item.custom_prompt = ta.value;
+    item.fixed_by = 'user';
+    toast('Guardado ✓');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) { toast(e.message, false); }
+}
+
+async function impResetOne(i) {
+  if (!_imgData) return;
+  const item    = _imgData.items[i];
+  const classId = S.activeClass?.id;
+  if (!item.asset_name) return;
+  try {
+    await api('DELETE', `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}`);
+    item.custom_prompt = null;
+    item.fixed_by = null;
+    toast('Restaurado al original');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) { toast(e.message, false); }
+}
+
+async function impFixOne(i) {
+  if (!_imgData) return;
+  const item    = _imgData.items[i];
+  const classId = S.activeClass?.id;
+  if (!item.asset_name) return;
+  const btn = document.getElementById(`imp_fix_${i}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  try {
+    const r = await api('POST',
+      `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`,
+      { original_prompt: item.original_prompt || '', narration: item.narration });
+    item.custom_prompt = r.prompt;
+    item.fixed_by = 'ai';
+    toast('Prompt mejorado ✓');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) {
+    toast(e.message, false);
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 Fix'; }
+  }
+}
+
+async function impFixAll() {
+  if (!_imgData?.items?.length) return;
+  const classId = S.activeClass?.id;
+  const items   = _imgData.items;
+  AIModal.show('🤖 Mejorando prompts…', `0 / ${items.length} procesados`);
+  let done = 0;
+  for (const item of items) {
+    if (!item.asset_name) { done++; continue; }
+    try {
+      const r = await api('POST',
+        `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`,
+        { original_prompt: item.original_prompt || '', narration: item.narration });
+      item.custom_prompt = r.prompt;
+      item.fixed_by = 'ai';
+    } catch(e) { console.warn(`Fix failed ${item.asset_name}:`, e.message); }
+    done++;
+    AIModal.update(`${done} / ${items.length} procesados`, Math.round(done / items.length * 100));
+  }
+  AIModal.done(`✅ ${done} prompts procesados`);
+  _buildImgUI(document.getElementById('contentArea'));
 }
 
 /* ═══════════════════════════════════════════════════════

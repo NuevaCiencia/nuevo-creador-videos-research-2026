@@ -294,6 +294,9 @@ class RemotionTemplateUpdate(BaseModel):
     enabled: Optional[bool] = None
     sort_order: Optional[int] = None
 
+class ImgPromptUpdate(BaseModel):
+    prompt: str
+
 
 # ── Serializers ────────────────────────────────────────────────────────────────
 
@@ -1406,6 +1409,223 @@ def delete_remotion_template(rt_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Template no encontrado")
     db.delete(rt)
     db.commit()
+
+
+# ── Image Prompts ──────────────────────────────────────────────────────────────
+
+_IMAGE_TYPES = {"SPLIT_LEFT", "SPLIT_RIGHT", "FULL_IMAGE"}
+
+def ser_img_prompt(row: models.ClassImgPrompt):
+    return {
+        "class_id":   row.class_id,
+        "asset_name": row.asset_name,
+        "prompt":     row.prompt,
+        "fixed_by":   row.fixed_by,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+@app.get("/api/classes/{class_id}/img-prompts")
+def get_img_prompts(class_id: int, db: Session = Depends(get_db)):
+    """Image-bearing segments with original prompts (from recursos_json) + custom edits."""
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    segs = (db.query(models.ScreenSegment)
+            .filter(models.ScreenSegment.class_id == class_id)
+            .order_by(models.ScreenSegment.order).all())
+    img_segs = [s for s in segs if s.screen_type in _IMAGE_TYPES]
+
+    if not img_segs:
+        return {"items": [], "has_guion": False}
+
+    guion_row = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    has_guion = guion_row is not None and guion_row.status == "done"
+
+    # Build prompt map from recursos_json: {asset_name → descripcion}
+    prompt_map: dict = {}  # "S001.png" → "A premium educational..."
+    asset_name_map: dict = {}  # segment_order → asset_name (from guion content)
+    if has_guion and guion_row.recursos_json:
+        try:
+            recursos = json.loads(guion_row.recursos_json).get("recursos", [])
+            for r in recursos:
+                nombre = r.get("nombre", "")
+                desc   = r.get("descripcion", "")
+                if nombre and desc:
+                    prompt_map[nombre] = desc
+        except Exception:
+            pass
+
+    # Also parse guion content to get ASSET per segment order
+    if has_guion and guion_row.content:
+        cur_idx = -1
+        cur: dict = {}
+        for raw in guion_row.content.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            if line.upper().startswith("#SEGMENT"):
+                if cur_idx >= 0 and cur:
+                    asset_name_map[cur_idx] = cur.get("ASSET", "").split("/")[-1]
+                cur_idx += 1
+                cur = {}
+            elif "=" in line and cur_idx >= 0:
+                k, v = map(str.strip, line.split("=", 1))
+                cur[k.upper()] = v
+        if cur_idx >= 0:
+            asset_name_map[cur_idx] = cur.get("ASSET", "").split("/")[-1]
+
+    # Custom prompts saved by user/AI
+    custom_prompts = {
+        r.asset_name: r
+        for r in db.query(models.ClassImgPrompt).filter(
+            models.ClassImgPrompt.class_id == class_id
+        ).all()
+    }
+
+    items = []
+    for seg in img_segs:
+        asset_name      = asset_name_map.get(seg.order, "")
+        original_prompt = prompt_map.get(asset_name, "")
+        custom          = custom_prompts.get(asset_name)
+        items.append({
+            "segment_id":      seg.id,
+            "order":           seg.order,
+            "screen_type":     seg.screen_type,
+            "asset_name":      asset_name,
+            "narration":       seg.narration or "",
+            "original_prompt": original_prompt,
+            "custom_prompt":   custom.prompt if custom else None,
+            "fixed_by":        custom.fixed_by if custom else None,
+            "updated_at":      custom.updated_at.isoformat() if custom and custom.updated_at else None,
+        })
+
+    return {"items": items, "has_guion": has_guion}
+
+
+@app.put("/api/classes/{class_id}/img-prompts/{asset_name}")
+def save_img_prompt(class_id: int, asset_name: str, data: ImgPromptUpdate,
+                    db: Session = Depends(get_db)):
+    row = db.query(models.ClassImgPrompt).filter(
+        models.ClassImgPrompt.class_id == class_id,
+        models.ClassImgPrompt.asset_name == asset_name,
+    ).first()
+    if row:
+        row.prompt    = data.prompt
+        row.fixed_by  = "user"
+        row.updated_at = datetime.utcnow()
+    else:
+        row = models.ClassImgPrompt(
+            class_id=class_id, asset_name=asset_name,
+            prompt=data.prompt, fixed_by="user",
+        )
+        db.add(row)
+    db.commit()
+    db.refresh(row)
+    return ser_img_prompt(row)
+
+
+@app.delete("/api/classes/{class_id}/img-prompts/{asset_name}", status_code=204)
+def delete_img_prompt(class_id: int, asset_name: str, db: Session = Depends(get_db)):
+    row = db.query(models.ClassImgPrompt).filter(
+        models.ClassImgPrompt.class_id == class_id,
+        models.ClassImgPrompt.asset_name == asset_name,
+    ).first()
+    if row:
+        db.delete(row)
+        db.commit()
+
+
+_META_PROMPT_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "0_referencia", "META_PROMPT_ARREGLA_IMAGENES.txt"
+)
+
+def _load_meta_prompt() -> str:
+    """Load META_PROMPT_ARREGLA_IMAGENES.txt from 0_referencia."""
+    try:
+        with open(_META_PROMPT_PATH, encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return None
+
+
+@app.post("/api/classes/{class_id}/img-prompts/{asset_name}/fix")
+async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
+                          db: Session = Depends(get_db)):
+    """Refine an image prompt using META_PROMPT_ARREGLA_IMAGENES + narration."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(500, "OPENAI_API_KEY no configurada")
+
+    original_prompt = payload.get("original_prompt", "")
+    narration       = payload.get("narration", "")
+    if not original_prompt and not narration:
+        raise HTTPException(400, "Se necesita original_prompt o narration")
+
+    meta_prompt = _load_meta_prompt()
+    if not meta_prompt:
+        raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado en 0_referencia/")
+
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key)
+
+    # If no original prompt, generate a raw one first from narration alone
+    raw_prompt = original_prompt
+    if not raw_prompt and narration:
+        try:
+            seed_resp = client.chat.completions.create(
+                model="gpt-5.4-mini",
+                messages=[
+                    {"role": "system", "content": (
+                        "You are an educational image prompt generator. "
+                        "Given a narration fragment from a video course, write a short English image description "
+                        "that captures the core concept visually. 2-3 sentences, descriptive and concrete. "
+                        "No labels, no preamble, just the description."
+                    )},
+                    {"role": "user", "content": f"NARRACIÓN: {narration}"},
+                ],
+                temperature=0.3,
+            )
+            raw_prompt = seed_resp.choices[0].message.content.strip()
+        except Exception as e:
+            raise HTTPException(500, f"Error generando prompt base: {str(e)}")
+
+    # Format matches META_PROMPT_ARREGLA_IMAGENES.txt input format
+    user_msg = f"PROMPT: {raw_prompt}\nLOCUCIÓN: {narration}"
+
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-5.4-mini",
+            messages=[
+                {"role": "system", "content": meta_prompt},
+                {"role": "user",   "content": user_msg},
+            ],
+            temperature=0.3,
+        )
+        improved = resp.choices[0].message.content.strip()
+    except Exception as e:
+        raise HTTPException(500, f"Error OpenAI: {str(e)}")
+
+    # Upsert
+    row = db.query(models.ClassImgPrompt).filter(
+        models.ClassImgPrompt.class_id == class_id,
+        models.ClassImgPrompt.asset_name == asset_name,
+    ).first()
+    if row:
+        row.prompt    = improved
+        row.fixed_by  = "ai"
+        row.updated_at = datetime.utcnow()
+    else:
+        row = models.ClassImgPrompt(
+            class_id=class_id, asset_name=asset_name,
+            prompt=improved, fixed_by="ai",
+        )
+        db.add(row)
+    db.commit()
+    return {"asset_name": asset_name, "prompt": improved, "fixed_by": "ai"}
 
 
 # ── VIDEO: Assets status + Dummy builder + Final Render ───────────────────────

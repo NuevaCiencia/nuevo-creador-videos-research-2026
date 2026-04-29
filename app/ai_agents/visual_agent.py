@@ -395,7 +395,7 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
         json_maestro = {
             'proyecto':       course_cfg.get('title', 'Proyecto'),
             'total_recursos': len(recursos),
-            'recursos':       [{k: v for k, v in r.items() if k != 'descripcion'} for r in recursos],
+            'recursos':       recursos,  # descripcion included — used by img-prompts tab
         }
         if remotion_configs:
             json_maestro['remotion'] = remotion_configs
