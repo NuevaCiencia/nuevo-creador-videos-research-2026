@@ -3733,7 +3733,16 @@ async function crUpload(i, input, ubicacion) {
   const classId = S.activeClass?.id;
   const fnEl    = document.getElementById(`cr_fname_${i}`);
   const lblEl   = document.getElementById(`cr_lbl_${i}`);
-  const fmtEl   = document.getElementById(`cr_status_${i}`);  // formatting overlay div
+  const fmtEl   = document.getElementById(`cr_status_${i}`);
+
+  // Validate prefix: uploaded filename must start with the expected asset stem
+  const expectedStem = ubicacion.replace(/^.*\//, '').replace(/\.[^.]+$/, '').toUpperCase();
+  const fileStem     = file.name.replace(/\.[^.]+$/, '').toUpperCase();
+  if (!fileStem.startsWith(expectedStem)) {
+    toast(`Archivo incorrecto — se esperaba un nombre que empiece con "${expectedStem}" (recibido: "${file.name}")`, false);
+    input.value = '';
+    return;
+  }
 
   const isImage = /\.(png|jpe?g|webp|bmp|tiff?)$/i.test(ubicacion);
 
