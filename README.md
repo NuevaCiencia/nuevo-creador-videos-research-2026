@@ -18,6 +18,44 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Dependencias Node.js (Remotion)
+
+La app renderiza assets animados con [Remotion](https://www.remotion.dev/), que requiere **Node.js ≥ 18**.
+
+### Instalar Node.js
+
+**Mac (recomendado via nvm):**
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.zshrc   # o ~/.bashrc
+nvm install 20
+nvm use 20
+```
+
+**Windows (recomendado via nvm-windows):**
+1. Descarga e instala [nvm-windows](https://github.com/coreybutler/nvm-windows/releases)
+2. Abre un terminal nuevo y ejecuta:
+```cmd
+nvm install 20
+nvm use 20
+```
+
+**O directamente desde [nodejs.org](https://nodejs.org/) (LTS).**
+
+### Instalar dependencias de Remotion
+
+Después de clonar o hacer `git pull`, una sola vez:
+
+```bash
+cd remotion
+npm install
+cd ..
+```
+
+> La carpeta `remotion/node_modules/` está en `.gitignore` — hay que instalar en cada máquina nueva.
+
+---
+
 ## Arrancar la app
 
 ```bash
