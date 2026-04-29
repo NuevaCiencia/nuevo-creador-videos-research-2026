@@ -899,7 +899,6 @@ input,textarea{font-family:inherit;outline:none}
   height: 100%;
   overflow: hidden;
 }
-
 .est-toolbar {
   display: flex;
   align-items: center;
@@ -910,138 +909,153 @@ input,textarea{font-family:inherit;outline:none}
   font-size: 12px;
   color: var(--tx2);
   flex-shrink: 0;
-  gap: 12px;
 }
-
 .est-toolbar-info { font-weight: 600; }
 .est-toolbar-actions { display: flex; gap: 8px; }
+
+.est-btn-discard {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--tx2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.est-btn-discard:hover { background: var(--bg2); }
+
+.est-btn-save {
+  padding: 5px 16px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.est-btn-save:hover { opacity: .85; }
+.est-btn-save.dirty {
+  animation: est-pulse 1.8s ease-in-out infinite;
+}
+@keyframes est-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,.5); }
+  50%      { box-shadow: 0 0 0 7px rgba(99,102,241,0); }
+}
 
 .est-editor {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 32px 60px;
+  padding: 16px 40px 80px;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  max-width: 860px;
+  max-width: 820px;
   width: 100%;
   margin: 0 auto;
 }
 
-/* Drop zones — invisible by default, visible when dragging */
-.est-dropzone {
-  height: 10px;
+/* Slot: separator between paragraphs, acts as drop target */
+.est-slot {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  transition: height .15s;
+  height: 28px;
+  border-radius: 6px;
+  transition: background .12s, height .12s;
+  cursor: default;
 }
-.est-dropzone .est-add-btn {
-  opacity: 0;
-  transition: opacity .15s;
-  pointer-events: none;
+.est-slot:hover,
+.est-slot.est-drop-over {
+  background: rgba(99,102,241,.08);
+  border: 1.5px dashed rgba(99,102,241,.45);
+  height: 36px;
 }
-.est-dropzone:hover { height: 32px; }
-.est-dropzone:hover .est-add-btn {
-  opacity: 1;
-  pointer-events: auto;
+.est-slot.est-slot-occupied { height: 6px; }
+.est-slot.est-slot-occupied:hover { height: 6px; background: transparent; border: none; }
+.est-slot-occupied-line {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
 }
-.est-dropzone.est-drop-active {
-  height: 40px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-radius: 8px;
-  border: 2px dashed var(--accent);
-}
-.est-dropzone.est-drop-active .est-add-btn { opacity: 0; }
 
+/* Add button inside slot */
 .est-add-btn {
   font-size: 10px;
   font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: none;
   border: 1px dashed var(--accent);
   border-radius: 20px;
-  padding: 2px 12px;
+  padding: 2px 14px;
   cursor: pointer;
-  letter-spacing: .5px;
-  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity .12s;
 }
-.est-add-btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.est-slot:hover .est-add-btn { opacity: 1; }
 
 /* Tag chip */
 .est-tag {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px 6px 8px;
-  background: color-mix(in srgb, var(--est-color, #666) 12%, var(--bg1));
-  border: 2px solid color-mix(in srgb, var(--est-color, #666) 40%, transparent);
+  padding: 6px 10px;
+  border: 2px solid #ccc;
   border-radius: 8px;
   cursor: grab;
   user-select: none;
   width: fit-content;
-  min-width: 200px;
-  transition: box-shadow .15s, transform .1s;
-  margin-bottom: 4px;
+  min-width: 220px;
+  margin-bottom: 6px;
+  transition: box-shadow .12s, transform .1s;
 }
-.est-tag:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); transform: translateY(-1px); }
-.est-tag.est-dragging { opacity: .45; cursor: grabbing; }
+.est-tag:hover { box-shadow: 0 3px 10px rgba(0,0,0,.13); transform: translateY(-1px); }
+.est-tag:active { cursor: grabbing; }
 
 .est-tag-grip {
-  font-size: 14px;
-  color: color-mix(in srgb, var(--est-color, #666) 70%, transparent);
+  font-size: 15px;
+  opacity: .5;
   cursor: grab;
-  line-height: 1;
+  flex-shrink: 0;
 }
-
 .est-tag-select {
   font-size: 12px;
   font-weight: 700;
   background: transparent;
   border: none;
-  color: var(--est-color, var(--tx1));
   cursor: pointer;
   outline: none;
-  padding: 0 4px;
+  padding: 0 2px;
   font-family: inherit;
+  flex: 1;
 }
-.est-tag-select option { color: var(--tx1); background: var(--bg1); font-weight: 600; }
-
+.est-tag-select option { background: var(--bg1); color: var(--tx1); }
 .est-tag-del {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--est-color, #666) 60%, transparent);
   background: none;
   border: none;
   cursor: pointer;
+  color: #aaa;
+  padding: 0;
   line-height: 1;
-  padding: 0 2px;
-  margin-left: auto;
+  flex-shrink: 0;
 }
 .est-tag-del:hover { color: #ef4444; }
 
-/* Paragraph block */
+/* Paragraph text block */
 .est-para {
   font-size: 13px;
   color: var(--tx2);
-  line-height: 1.65;
-  padding: 10px 14px;
+  line-height: 1.7;
+  padding: 10px 16px;
   background: var(--bg2);
   border-left: 3px solid var(--border2);
   border-radius: 0 6px 6px 0;
   white-space: pre-wrap;
   margin-bottom: 2px;
-}
-
-/* Save button dirty state */
-.btn-primary.est-dirty {
-  background: var(--accent);
-  animation: est-pulse 1.5s ease-in-out infinite;
-}
-@keyframes est-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
-  50%       { box-shadow: 0 0 0 6px transparent; }
 }
 
 /* ─── VISUALIZADOR DE PANTALLAS ─────────────────────── */

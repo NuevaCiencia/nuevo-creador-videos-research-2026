@@ -1874,10 +1874,10 @@ function vizRenderPreview(i) {
    ESTRUCTURA PHASE — drag-and-drop tag editor
 ═══════════════════════════════════════════════════════ */
 
-let _estData     = null;   // { paragraphs, tags, screen_types }
-let _estTags     = [];     // working copy: [{para_idx, screen_type, params}]
-let _estDragIdx  = null;   // index in _estTags being dragged
-let _estDirty    = false;
+let _estData    = null;
+let _estTags    = [];      // [{para_idx, screen_type, params}]
+let _estDragIdx = null;
+let _estDirty   = false;
 
 async function renderEstructura(area) {
   if (!S.activeClass) return;
@@ -1892,133 +1892,125 @@ async function renderEstructura(area) {
   }
 }
 
+// Return a hex color with alpha appended (e.g. #4f46e5 + 0.15 → #4f46e526)
+function _estHex(color, alpha) {
+  const a = Math.round(alpha * 255).toString(16).padStart(2, '0');
+  return (color || '#666666') + a;
+}
+
 function _buildEstUI(area) {
   const { paragraphs, screen_types, has_segments } = _estData;
   const typeMap = {};
   screen_types.forEach(st => { typeMap[st.name] = st; });
 
-  const typeOpts = screen_types.map(st =>
-    `<option value="${st.name}">${st.icon || ''} ${st.label || st.name}</option>`
-  ).join('');
-
-  // Build a map: para_idx → tag index in _estTags
+  // para_idx → tag index
   const tagAtPara = {};
   _estTags.forEach((t, ti) => { tagAtPara[t.para_idx] = ti; });
 
   let rows = '';
 
   paragraphs.forEach((para, pi) => {
-    // Tag before this paragraph?
-    if (tagAtPara[pi] !== undefined) {
+    // 1. Slot separator (drop zone + add button) — BEFORE tag and para
+    const hasTagHere = tagAtPara[pi] !== undefined;
+    rows += `<div class="est-slot ${hasTagHere ? 'est-slot-occupied' : ''}"
+      ondragover="estDragOver(event,${pi})"
+      ondragleave="estDragLeave(event)"
+      ondrop="estDrop(event,${pi})">
+      ${!hasTagHere
+        ? `<button class="est-add-btn" onclick="estAddTag(${pi})">＋ nueva pantalla aquí</button>`
+        : `<div class="est-slot-occupied-line"></div>`}
+    </div>`;
+
+    // 2. Tag chip (if a tag starts at this paragraph)
+    if (hasTagHere) {
       const ti    = tagAtPara[pi];
       const tag   = _estTags[ti];
       const st    = typeMap[tag.screen_type] || {};
-      const color = st.color || '#666';
-      rows += `
-      <div class="est-tag"
-           draggable="true"
-           data-ti="${ti}"
-           style="--est-color:${color}"
-           ondragstart="estDragStart(event,${ti})"
-           ondragend="estDragEnd(event)">
+      const color = st.color || '#666666';
+      const bgCol = _estHex(color, 0.12);
+      const bdCol = _estHex(color, 0.55);
+      rows += `<div class="est-tag"
+        draggable="true"
+        style="background:${bgCol};border-color:${bdCol};color:${color}"
+        ondragstart="estDragStart(event,${ti})"
+        ondragend="estDragEnd(event)">
         <span class="est-tag-grip">⠿</span>
-        <select class="est-tag-select" onchange="estChangeType(${ti},this.value)">
+        <select class="est-tag-select" style="color:${color}" onchange="estChangeType(${ti},this.value)">
           ${screen_types.map(st2 =>
-            `<option value="${st2.name}" ${st2.name === tag.screen_type ? 'selected' : ''}>${st2.icon||''} ${st2.label||st2.name}</option>`
+            `<option value="${st2.name}" ${st2.name === tag.screen_type ? 'selected' : ''}>${st2.icon || ''} ${st2.label || st2.name}</option>`
           ).join('')}
         </select>
-        ${ti > 0 ? `<button class="est-tag-del" onclick="estRemoveTag(${ti})" title="Eliminar tag">×</button>` : ''}
+        ${_estTags.length > 1 ? `<button class="est-tag-del" onclick="estRemoveTag(${ti})">×</button>` : ''}
       </div>`;
     }
 
-    // Drop zone before this paragraph (for dropping tags)
-    rows += `<div class="est-dropzone" data-pi="${pi}"
-       ondragover="estDragOver(event,${pi})"
-       ondragleave="estDragLeave(event)"
-       ondrop="estDrop(event,${pi})">
-      <button class="est-add-btn" onclick="estAddTag(${pi})">+ tag aquí</button>
-    </div>`;
-
-    // Paragraph text
+    // 3. Paragraph text block
     rows += `<div class="est-para">${esc(para.text)}</div>`;
   });
 
-  // Drop zone after last paragraph
-  const lastPi = paragraphs.length;
-  rows += `<div class="est-dropzone" data-pi="${lastPi}"
-     ondragover="estDragOver(event,${lastPi})"
-     ondragleave="estDragLeave(event)"
-     ondrop="estDrop(event,${lastPi})">
-    <button class="est-add-btn" onclick="estAddTag(${lastPi})">+ tag aquí</button>
-  </div>`;
-
   const tagCount = _estTags.length;
-  const dirty = _estDirty ? ' est-dirty' : '';
 
   area.innerHTML = `
   <div class="est-phase">
     <div class="est-toolbar">
       <div class="est-toolbar-info">
         <strong>${tagCount}</strong> pantalla${tagCount !== 1 ? 's' : ''}
-        ${!has_segments ? '<span style="color:var(--tx3)"> · sin segmentación aún</span>' : ''}
+        ${!has_segments ? ' · <span style="color:var(--tx3)">sin segmentación previa</span>' : ''}
       </div>
       <div class="est-toolbar-actions">
-        <button class="btn-secondary" onclick="renderEstructura(document.getElementById('contentArea'))">↺ Descartar</button>
-        <button class="btn-primary${dirty}" id="estSaveBtn" onclick="saveEstructura()">💾 Guardar estructura</button>
+        <button class="est-btn-discard" onclick="renderEstructura(document.getElementById('contentArea'))">↺ Descartar</button>
+        <button class="est-btn-save${_estDirty ? ' dirty' : ''}" id="estSaveBtn" onclick="saveEstructura()">💾 Guardar</button>
       </div>
     </div>
-    <div class="est-editor" id="estEditor">
-      ${rows}
-    </div>
+    <div class="est-editor" id="estEditor">${rows}</div>
   </div>`;
 }
 
 function estDragStart(e, ti) {
   _estDragIdx = ti;
   e.dataTransfer.effectAllowed = 'move';
-  e.currentTarget.classList.add('est-dragging');
+  setTimeout(() => e.target.style.opacity = '0.4', 0);
 }
 
 function estDragEnd(e) {
-  e.currentTarget.classList.remove('est-dragging');
-  document.querySelectorAll('.est-dropzone').forEach(z => z.classList.remove('est-drop-active'));
+  e.target.style.opacity = '';
+  _estDragIdx = null;
+  document.querySelectorAll('.est-slot').forEach(s => s.classList.remove('est-drop-over'));
 }
 
 function estDragOver(e, pi) {
   if (_estDragIdx === null) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('.est-dropzone').forEach(z => z.classList.remove('est-drop-active'));
-  e.currentTarget.classList.add('est-drop-active');
+  document.querySelectorAll('.est-slot').forEach(s => s.classList.remove('est-drop-over'));
+  e.currentTarget.classList.add('est-drop-over');
 }
 
 function estDragLeave(e) {
-  e.currentTarget.classList.remove('est-drop-active');
+  e.currentTarget.classList.remove('est-drop-over');
 }
 
 function estDrop(e, pi) {
   e.preventDefault();
-  e.currentTarget.classList.remove('est-drop-active');
+  document.querySelectorAll('.est-slot').forEach(s => s.classList.remove('est-drop-over'));
   if (_estDragIdx === null) return;
 
-  // Don't allow moving tag 0 away from para 0 (always need a tag at start)
-  const newPi = Math.min(pi, _estData.paragraphs.length - 1);
+  // Clamp to valid range
+  const newPi = Math.max(0, Math.min(pi, _estData.paragraphs.length - 1));
 
-  // Check no other tag already at this para_idx
-  const conflict = _estTags.findIndex((t, i) => i !== _estDragIdx && t.para_idx === newPi);
-  if (conflict !== -1) { _estDragIdx = null; return; }
+  // Conflict: another tag already at target para
+  if (_estTags.some((t, i) => i !== _estDragIdx && t.para_idx === newPi)) {
+    _estDragIdx = null; return;
+  }
 
   _estTags[_estDragIdx].para_idx = newPi;
   _estTags.sort((a, b) => a.para_idx - b.para_idx);
-
-  // Re-index (ti values shift after sort)
   _estDragIdx = null;
   _estDirty   = true;
   _buildEstUI(document.getElementById('contentArea'));
 }
 
 function estAddTag(pi) {
-  // Don't add if already a tag at this para_idx
   if (_estTags.some(t => t.para_idx === pi)) return;
   const defaultType = (_estData.screen_types[0] || {}).name || 'TEXT';
   _estTags.push({ para_idx: pi, screen_type: defaultType, params: '' });
@@ -2037,9 +2029,8 @@ function estRemoveTag(ti) {
 function estChangeType(ti, newType) {
   _estTags[ti].screen_type = newType;
   _estDirty = true;
-  // Just mark save btn dirty, no full rebuild needed
   const btn = document.getElementById('estSaveBtn');
-  if (btn) btn.classList.add('est-dirty');
+  if (btn) btn.classList.add('dirty');
 }
 
 async function saveEstructura() {
@@ -2053,11 +2044,10 @@ async function saveEstructura() {
     });
     _estDirty = false;
     toast(`✅ ${res.saved} pantalla${res.saved !== 1 ? 's' : ''} guardada${res.saved !== 1 ? 's' : ''}`, true);
-    // Reload fresh from server
     renderEstructura(document.getElementById('contentArea'));
   } catch(e) {
     toast(e.message, false);
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar estructura'; }
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
   }
 }
 
