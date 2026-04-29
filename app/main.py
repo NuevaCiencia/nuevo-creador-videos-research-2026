@@ -1039,6 +1039,113 @@ def get_visualizador(class_id: int, db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/classes/{class_id}/estructura")
+def get_estructura(class_id: int, db: Session = Depends(get_db)):
+    """
+    Returns the narration split into paragraphs + current segment tag positions.
+    Used by the Estructura editor tab.
+    """
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    segs = (db.query(models.ScreenSegment)
+            .filter(models.ScreenSegment.class_id == class_id)
+            .order_by(models.ScreenSegment.order).all())
+
+    st_rows = db.query(models.ScreenType).order_by(models.ScreenType.sort_order).all()
+
+    # Split narration into non-empty paragraphs, tracking original line indices
+    raw = cls.raw_narration or ""
+    lines = raw.split("\n")
+    paragraphs = []
+    i = 0
+    while i < len(lines):
+        while i < len(lines) and not lines[i].strip():
+            i += 1
+        if i >= len(lines):
+            break
+        start = i
+        chunk = []
+        while i < len(lines) and lines[i].strip():
+            chunk.append(lines[i])
+            i += 1
+        paragraphs.append({"text": "\n".join(chunk), "line_idx": start})
+
+    # Map segment narrations to paragraph indices (best-effort prefix match)
+    tags = []
+    search_from = 0
+    for seg in segs:
+        first = (seg.narration or "").split("\n")[0].strip()[:40]
+        matched = search_from
+        for pi in range(search_from, len(paragraphs)):
+            if first and paragraphs[pi]["text"].strip().startswith(first):
+                matched = pi
+                break
+        tags.append({
+            "para_idx":    matched,
+            "screen_type": seg.screen_type,
+            "params":      seg.params or "",
+            "seg_id":      seg.id,
+        })
+        search_from = matched + 1
+
+    return {
+        "paragraphs":   paragraphs,
+        "tags":         tags,
+        "screen_types": [ser_screen_type(st) for st in st_rows],
+        "has_segments": len(segs) > 0,
+    }
+
+
+@app.put("/api/classes/{class_id}/estructura")
+def save_estructura(class_id: int, payload: dict, db: Session = Depends(get_db)):
+    """
+    Rebuild screen_segments from new tag positions.
+    payload: { "tags": [{"para_idx": int, "screen_type": str, "params": str}, ...],
+               "paragraphs": [{"text": str, "line_idx": int}, ...] }
+    """
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    tags       = sorted(payload.get("tags", []),       key=lambda t: t["para_idx"])
+    paragraphs = payload.get("paragraphs", [])
+
+    if not tags:
+        raise HTTPException(400, "Se necesita al menos un tag")
+
+    # Delete existing segments
+    db.query(models.ScreenSegment).filter(
+        models.ScreenSegment.class_id == class_id
+    ).delete()
+
+    # Create new segments — each segment gets paragraphs from its para_idx to next tag
+    for order, tag in enumerate(tags):
+        start = tag["para_idx"]
+        end   = tags[order + 1]["para_idx"] if order + 1 < len(tags) else len(paragraphs)
+        narration = "\n\n".join(
+            p["text"] for p in paragraphs[start:end] if p["text"].strip()
+        )
+        db.add(models.ScreenSegment(
+            class_id    = class_id,
+            order       = order,
+            screen_type = tag["screen_type"],
+            params      = tag.get("params", ""),
+            narration   = narration,
+            notes       = "",
+        ))
+
+    # Cascade invalidation
+    for model_cls in (models.ClassGuionBase, models.ClassGuionConsolidado):
+        row = db.query(model_cls).filter(model_cls.class_id == class_id).first()
+        if row:
+            row.status = "stale"
+
+    db.commit()
+    return {"saved": len(tags)}
+
+
 @app.put("/api/segments/{segment_id}/type")
 def update_segment_type(segment_id: int, payload: dict, db: Session = Depends(get_db)):
     """Update screen_type and params of a segment. Marks guion_base stale."""
