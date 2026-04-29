@@ -39,35 +39,6 @@ def _find_npx() -> str:
     raise FileNotFoundError("npx not found — install Node.js")
 
 
-_PREFIX_CANONICAL = {
-    "//": "// ", "$ ": "$ ", "$": "$ ",
-    "→": "→ ",  ">": "> ",  "✓": "✓ ",
-    "!": "! ",  "# ": "// ",
-}
-
-def _normalize_props(template: str, data: dict) -> dict:
-    """Fix AI-generated props to match each template's exact schema."""
-    import copy
-    data = copy.deepcopy(data)
-
-    if template == "TypeWriter":
-        lines = data.get("lines", [])
-        speed = 1.8          # chars per frame (template default)
-        gap   = 18           # frames between lines finishing and next starting
-        cursor = 10          # initial delay before first line
-        cumulative = cursor
-        for ln in lines:
-            # Fix prefix: ensure trailing space and canonical form
-            p = str(ln.get("prefix", "$ ")).strip()
-            ln["prefix"] = _PREFIX_CANONICAL.get(p, p + " " if not p.endswith(" ") else p)
-            # Recalculate cumulative delay (ignore AI-generated delay)
-            ln["delay"] = cumulative
-            ln["speed"] = speed
-            text_len = len(str(ln.get("text", "")))
-            cumulative += int(text_len / speed) + gap
-
-    return data
-
 
 def _parse_frames(duration_str: str) -> int:
     """'mm:ss' or 'ss' → frame count at 30 fps."""
@@ -185,7 +156,6 @@ def run_remotion(class_id: int) -> None:
 
             comp_id = TEMPLATE_MAP.get(template, template)
             frames  = _parse_frames(duration)
-            props   = _normalize_props(template, props)
             out     = assets_dir / output_name
 
             pct = 5 + int((i / total) * 90)

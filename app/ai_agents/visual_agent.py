@@ -89,6 +89,13 @@ FORMATO ESPERADO:
   ]
 }}
 
+REGLAS ESTRICTAS DE TIPOS:
+- Todos los valores numéricos (delay, etc.) deben ser ENTEROS, NUNCA strings.
+- TypeWriter → "delay": los valores deben ser ACUMULATIVOS en frames (30fps).
+  Fórmula: línea 1 delay=10, cada siguiente = delay_anterior + ceil(len(texto_anterior)/1.8) + 18.
+  Ejemplo con 3 líneas de 20, 15 y 25 chars: delays = [10, 10+11+18=39, 39+8+18=65].
+- TypeWriter → "prefix": SIEMPRE con espacio final. Exactamente uno de: "$ " "→ " "> " "✓ " "! " "// "
+
 IMPORTANTE:
 - Devuelve exactamente el mismo número de elementos que hay en el input.
 - ADAPTA INTELIGENTEMENTE EL TEXTO basándote en el "speech" para llenar los campos del template."""
