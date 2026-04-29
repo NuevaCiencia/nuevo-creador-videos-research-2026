@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db, init_db
 import models
-from ai_agents import research_agent, screen_agent, whisper_agent, spell_agent, aligner_agent, visual_agent, dummy_builder, render_agent
+from ai_agents import research_agent, screen_agent, whisper_agent, spell_agent, aligner_agent, visual_agent, dummy_builder, render_agent, remotion_agent
 
 _whisper_pool = ThreadPoolExecutor(max_workers=1)  # one transcription at a time
 
@@ -1380,6 +1380,43 @@ def start_render(class_id: int, db: Session = Depends(get_db)):
 
     _whisper_pool.submit(render_agent.run_render, class_id)
     return {"status": "started"}
+
+
+@app.post("/api/classes/{class_id}/render/remotion")
+def start_remotion_render(class_id: int, db: Session = Depends(get_db)):
+    """Launch background Remotion render for all REM assets of this class."""
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    guion = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if not guion or not guion.recursos_json:
+        raise HTTPException(400, "Sin recursos_json — ejecuta la fase Visual primero")
+
+    row = db.query(models.ClassRemotionRender).filter(
+        models.ClassRemotionRender.class_id == class_id
+    ).first()
+    if row:
+        row.status = "rendering"; row.progress = 0; row.phase = "⏳ Iniciando…"; row.error = None
+    else:
+        row = models.ClassRemotionRender(class_id=class_id, status="rendering", progress=0, phase="⏳ Iniciando…")
+        db.add(row)
+    db.commit()
+
+    _whisper_pool.submit(remotion_agent.run_remotion, class_id)
+    return {"status": "started"}
+
+
+@app.get("/api/classes/{class_id}/render/remotion/status")
+def get_remotion_status(class_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.ClassRemotionRender).filter(
+        models.ClassRemotionRender.class_id == class_id
+    ).first()
+    if not row:
+        return {"status": "idle", "progress": 0, "phase": "", "error": None}
+    return {"status": row.status, "progress": row.progress, "phase": row.phase, "error": row.error}
 
 
 @app.get("/api/classes/{class_id}/render/download")

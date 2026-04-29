@@ -301,6 +301,7 @@ function renderPhase(phase) {
   _clearSpellPoll();
   _clearVisualPoll();
   _clearVisualDummiesPoll();
+  _clearRemotionPoll();
   _clearRenderPoll();
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
@@ -1161,19 +1162,22 @@ function _clearVisualDummiesPoll() {
 
 async function renderVisuales(area) {
   _clearVisualDummiesPoll();
+  _clearRemotionPoll();
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estado visual…</div></div>`;
 
-  let guion = null, visual = null, assetsStatus = null, renderStatus = null;
+  let guion = null, visual = null, assetsStatus = null, renderStatus = null, remotionStatus = null;
   try { guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);  } catch(e) {}
   if (guion?.status === 'done') {
     try { visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`); } catch(e) {}
   }
   if (visual?.status === 'done') {
-    try { renderStatus  = await api('GET', `/api/classes/${S.activeClass.id}/render/status`); } catch(e) {}
-    try { assetsStatus  = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`); } catch(e) {}
+    try { renderStatus   = await api('GET', `/api/classes/${S.activeClass.id}/render/status`); } catch(e) {}
+    try { assetsStatus   = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`); } catch(e) {}
+    try { remotionStatus = await api('GET', `/api/classes/${S.activeClass.id}/render/remotion/status`); } catch(e) {}
   }
-  _buildVisualesUI(area, guion, visual, { assetsStatus, renderStatus });
+  _buildVisualesUI(area, guion, visual, { assetsStatus, renderStatus, remotionStatus });
   if (visual?.status === 'running') _startVisualPoll();
+  if (remotionStatus?.status === 'rendering') _startRemotionPoll();
 }
 
 function _buildVisualesUI(area, guion, visual, extra = null) {
@@ -1188,13 +1192,23 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
   const videos = recursos?.recursos?.filter(r => r.tipo === 'video' && r.tipo_contenido !== 'remotion').length || 0;
   const remotion = recursos?.recursos?.filter(r => r.tipo_contenido === 'remotion').length || 0;
 
-  const assetsStatus  = extra?.assetsStatus  || null;
-  const renderStatus  = extra?.renderStatus  || null;
+  const assetsStatus   = extra?.assetsStatus   || null;
+  const renderStatus   = extra?.renderStatus   || null;
+  const remotionStatus = extra?.remotionStatus || null;
   const missingCount  = assetsStatus?.missing ?? 0;
   const totalCount    = assetsStatus?.total   ?? 0;
   const dummiesSt     = renderStatus?.status || 'idle';
   const isBuilding    = dummiesSt === 'building_dummies';
   const dummiesDone   = dummiesSt === 'dummies_done' || (dummiesSt === 'done') || (missingCount === 0 && assetsStatus);
+
+  const remotionSt      = remotionStatus?.status || 'idle';
+  const remotionRunning = remotionSt === 'rendering';
+  const remotionDone    = remotionSt === 'done';
+  const remotionError   = remotionSt === 'error';
+  const remotionCount   = (() => {
+    if (!visual?.recursos_json) return 0;
+    try { return JSON.parse(visual.recursos_json).remotion?.length || 0; } catch { return 0; }
+  })();
 
   let dummiesRows = '';
   if (assetsStatus?.items) {
@@ -1335,6 +1349,42 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
     </div>
     ` : ''}
 
+    <!-- Remotion card (shown when visual is done and there are remotion assets) -->
+    ${visualDone && remotionCount > 0 ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🎬 Remotion (${remotionCount} asset${remotionCount>1?'s':''})</span>
+        ${remotionDone ? `<span class="audio-done-badge">✓ Renderizados</span>`
+          : remotionError ? `<span style="font-size:12px;color:#ef4444;font-weight:600">❌ Error</span>`
+          : ''}
+      </div>
+      <div class="audio-card-body">
+        ${remotionRunning ? `
+          <div class="audio-progress-wrap">
+            <div class="audio-progress-bar">
+              <div class="audio-progress-fill running" id="remotionProgressFill" style="width:${remotionStatus?.progress||0}%"></div>
+            </div>
+            <div class="audio-progress-foot">
+              <span id="remotionPhaseLabel" class="audio-phase-label">${esc(remotionStatus?.phase||'')}</span>
+              <span id="remotionProgressPct" class="audio-progress-pct">${remotionStatus?.progress||0}%</span>
+            </div>
+          </div>
+        ` : remotionDone ? `
+          <p class="audio-card-desc">Todos los assets Remotion están renderizados y disponibles en disco.</p>
+          <button class="btn btn-ghost audio-att-btn" onclick="startRemotionRender()">↻ Re-renderizar</button>
+        ` : `
+          <p class="audio-card-desc" style="margin-bottom:10px">
+            ${remotionCount} asset${remotionCount>1?'s':''} Remotion necesitan renderizarse con Node.js antes de poder generar el video final.
+          </p>
+          <button class="btn btn-primary audio-att-btn" onclick="startRemotionRender()">
+            🎬 Renderizar ${remotionCount} asset${remotionCount>1?'s':''} Remotion
+          </button>
+        `}
+        ${remotionError ? `<div class="audio-error-box"><div class="audio-error-title">⚠️ Error</div><pre class="audio-error-pre">${esc(remotionStatus?.error||'')}</pre></div>` : ''}
+      </div>
+    </div>
+    ` : ''}
+
   </div>`;
 }
 
@@ -1416,6 +1466,54 @@ function _startVisualDummiesPoll() {
       }
     } catch(e) {}
   }, 2000);
+}
+
+let _remotionPollTimer = null;
+function _clearRemotionPoll() {
+  if (_remotionPollTimer) { clearInterval(_remotionPollTimer); _remotionPollTimer = null; }
+}
+
+async function startRemotionRender() {
+  try {
+    await api('POST', `/api/classes/${S.activeClass.id}/render/remotion`);
+    const area = document.getElementById('contentArea');
+    const guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);
+    const visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    const as     = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`).catch(() => null);
+    const rs     = await api('GET', `/api/classes/${S.activeClass.id}/render/status`).catch(() => null);
+    const rem    = { status: 'rendering', progress: 0, phase: 'Iniciando…' };
+    _buildVisualesUI(area, guion, visual, { assetsStatus: as, renderStatus: rs, remotionStatus: rem });
+    _startRemotionPoll();
+  } catch(e) { toast(e.message, false); }
+}
+
+function _startRemotionPoll() {
+  _clearRemotionPoll();
+  const classId = S.activeClass?.id;
+  _remotionPollTimer = setInterval(async () => {
+    if (S.activeClass?.id !== classId || S.activePhase !== 'visuales') { _clearRemotionPoll(); return; }
+    try {
+      const s = await api('GET', `/api/classes/${classId}/render/remotion/status`);
+      const fill = document.getElementById('remotionProgressFill');
+      const lbl  = document.getElementById('remotionPhaseLabel');
+      const pct  = document.getElementById('remotionProgressPct');
+      if (fill) fill.style.width = `${s.progress}%`;
+      if (lbl)  lbl.textContent  = s.phase || '';
+      if (pct)  pct.textContent  = `${s.progress}%`;
+      if (s.status !== 'rendering') {
+        _clearRemotionPoll();
+        const area = document.getElementById('contentArea');
+        let guion = null, visual = null, as = null, rs = null;
+        try { guion  = await api('GET', `/api/classes/${classId}/guion-base`); } catch(e) {}
+        try { visual = await api('GET', `/api/classes/${classId}/visual`); } catch(e) {}
+        try { as     = await api('GET', `/api/classes/${classId}/render/assets-status`); } catch(e) {}
+        try { rs     = await api('GET', `/api/classes/${classId}/render/status`); } catch(e) {}
+        _buildVisualesUI(area, guion, visual, { assetsStatus: as, renderStatus: rs, remotionStatus: s });
+        if (s.status === 'done')  toast('✅ Assets Remotion renderizados');
+        else if (s.status === 'error') toast('❌ Error en Remotion', false);
+      }
+    } catch(e) {}
+  }, 3000);
 }
 
 async function exportGuionConsolidado() {

@@ -72,6 +72,7 @@ class Class(Base):
     guion_base          = relationship("ClassGuionBase",          back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
     guion_consolidado   = relationship("ClassGuionConsolidado",   back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
     render              = relationship("ClassRender",             back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
+    remotion_render     = relationship("ClassRemotionRender",     back_populates="class_obj", uselist=False, cascade="all, delete-orphan")
 
 
 class ResearchItem(Base):
@@ -203,6 +204,21 @@ class ClassRender(Base):
     updated_at  = Column(DateTime,    nullable=True)
 
     class_obj = relationship("Class", back_populates="render")
+
+
+class ClassRemotionRender(Base):
+    __tablename__ = "class_remotion_renders"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    class_id    = Column(Integer, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True)
+    status      = Column(String(30),  default="idle")   # idle | rendering | done | error
+    progress    = Column(Integer,     default=0)
+    phase       = Column(String(255), default="")
+    error       = Column(Text,        nullable=True)
+    created_at  = Column(DateTime,    default=datetime.utcnow)
+    updated_at  = Column(DateTime,    nullable=True)
+
+    class_obj = relationship("Class", back_populates="remotion_render")
 
 
 # ── Per-class: Screen Segments ────────────────────────────────────────────────
