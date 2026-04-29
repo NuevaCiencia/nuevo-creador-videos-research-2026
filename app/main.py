@@ -1292,7 +1292,7 @@ def get_assets_status(class_id: int, db: Session = Depends(get_db)):
 
     section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
     course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
-    assets_base = ASSETS_DIR
+    assets_base = os.path.join(ASSETS_DIR, str(class_id))
 
     result = dummy_builder.check_assets_status(
         guion.recursos_json, assets_base, course.cover_asset or "videos/portada.mp4"
@@ -1315,7 +1315,7 @@ def build_dummies(class_id: int, db: Session = Depends(get_db)):
 
     section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
     course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
-    assets_base = ASSETS_DIR
+    assets_base = os.path.join(ASSETS_DIR, str(class_id))
 
     # Upsert render row
     row = db.query(models.ClassRender).filter(models.ClassRender.class_id == class_id).first()

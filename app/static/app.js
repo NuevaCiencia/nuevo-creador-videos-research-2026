@@ -1553,13 +1553,14 @@ async function viewGuionConsolidado() {
    VISUALIZADOR DE PANTALLAS
 ═══════════════════════════════════════════════════════ */
 
-let _vizData = null;        // { segments, has_guion, course }
+let _vizData = null;        // { segments, has_guion, course, screen_types, class_id }
 let _vizEditingIdx = null;  // index of card with open params editor
 
 async function renderViz(area) {
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando pantallas…</div></div>`;
   try {
     _vizData = await api('GET', `/api/classes/${S.activeClass.id}/visualizador`);
+    _vizData.class_id = S.activeClass.id;
   } catch(e) {
     area.innerHTML = `<div class="audio-phase"><div class="rp-loading">Error: ${esc(e.message)}</div></div>`;
     return;
@@ -1794,7 +1795,7 @@ function vizRenderPreview(i) {
 
   const text   = seg.text_on_screen || '';
   const params = (seg.params||'').split('//').map(p => p.trim()).filter(Boolean);
-  const assetUrl = seg.asset ? `/assets/${seg.asset}` : '';
+  const assetUrl = seg.asset ? `/assets/${_vizData.class_id}/${seg.asset}` : '';
   const isVid    = assetUrl.endsWith('.mp4');
 
   const placeholder = (msg) =>
