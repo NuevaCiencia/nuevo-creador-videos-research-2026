@@ -1074,6 +1074,10 @@ input,textarea{font-family:inherit;outline:none}
   flex-direction: column;
   gap: 0;
 }
+.viz-phase::-webkit-scrollbar { width: 10px; }
+.viz-phase::-webkit-scrollbar-track { background: var(--bg2); }
+.viz-phase::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 5px; }
+.viz-phase::-webkit-scrollbar-thumb:hover { background: var(--tx3); }
 .viz-header {
   display: flex;
   align-items: center;
