@@ -405,13 +405,32 @@ def update_course(course_id: int, data: CourseUpdate, db: Session = Depends(get_
     course = db.query(models.Course).filter(models.Course.id == course_id).first()
     if not course:
         raise HTTPException(404, "Curso no encontrado")
+    # Fields that are embedded in guion_consolidado #META — require re-running visual phase
+    VISUAL_FIELDS = {"main_font","background_color","main_text_color","highlight_text_color",
+                     "fps","resolution","cover_asset"}
+
     update_data = data.dict(exclude_unset=True)
+    visual_changed = any(k in VISUAL_FIELDS for k in update_data)
+
     for key, value in update_data.items():
         if key == "title":
             setattr(course, key, value.strip())
         else:
             setattr(course, key, value)
     course.updated_at = datetime.utcnow()
+
+    # Cascade: visual config change invalidates guion_consolidado for all classes in this course
+    if visual_changed:
+        section_ids = [s.id for s in db.query(models.Section.id)
+                       .filter(models.Section.course_id == course_id).all()]
+        if section_ids:
+            class_ids = [c.id for c in db.query(models.Class.id)
+                         .filter(models.Class.section_id.in_(section_ids)).all()]
+            if class_ids:
+                db.query(models.ClassGuionConsolidado).filter(
+                    models.ClassGuionConsolidado.class_id.in_(class_ids)
+                ).update({"status": "stale"}, synchronize_session=False)
+
     db.commit()
     db.refresh(course)
     return ser_course(course)
@@ -497,7 +516,14 @@ def update_class(class_id: int, data: ClassUpdate, db: Session = Depends(get_db)
     if data.title is not None:
         cls.title = data.title.strip()
     if data.raw_narration is not None:
+        narration_changed = cls.raw_narration != data.raw_narration
         cls.raw_narration = data.raw_narration
+        # Cascade: narration change invalidates alignment and visual orchestration
+        if narration_changed:
+            for model_cls in (models.ClassGuionBase, models.ClassGuionConsolidado):
+                row = db.query(model_cls).filter(model_cls.class_id == class_id).first()
+                if row:
+                    row.status = "stale"
     cls.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(cls)
