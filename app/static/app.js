@@ -1266,7 +1266,8 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
           </div>
         ` : visualDone ? `
           <div class="tx-summary-row">
-            <div class="tx-summary-stat"><span class="tx-stat-val">${recursos?.total_recursos || 0}</span><span class="tx-stat-lbl">assets total</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${(recursos?.total_recursos || 0) + 1}</span><span class="tx-stat-lbl">assets total</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">1</span><span class="tx-stat-lbl">portada</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${splits}</span><span class="tx-stat-lbl">split imgs</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${fulls}</span><span class="tx-stat-lbl">full imgs</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${videos}</span><span class="tx-stat-lbl">videos</span></div>
@@ -1320,13 +1321,23 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
             <th>Archivo</th><th>Tipo</th><th>Segmento</th><th>Duración</th>
           </tr></thead>
           <tbody>
-            ${recursos.recursos.map(r => `
-              <tr>
-                <td class="stat-cls-name" style="font-family:monospace;font-size:11px">${esc(r.nombre)}</td>
-                <td><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(r.tipo_contenido || r.tipo)}</span></td>
-                <td class="stat-cls-num">[${esc(r.segmento)}]</td>
-                <td class="stat-cls-num">${parseFloat(r.duracion||0).toFixed(1)}s</td>
-              </tr>`).join('')}
+            ${(() => {
+              const portadaItem = assetsStatus?.items?.find(it => it.tipo === 'portada');
+              const portadaRow = portadaItem ? `<tr>
+                <td class="stat-cls-name" style="font-family:monospace;font-size:11px">${esc(portadaItem.nombre)}</td>
+                <td><span class="seg-type-badge" style="background:#f59e0b22;color:#f59e0b;border-color:#f59e0b55">portada</span></td>
+                <td class="stat-cls-num">—</td>
+                <td class="stat-cls-num">—</td>
+              </tr>` : '';
+              const assetRows = recursos.recursos.map(r => `
+                <tr>
+                  <td class="stat-cls-name" style="font-family:monospace;font-size:11px">${esc(r.nombre)}</td>
+                  <td><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(r.tipo_contenido || r.tipo)}</span></td>
+                  <td class="stat-cls-num">[${esc(r.segmento)}]</td>
+                  <td class="stat-cls-num">${parseFloat(r.duracion||0).toFixed(1)}s</td>
+                </tr>`).join('');
+              return portadaRow + assetRows;
+            })()}
           </tbody>
         </table>
       </div>
