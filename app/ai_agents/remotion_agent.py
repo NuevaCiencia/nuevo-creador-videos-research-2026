@@ -2,7 +2,7 @@
 remotion_agent.py — Renderiza assets REM*.mp4 usando Remotion (Node.js).
 
 Lee los configs remotion ya generados por visual_agent en recursos_json,
-ejecuta `npx remotion render` por cada asset, guarda en app/assets/videos/.
+ejecuta `npx remotion render` por cada asset, guarda en app/assets/{class_id}/videos/.
 """
 import json
 import os
@@ -145,7 +145,7 @@ def run_remotion(class_id: int) -> None:
         _update("rendering", 5, "📦 Verificando dependencias Node…")
         _ensure_deps(npx)
 
-        assets_dir = Path(os.path.dirname(os.path.dirname(__file__))) / "assets" / "videos"
+        assets_dir = Path(os.path.dirname(os.path.dirname(__file__))) / "assets" / str(class_id) / "videos"
         total = len(remotion_configs)
 
         for i, cfg in enumerate(remotion_configs):
