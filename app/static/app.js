@@ -103,17 +103,39 @@ function openModal(opts) {
   if (first) setTimeout(() => { first.focus(); if(first.select) first.select(); }, 40);
 }
 
-function openConfirm({ title, msg, onConfirm }) {
+function openConfirm({ title, msg, onConfirm, requirePin = false }) {
   const box = document.getElementById('modalBox');
   box.innerHTML = `
     <div class="modal-title" style="color:var(--red)">${esc(title)}</div>
-    <p style="font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:20px">${msg}</p>
+    <p style="font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:16px">${msg}</p>
+    ${requirePin ? `
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Clave de confirmación</label>
+      <input id="mdPin" type="password" maxlength="10" placeholder="••••"
+        style="width:100%;padding:8px 12px;border:2px solid var(--border2);border-radius:8px;font-size:16px;letter-spacing:4px;background:var(--bg2);color:var(--tx1);outline:none"
+        onkeydown="if(event.key==='Enter')document.getElementById('mdOk').click()">
+      <div id="mdPinErr" style="font-size:11px;color:var(--red);margin-top:4px;display:none">Clave incorrecta</div>
+    </div>` : ''}
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-danger" id="mdOk">Eliminar</button>
+      <button class="btn btn-danger" id="mdOk">🗑 Eliminar</button>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
-  document.getElementById('mdOk').onclick = () => { closeModal(); onConfirm(); };
+  if (requirePin) setTimeout(() => document.getElementById('mdPin')?.focus(), 80);
+  document.getElementById('mdOk').onclick = () => {
+    if (requirePin) {
+      const pin = document.getElementById('mdPin')?.value || '';
+      if (pin !== '1234') {
+        const err = document.getElementById('mdPinErr');
+        if (err) { err.style.display = 'block'; }
+        const inp = document.getElementById('mdPin');
+        if (inp) { inp.style.borderColor = 'var(--red)'; inp.value = ''; inp.focus(); }
+        return;
+      }
+    }
+    closeModal();
+    onConfirm();
+  };
 }
 
 function closeModal() { 
@@ -2609,8 +2631,9 @@ async function saveEditCourse(id) {
 function deleteCourse(id) {
   const c = S.courses.find(x => x.id === id);
   openConfirm({
-    title: 'Eliminar proyecto',
-    msg: `¿Eliminar <strong>${esc(c.title)}</strong> con todo su contenido? Esta acción no se puede deshacer.`,
+    title: '⚠️ Eliminar proyecto',
+    msg: `Vas a eliminar <strong>${esc(c.title)}</strong> con todas sus secciones, clases y contenido generado. Esta acción <strong>no se puede deshacer</strong>.`,
+    requirePin: true,
     onConfirm: async () => {
       await api('DELETE', `/api/courses/${id}`);
       S.courses = S.courses.filter(x => x.id !== id);
@@ -2717,9 +2740,11 @@ function renameClass(id, current) {
 }
 
 function deleteClass(id) {
+  const cls = S.sections.flatMap(s => s.classes || []).find(c => c.id === id);
   openConfirm({
-    title: 'Eliminar clase',
-    msg: 'Se eliminará esta clase y su locución. Esta acción no se puede deshacer.',
+    title: '⚠️ Eliminar clase',
+    msg: `Vas a eliminar <strong>${cls ? esc(cls.title) : 'esta clase'}</strong> con su locución y todo el contenido generado. Esta acción <strong>no se puede deshacer</strong>.`,
+    requirePin: true,
     onConfirm: async () => {
       await api('DELETE', `/api/classes/${id}`);
       if (S.activeClass?.id === id) {
