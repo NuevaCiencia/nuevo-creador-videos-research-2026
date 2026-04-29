@@ -5,6 +5,44 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v0.9 — Integración Remotion + Dummies en assets/ + Reorden de tabs · `bfce334`
+
+### Feat — Integración Remotion completa
+- **Proyecto `remotion/`** en la raíz del repo: Node.js con 4 templates reales
+  (TypeWriter, MindMap, LinearSteps, FlipCards) registrados en `src/index.tsx`.
+- **`remotion_agent.py`**: encuentra `npx` vía PATH o nvm automáticamente, instala
+  `node_modules` si faltan, renderiza cada `REM*.mp4` con `npx remotion render` y
+  actualiza progreso en DB. Siempre sobreescribe (reemplaza dummies).
+- **`ClassRemotionRender`**: nueva tabla en DB con `status/progress/phase/error`.
+- **Endpoints**: `POST /api/classes/{id}/render/remotion` y `GET .../remotion/status`.
+- **Card Remotion en tab Visuales**: aparece solo si hay assets remotion; botón
+  "Renderizar N assets Remotion", barra de progreso con poll cada 3s, manejo de errores.
+- **`tsconfig.json`** añadido al proyecto Remotion (requerido por Remotion CLI).
+
+### Fix — Schema correcto para TypeWriter
+- `data_schema` en DB actualizado: `delay` documentado como entero acumulativo,
+  `prefix` con espacio final obligatorio y opciones exactas.
+- Prompt de `visual_agent.py` reforzado con reglas explícitas de tipos y fórmula
+  de cálculo de delays acumulativos para TypeWriter.
+
+### Fix — Dummies en `app/assets/` (ruta correcta)
+- `assets_base` en los endpoints de dummies y check-status cambiado de `app/` a
+  `ASSETS_DIR` (`app/assets/`) — alineado con la ruta que sirve el servidor estático.
+- `render_agent.py`: `FILES_FOLDER` actualizado a `app/assets/` para consistencia.
+- `dummy_builder.py`: infiere tipo por nombre del archivo (S*/F* → imagen, V*/REM* → video)
+  en lugar de depender del campo `tipo`, eliminando skips silenciosos en assets sin tipo.
+
+### Feat — Card Assets/Dummies en tab Visuales
+- Nuevo card "🏗 Assets / Dummies" en la pestaña Visuales (cuando arquitectura visual completa):
+  muestra tabla de assets con ✓/✗, botón "Construir dummies" si hay faltantes,
+  barra de progreso con poll independiente, mensaje orientativo si todos presentes.
+
+### Feat — Reorden de pestañas
+- Tab Visuales movida a después de Audio (nuevo orden: Guion → Audio → Visuales →
+  Fonts & Colors → Pantallas → Video) para reflejar el flujo lógico de producción.
+
+---
+
 ## v0.8.1 — Visualizador de Pantallas: conexión con catálogo + fixes · `96b617f`
 
 ### Tipos de pantalla dinámicos desde la DB
