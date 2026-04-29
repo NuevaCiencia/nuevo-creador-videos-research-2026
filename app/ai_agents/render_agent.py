@@ -121,8 +121,8 @@ def run_render(class_id: int):
             db.close()
 
         # Resolve absolute paths
-        app_dir    = Path(__file__).parent.parent   # app/
-        assets_dir = str(app_dir)                   # assets live relative to app/
+        app_dir    = Path(__file__).parent.parent          # app/
+        assets_dir = str(app_dir / "assets")               # app/assets/ — same root as static mount
 
         cfg["FILES_FOLDER"] = assets_dir
 

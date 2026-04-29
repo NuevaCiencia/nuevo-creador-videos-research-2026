@@ -300,6 +300,7 @@ function renderPhase(phase) {
   _clearAudioPoll();
   _clearSpellPoll();
   _clearVisualPoll();
+  _clearVisualDummiesPoll();
   _clearRenderPoll();
   const area = document.getElementById('contentArea');
   if (!S.activeClass) { renderContent('welcome'); return; }
@@ -1149,24 +1150,33 @@ function _download(filename, text) {
    VISUALES PHASE — FASE 3b (VisualOrchestrator)
 ═══════════════════════════════════════════════════════ */
 let _visualPollTimer = null;
+let _visualDummiesPollTimer = null;
 
 function _clearVisualPoll() {
   if (_visualPollTimer) { clearInterval(_visualPollTimer); _visualPollTimer = null; }
 }
+function _clearVisualDummiesPoll() {
+  if (_visualDummiesPollTimer) { clearInterval(_visualDummiesPollTimer); _visualDummiesPollTimer = null; }
+}
 
 async function renderVisuales(area) {
+  _clearVisualDummiesPoll();
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estado visual…</div></div>`;
 
-  let guion = null, visual = null;
+  let guion = null, visual = null, assetsStatus = null, renderStatus = null;
   try { guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);  } catch(e) {}
   if (guion?.status === 'done') {
     try { visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`); } catch(e) {}
   }
-  _buildVisualesUI(area, guion, visual);
+  if (visual?.status === 'done') {
+    try { renderStatus  = await api('GET', `/api/classes/${S.activeClass.id}/render/status`); } catch(e) {}
+    try { assetsStatus  = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`); } catch(e) {}
+  }
+  _buildVisualesUI(area, guion, visual, { assetsStatus, renderStatus });
   if (visual?.status === 'running') _startVisualPoll();
 }
 
-function _buildVisualesUI(area, guion, visual) {
+function _buildVisualesUI(area, guion, visual, extra = null) {
   const guionOk      = guion?.status === 'done';
   const visualRunning = visual?.status === 'running';
   const visualDone    = visual?.status === 'done';
@@ -1177,6 +1187,26 @@ function _buildVisualesUI(area, guion, visual) {
   const fulls  = recursos?.recursos?.filter(r => r.tipo === 'imagen_completa').length|| 0;
   const videos = recursos?.recursos?.filter(r => r.tipo === 'video' && r.tipo_contenido !== 'remotion').length || 0;
   const remotion = recursos?.recursos?.filter(r => r.tipo_contenido === 'remotion').length || 0;
+
+  const assetsStatus  = extra?.assetsStatus  || null;
+  const renderStatus  = extra?.renderStatus  || null;
+  const missingCount  = assetsStatus?.missing ?? 0;
+  const totalCount    = assetsStatus?.total   ?? 0;
+  const dummiesSt     = renderStatus?.status || 'idle';
+  const isBuilding    = dummiesSt === 'building_dummies';
+  const dummiesDone   = dummiesSt === 'dummies_done' || (dummiesSt === 'done') || (missingCount === 0 && assetsStatus);
+
+  let dummiesRows = '';
+  if (assetsStatus?.items) {
+    dummiesRows = assetsStatus.items.map(item => `
+      <tr>
+        <td style="font-family:monospace;font-size:11px;padding:6px 10px">${esc(item.nombre)}</td>
+        <td style="padding:6px 10px"><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(item.tipo)}</span></td>
+        <td style="padding:6px 10px;text-align:center">
+          ${item.exists ? `<span style="color:#22c55e;font-weight:700">✓</span>` : `<span style="color:#ef4444;font-weight:700">✗</span>`}
+        </td>
+      </tr>`).join('');
+  }
 
   area.innerHTML = `<div class="audio-phase">
 
@@ -1264,6 +1294,47 @@ function _buildVisualesUI(area, guion, visual) {
     </div>
     ` : ''}
 
+    <!-- Dummies card (shown when visual is done) -->
+    ${visualDone && assetsStatus ? `
+    <div class="audio-card">
+      <div class="audio-card-head">
+        <span class="audio-card-title">🏗 Assets / Dummies</span>
+        <span style="font-size:12px;color:${missingCount>0?'#ef4444':'#22c55e'};font-weight:600">
+          ${missingCount > 0 ? `${missingCount} faltante${missingCount>1?'s':''}` : 'Todos presentes ✓'}
+        </span>
+      </div>
+      <div class="audio-card-body">
+        ${isBuilding ? `
+          <div class="audio-progress-wrap">
+            <div class="audio-progress-bar">
+              <div class="audio-progress-fill running" id="dummiesProgressFill" style="width:${renderStatus?.progress||0}%"></div>
+            </div>
+            <div class="audio-progress-foot">
+              <span id="dummiesPhaseLabel" class="audio-phase-label">${esc(renderStatus?.phase||'')}</span>
+              <span id="dummiesProgressPct" class="audio-progress-pct">${renderStatus?.progress||0}%</span>
+            </div>
+          </div>
+        ` : missingCount > 0 ? `
+          <p class="audio-card-desc" style="margin-bottom:10px">
+            ${missingCount} asset${missingCount>1?'s':''} aún no existen en disco. Construye dummies para poder previsualizar el video sin assets reales.
+          </p>
+          <button class="btn btn-secondary audio-att-btn" onclick="buildDummiesFromVisuales()">
+            🏗 Construir ${missingCount} dummy${missingCount>1?'s':''}
+          </button>
+        ` : `
+          <p class="audio-card-desc">Todos los assets están presentes. Puedes ir directamente a renderizar en la pestaña Video.</p>
+        `}
+        ${assetsStatus.items?.length ? `
+        <div style="margin-top:12px;border-top:1px solid var(--border1);padding-top:10px">
+          <table class="stat-cls-table">
+            <thead><tr><th>Archivo</th><th>Tipo</th><th style="text-align:center">¿Existe?</th></tr></thead>
+            <tbody>${dummiesRows}</tbody>
+          </table>
+        </div>` : ''}
+      </div>
+    </div>
+    ` : ''}
+
   </div>`;
 }
 
@@ -1301,6 +1372,47 @@ function _startVisualPoll() {
         _buildVisualesUI(document.getElementById('contentArea'), guion, visual);
         if (s.status === 'done')  AIModal.done('✅ Arquitectura visual completada');
         else                      AIModal.error(s.error || 'Error en orquestación visual');
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+async function buildDummiesFromVisuales() {
+  try {
+    await api('POST', `/api/classes/${S.activeClass.id}/render/build-dummies`);
+    const area = document.getElementById('contentArea');
+    const guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);
+    const visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`);
+    const as = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`);
+    const rs = { status: 'building_dummies', progress: 0, phase: 'Iniciando…' };
+    _buildVisualesUI(area, guion, visual, { assetsStatus: as, renderStatus: rs });
+    _startVisualDummiesPoll();
+  } catch(e) { toast(e.message, false); }
+}
+
+function _startVisualDummiesPoll() {
+  _clearVisualDummiesPoll();
+  const classId = S.activeClass?.id;
+  _visualDummiesPollTimer = setInterval(async () => {
+    if (S.activeClass?.id !== classId || S.activePhase !== 'visuales') { _clearVisualDummiesPoll(); return; }
+    try {
+      const s = await api('GET', `/api/classes/${classId}/render/status`);
+      const fill = document.getElementById('dummiesProgressFill');
+      const lbl  = document.getElementById('dummiesPhaseLabel');
+      const pct  = document.getElementById('dummiesProgressPct');
+      if (fill) fill.style.width = `${s.progress}%`;
+      if (lbl)  lbl.textContent  = s.phase || '';
+      if (pct)  pct.textContent  = `${s.progress}%`;
+      if (s.status !== 'building_dummies') {
+        _clearVisualDummiesPoll();
+        const area = document.getElementById('contentArea');
+        let guion = null, visual = null, as = null;
+        try { guion  = await api('GET', `/api/classes/${classId}/guion-base`); } catch(e) {}
+        try { visual = await api('GET', `/api/classes/${classId}/visual`); } catch(e) {}
+        try { as     = await api('GET', `/api/classes/${classId}/render/assets-status`); } catch(e) {}
+        _buildVisualesUI(area, guion, visual, { assetsStatus: as, renderStatus: s });
+        if (s.status === 'dummies_done') toast('✅ Dummies construidos');
+        else if (s.status === 'error')   toast('❌ Error construyendo dummies', false);
       }
     } catch(e) {}
   }, 2000);

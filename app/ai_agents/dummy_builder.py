@@ -55,16 +55,17 @@ def _build_one(recurso: dict, assets_base: Path) -> dict:
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
+    stem = Path(ubicacion).stem.upper()
+    is_video = stem.startswith(("V", "REM")) or Path(ubicacion).suffix.lower() == ".mp4"
+
     try:
-        if tipo == "imagen_split":
-            _crear_imagen_dummy(960, 1080, nombre, dest)
-        elif tipo == "imagen_completa":
-            _crear_imagen_dummy(1920, 1080, nombre, dest)
-        elif tipo in ("video", "portada"):
-            label = f"VIDEO  {nombre}" if not nombre.startswith("REM") else f"REMOTION  {nombre}"
+        if is_video:
+            label = f"REMOTION  {nombre}" if nombre.upper().startswith("REM") else f"VIDEO  {nombre}"
             _crear_video_dummy(1920, 1080, label, duracion, dest)
+        elif tipo == "imagen_split":
+            _crear_imagen_dummy(960, 1080, nombre, dest)
         else:
-            return {"nombre": nombre, "status": "skip", "razon": f"tipo desconocido: {tipo}"}
+            _crear_imagen_dummy(1920, 1080, nombre, dest)
 
         return {"nombre": nombre, "status": "created"}
     except Exception as e:
