@@ -39,6 +39,36 @@ def _find_npx() -> str:
     raise FileNotFoundError("npx not found — install Node.js")
 
 
+_PREFIX_CANONICAL = {
+    "//": "// ", "$ ": "$ ", "$": "$ ",
+    "→": "→ ",  ">": "> ",  "✓": "✓ ",
+    "!": "! ",  "# ": "// ",
+}
+
+def _normalize_props(template: str, data: dict) -> dict:
+    """Fix AI-generated props to match each template's exact schema."""
+    import copy
+    data = copy.deepcopy(data)
+
+    if template == "TypeWriter":
+        lines = data.get("lines", [])
+        speed = 1.8          # chars per frame (template default)
+        gap   = 18           # frames between lines finishing and next starting
+        cursor = 10          # initial delay before first line
+        cumulative = cursor
+        for ln in lines:
+            # Fix prefix: ensure trailing space and canonical form
+            p = str(ln.get("prefix", "$ ")).strip()
+            ln["prefix"] = _PREFIX_CANONICAL.get(p, p + " " if not p.endswith(" ") else p)
+            # Recalculate cumulative delay (ignore AI-generated delay)
+            ln["delay"] = cumulative
+            ln["speed"] = speed
+            text_len = len(str(ln.get("text", "")))
+            cumulative += int(text_len / speed) + gap
+
+    return data
+
+
 def _parse_frames(duration_str: str) -> int:
     """'mm:ss' or 'ss' → frame count at 30 fps."""
     parts = str(duration_str).split(":")
@@ -69,7 +99,7 @@ def _render_one(npx: str, comp_id: str, frames: int, props: dict, output_path: P
         json.dump(props, f, ensure_ascii=False)
         props_file = f.name
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
                 npx, "remotion", "render",
                 "src/index.tsx",
@@ -77,13 +107,20 @@ def _render_one(npx: str, comp_id: str, frames: int, props: dict, output_path: P
                 "--props",    props_file,
                 "--duration", str(frames),
                 "--output",   str(output_path),
-                "--log",      "error",
             ],
             cwd=REMOTION_DIR,
-            check=True,
+            check=False,
             timeout=600,
+            capture_output=True,
+            text=True,
             env={**os.environ, "NODE_ENV": "production"},
         )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Remotion exit {result.returncode}\n"
+                f"STDOUT:\n{result.stdout[-3000:]}\n"
+                f"STDERR:\n{result.stderr[-3000:]}"
+            )
     finally:
         os.unlink(props_file)
 
@@ -148,13 +185,11 @@ def run_remotion(class_id: int) -> None:
 
             comp_id = TEMPLATE_MAP.get(template, template)
             frames  = _parse_frames(duration)
+            props   = _normalize_props(template, props)
             out     = assets_dir / output_name
 
             pct = 5 + int((i / total) * 90)
             _update("rendering", pct, f"🎬 [{i+1}/{total}] {output_name} ({template}, {duration})…")
-
-            if out.exists():
-                continue  # already rendered — skip
 
             _render_one(npx, comp_id, frames, props, out)
 
