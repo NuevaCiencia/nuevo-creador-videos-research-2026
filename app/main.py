@@ -1653,6 +1653,96 @@ def get_assets_status(class_id: int, db: Session = Depends(get_db)):
     return result
 
 
+_CANVAS_SPLIT = (960, 1080)
+_CANVAS_FULL  = (1920, 1080)
+_WHITE_THRESH = 235
+_BORDER_SAMPLE = 20
+
+def _tiene_borde_blanco(img):
+    import numpy as np
+    arr = np.array(img.convert("RGB"))
+    h, w = arr.shape[:2]
+    top    = arr[:_BORDER_SAMPLE, :, :]
+    bottom = arr[max(0, h - _BORDER_SAMPLE):, :, :]
+    left   = arr[:, :_BORDER_SAMPLE, :]
+    right  = arr[:, max(0, w - _BORDER_SAMPLE):, :]
+    border = np.concatenate([top.reshape(-1,3), bottom.reshape(-1,3),
+                             left.reshape(-1,3), right.reshape(-1,3)], axis=0)
+    return np.all(border > _WHITE_THRESH, axis=1).mean() > 0.90
+
+def _centrar_imagen(img, canvas_size):
+    from PIL import Image as PILImage
+    cw, ch = canvas_size
+    iw, ih = img.size
+    scale = min(cw / iw, ch / ih)
+    img = img.resize((int(iw * scale), int(ih * scale)), PILImage.LANCZOS)
+    canvas = PILImage.new("RGB", canvas_size, (255, 255, 255))
+    iw, ih = img.size
+    mask = img.split()[-1] if img.mode in ("RGBA", "LA") else None
+    canvas.paste(img, ((cw - iw) // 2, (ch - ih) // 2), mask=mask)
+    return canvas
+
+def _rellenar_imagen(img, canvas_size):
+    from PIL import Image as PILImage
+    cw, ch = canvas_size
+    iw, ih = img.size
+    scale = max(cw / iw, ch / ih)
+    img = img.resize((int(iw * scale), int(ih * scale)), PILImage.LANCZOS)
+    ox = (img.width  - cw) // 2
+    oy = (img.height - ch) // 2
+    return img.crop((ox, oy, ox + cw, oy + ch)).convert("RGB")
+
+def _procesar_imagen_asset(content: bytes, ubicacion: str) -> tuple[bytes, str]:
+    """Resize/fit image to the correct canvas based on asset name. Returns (png_bytes, mode)."""
+    from PIL import Image as PILImage
+    import io
+    stem = os.path.splitext(os.path.basename(ubicacion))[0].upper()
+    if stem.startswith("S"):
+        canvas = _CANVAS_SPLIT
+    elif stem.startswith("F"):
+        canvas = _CANVAS_FULL
+    else:
+        return content, "raw"
+
+    img = PILImage.open(io.BytesIO(content))
+    if _tiene_borde_blanco(img):
+        result, mode = _centrar_imagen(img, canvas), "fit"
+    else:
+        result, mode = _rellenar_imagen(img, canvas), "fill"
+
+    buf = io.BytesIO()
+    result.save(buf, "PNG", optimize=True)
+    return buf.getvalue(), mode
+
+
+@app.post("/api/classes/{class_id}/assets/upload")
+async def upload_asset(
+    class_id: int,
+    ubicacion: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload an asset file. Images (S*/F*) are auto-resized to the correct canvas."""
+    if not db.query(models.Class).filter(models.Class.id == class_id).first():
+        raise HTTPException(404, "Clase no encontrada")
+
+    content = await file.read()
+    mode    = "raw"
+
+    ext = os.path.splitext(ubicacion)[1].lower()
+    if ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"):
+        content, mode = _procesar_imagen_asset(content, ubicacion)
+        dest_path = os.path.splitext(os.path.join(ASSETS_DIR, str(class_id), ubicacion))[0] + ".png"
+        ubicacion = os.path.splitext(ubicacion)[0] + ".png"
+    else:
+        dest_path = os.path.join(ASSETS_DIR, str(class_id), ubicacion)
+
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    with open(dest_path, "wb") as f:
+        f.write(content)
+    return {"ok": True, "path": ubicacion, "size": len(content), "mode": mode}
+
+
 @app.post("/api/classes/{class_id}/render/build-dummies")
 def build_dummies(class_id: int, db: Session = Depends(get_db)):
     """Launches background task to build placeholder files for missing assets."""

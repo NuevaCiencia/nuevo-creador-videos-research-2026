@@ -332,6 +332,7 @@ function renderPhase(phase) {
     case 'estructura': renderEstructura(area); break;
     case 'audio':      renderAudio(area);       break;
     case 'img-prompts': renderImgPrompts(area); break;
+    case 'carga-recursos': renderCargaRecursos(area); break;
     case 'fonts':    renderFontsColors(area);  break;
     case 'viz':      renderViz(area);          break;
     case 'visuales': renderVisuales(area);     break;
@@ -3613,3 +3614,127 @@ async function toggleRemotionTemplate(id, enabled) {
   } catch(e) { toast('Error al actualizar template', false); }
 }
 
+// ── Carga Recursos ────────────────────────────────────────────────────────────
+
+let _crData = null;
+
+async function renderCargaRecursos(area) {
+  area.innerHTML = `<div class="cr-phase"><div class="rp-loading" style="padding:60px">Cargando assets…</div></div>`;
+  const classId = S.activeClass?.id;
+  if (!classId) return;
+  try {
+    _crData = await api('GET', `/api/classes/${classId}/render/assets-status`);
+    _buildCrUI(area);
+  } catch(e) {
+    area.innerHTML = `<div class="cr-phase">
+      <div class="ap-empty" style="padding:60px;text-align:center">
+        <div style="font-size:2.5rem">📁</div>
+        <div style="margin-top:14px;color:var(--tx2);line-height:1.6">
+          ${e.message.includes('guion visual')
+            ? 'Ejecuta la fase <strong>Visuales</strong> primero para conocer qué assets se necesitan.'
+            : esc(e.message)}
+        </div>
+      </div>
+    </div>`;
+  }
+}
+
+function _buildCrUI(area) {
+  const d = _crData;
+  if (!d) return;
+  const classId = S.activeClass?.id;
+
+  const TYPE_COLORS = {
+    portada:'#f59e0b', imagen:'#06b6d4', video:'#8b5cf6',
+    split:'#10b981', full:'#06b6d4', remotion:'#6366f1'
+  };
+
+  const rows = d.items.map((item, i) => {
+    const exists  = item.exists;
+    const col     = TYPE_COLORS[item.tipo] || '#888';
+    const statusIcon = exists
+      ? `<span class="cr-status cr-ok">✓</span>`
+      : `<span class="cr-status cr-miss">✗</span>`;
+    const accept  = item.ubicacion?.endsWith('.mp4') ? 'video/mp4' : 'image/png,image/jpeg,image/webp';
+    return `<tr class="cr-row" id="cr_row_${i}">
+      <td class="cr-td-num">${i + 1}</td>
+      <td class="cr-td-asset">
+        <span class="imp-asset-name">${esc(item.nombre)}</span>
+        <span class="imp-type-pill" style="background:${col}22;color:${col};border:1px solid ${col}55">${esc(item.tipo)}</span>
+      </td>
+      <td class="cr-td-path"><span class="cr-path">${esc(item.ubicacion || '—')}</span></td>
+      <td class="cr-td-status" id="cr_status_${i}">${statusIcon}</td>
+      <td class="cr-td-upload">
+        <label class="cr-upload-btn" id="cr_lbl_${i}">
+          📂 Elegir
+          <input type="file" accept="${accept}" style="display:none"
+            onchange="crUpload(${i}, this, '${esc(item.ubicacion || '')}')">
+        </label>
+        <span class="cr-upload-name" id="cr_fname_${i}"></span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const nOk   = d.ok;
+  const nMiss = d.missing;
+  const pct   = d.total ? Math.round(nOk / d.total * 100) : 0;
+
+  area.innerHTML = `<div class="cr-phase">
+    <div class="imp-bar">
+      <span class="imp-bar-title">📁 Carga Recursos
+        <span class="imp-bar-count">${nOk}/${d.total} presentes</span>
+      </span>
+      <button class="btn btn-ghost" style="font-size:12px;padding:5px 14px" onclick="renderCargaRecursos(document.getElementById('contentArea'))">↺ Recargar</button>
+    </div>
+    <div class="cr-progress-wrap">
+      <div class="cr-progress-bar" style="width:${pct}%"></div>
+    </div>
+    <div class="imp-scroll">
+      <table class="imp-table">
+        <thead><tr>
+          <th class="imp-th" style="width:32px">#</th>
+          <th class="imp-th" style="width:140px">Archivo</th>
+          <th class="imp-th">Ruta destino</th>
+          <th class="imp-th" style="width:48px">Estado</th>
+          <th class="imp-th" style="width:200px">Subir desde disco</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+async function crUpload(i, input, ubicacion) {
+  const file    = input.files[0];
+  if (!file || !ubicacion) return;
+  const classId = S.activeClass?.id;
+  const fnEl    = document.getElementById(`cr_fname_${i}`);
+  const lblEl   = document.getElementById(`cr_lbl_${i}`);
+  const statusEl = document.getElementById(`cr_status_${i}`);
+
+  const isImage = /\.(png|jpe?g|webp|bmp|tiff?)$/i.test(ubicacion);
+
+  if (fnEl) fnEl.textContent = file.name;
+  if (lblEl) { lblEl.classList.add('cr-uploading'); lblEl.childNodes[0].textContent = '⬆️ '; }
+  if (statusEl && isImage) {
+    statusEl.innerHTML = `<span class="cr-formatting">⚙️ Formateando imagen, espere…</span>`;
+  }
+
+  try {
+    const form = new FormData();
+    form.append('ubicacion', ubicacion);
+    form.append('file', file);
+    const res = await fetch(`/api/classes/${classId}/assets/upload`, { method: 'POST', body: form });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
+    const r = await res.json();
+    const modeLabel = r.mode === 'fit' ? 'fit (letterbox)' : r.mode === 'fill' ? 'fill (recorte)' : null;
+    toast(`${file.name} subido ✓${modeLabel ? ' — ' + modeLabel : ''}`);
+    if (_crData) _crData.items[i].exists = true;
+    _buildCrUI(document.getElementById('contentArea'));
+  } catch(e) {
+    toast(`Error al subir: ${e.message}`, false);
+    if (lblEl) { lblEl.classList.remove('cr-uploading'); lblEl.childNodes[0].textContent = '📂 Elegir'; }
+    if (fnEl) fnEl.textContent = '';
+    if (statusEl) statusEl.innerHTML = `<span class="cr-status cr-miss">✗</span>`;
+  }
+}

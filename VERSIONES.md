@@ -5,6 +5,30 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.1 — Pestaña Carga Recursos + procesado automático de imágenes
+
+### Feat — Pestaña 📁 Carga Recursos
+- Nueva pestaña entre Img Prompts y Fonts & Colors.
+- Tabla con todos los assets esperados de la clase (nombre, tipo, ruta destino, ✓/✗ si existe en disco).
+- Barra de progreso superior mostrando cuántos assets están presentes.
+- Por fila: botón **📂 Elegir** que abre selector de archivo filtrado por tipo (imágenes o `.mp4`).
+- Botón **↺ Recargar** para refrescar el estado desde disco.
+
+### Feat — Procesado automático de imágenes al subir (fit-vs-fill)
+- Al subir una imagen, el backend la redimensiona al canvas correcto según el nombre del asset:
+  - `S*.png` (SPLIT_LEFT / SPLIT_RIGHT) → **960 × 1080 px**
+  - `F*.png` (FULL_IMAGE) → **1920 × 1080 px**
+- Lógica **fit-vs-fill** (portada de `0_referencia4_imagenesedit`):
+  - Si >90% de los píxeles de borde tienen RGB > 235 → **fit** (letterbox blanco, sin recorte)
+  - Si no → **fill** (escala hasta cubrir el canvas, recorta el centro)
+- Siempre guarda como `.png` optimizado.
+- El frontend muestra `⚙️ Formateando imagen, espere…` (animación pulsante) mientras procesa.
+- El toast de confirmación indica el modo aplicado: `subido ✓ — fit (letterbox)` o `fill (recorte)`.
+- Videos (`.mp4`) se suben sin procesado.
+- `Pillow>=10.0.0` añadido a `requirements.txt`.
+
+---
+
 ## v1.0 — Estructura DnD + Img Prompts + Fixes de assets por clase · `76cfd14`
 
 ### Feat — Pestaña 🖼️ Img Prompts
