@@ -5,6 +5,54 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.0 — Estructura DnD + Img Prompts + Fixes de assets por clase · `76cfd14`
+
+### Feat — Pestaña 🖼️ Img Prompts
+- Nueva pestaña entre Visuales y Fonts & Colors con tabla de todos los assets de imagen
+  (SPLIT_LEFT, SPLIT_RIGHT, FULL_IMAGE) de la clase.
+- Muestra prompt activo (original o editado por IA/usuario), narración colapsable y estado.
+- Botón **🤖 Fix** por fila y **Fix All** para mejorar todos los prompts de un tirón.
+- Usa `META_PROMPT_ARREGLA_IMAGENES.txt` de `0_referencia` (estructura Scientific American).
+- Si no hay prompt original, genera un seed desde la narración antes de refinar.
+- Nueva tabla `class_img_prompts`: persiste prompts editados por usuario o IA.
+- `visual_agent.py`: ahora guarda `descripcion` en `recursos_json` (antes se descartaba).
+- Endpoints: `GET/PUT/DELETE /img-prompts/{asset}` y `POST /img-prompts/{asset}/fix`.
+
+### Feat — Pestaña 🗂️ Estructura (editor drag-and-drop de pantallas)
+- Nueva pestaña entre Guion y Audio con editor visual de distribución de pantallas.
+- Tags de pantalla arrastrables entre párrafos del guion con drop zones siempre visibles.
+- Botón **+** entre párrafos para agregar tags; **×** para eliminar.
+- Selector de tipo por tag con colores directamente desde la DB (hex+alpha inline, sin `color-mix()`).
+- `PUT /api/classes/{id}/estructura`: reconstruye `screen_segments` desde las nuevas posiciones.
+- Guarda y cascade-invalida `guion_base` y `guion_consolidado`.
+- Botón Guardar con animación pulse cuando hay cambios pendientes.
+
+### Feat — Confirmación con clave para borrar curso o clase
+- `openConfirm` acepta `requirePin:true` — muestra input de clave (1234) antes de confirmar.
+- Si la clave es incorrecta: shake + borde rojo + campo vacío.
+- `deleteCourse` y `deleteClass` usan `requirePin:true`; Enter en el campo activa el botón.
+
+### Feat — Backup automático de DB al arrancar el server
+- `_backup_db()`: copia `video_creator.db` → `video_creator.db.bak` en cada startup.
+- Siempre sobreescribe — hay un snapshot del estado al arranque previo.
+- `.gitignore` actualizado: agrega `*.db.bak`.
+
+### Fix — Assets per-class: rutas `app/assets/{class_id}/images|videos/`
+- `assets_base` en `dummy_builder`, `render_agent` y endpoints de viz ahora apunta a
+  `app/assets/{class_id}/` — evita colisión de `S001.png` entre clases distintas.
+- `remotion_agent.py`: renderiza en `app/assets/{class_id}/videos/` en vez de directorio global.
+
+### Fix — Cascade invalidation completa
+- `PUT /api/classes/{id}`: cambiar `raw_narration` marca `guion_base` y `guion_consolidado` como stale.
+- `PUT /api/courses/{id}`: cambiar font/colores/fps/resolución marca `guion_consolidado` de todas
+  las clases del curso como stale (los valores se embeben en `#META`).
+
+### Fix — UI de Estructura y Pantallas
+- Rewrite de la UI de Estructura: orden correcto slot-separator → tag → párrafo.
+- Scrollbar más ancho (10px con hover) en tabs Pantallas y Estructura.
+
+---
+
 ## v0.9 — Integración Remotion + Dummies en assets/ + Reorden de tabs · `bfce334`
 
 ### Feat — Integración Remotion completa

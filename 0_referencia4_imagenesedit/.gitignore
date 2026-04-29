@@ -1,0 +1,36 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Imágenes (no versionar assets)
+imagenes_iniciales/
+imagenes_procesadas/
+imagenes_generadas/
+
+# Videos generados
+videos_procesados/
+
+# Deprecated
+deprecated/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Claude Code
+.claude/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
