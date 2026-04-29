@@ -18,7 +18,20 @@ def get_db():
         db.close()
 
 
+def _backup_db():
+    """Copy video_creator.db → video_creator.db.bak on every startup.
+    Overwrites the previous backup so there's always one clean copy
+    from the last time the server started."""
+    import shutil
+    db_path  = os.path.join(BASE_DIR, "video_creator.db")
+    bak_path = os.path.join(BASE_DIR, "video_creator.db.bak")
+    if os.path.exists(db_path):
+        shutil.copy2(db_path, bak_path)
+        print(f"✅ DB backup → video_creator.db.bak")
+
+
 def init_db():
+    _backup_db()
     import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _migrate()
