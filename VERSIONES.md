@@ -5,6 +5,34 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.2 — Carga Recursos: grid de cards + lote + validaciones · `85ed7f9`
+
+### Feat — Grid de cards con preview en Carga Recursos
+- Reemplaza la tabla por un grid de tarjetas `auto-fill minmax(160px)`.
+- Cada card muestra el preview real de la imagen/video si existe en disco;
+  placeholder con ícono del tipo si falta.
+- Badge ✓/✗ en la esquina superior derecha de cada card.
+- Overlay `⚙️ Formateando…` (animación pulsante) sobre el preview durante el upload.
+- Botón **📂 Subir** en el footer de cada card, se pone azul al hover.
+
+### Feat — Carga en lote
+- Botón **📦 Carga en lote** en el toolbar: abre selector de múltiples archivos.
+- Matching por prefijo: `S003_foto.png` → slot `S003.png`; archivos sin coincidencia se omiten.
+- Modal de confirmación con tabla de reconocidos (verde) / no reconocidos (rojo atenuado).
+- Progreso via AIModal con mensaje por archivo; distingue "formateando" (imágenes) de "subiendo" (videos).
+
+### Fix — Validación de prefijo en upload individual
+- Al subir un archivo en un slot específico, se valida que el nombre del archivo
+  empiece con el stem esperado (ej. subir `S004.png` en slot `S003.png` → error con mensaje claro).
+
+### Fix — Visuales: portada en estadísticas y tabla de assets
+- Stat row: añade columna **portada** (siempre 1); total calculado como
+  `1 + splits + fulls + videos + remotion` en lugar de `total_recursos` del JSON
+  (que podía no coincidir con los conteos individuales).
+- Tabla Assets Identificados: fila de portada al inicio con badge ámbar y nombre real del archivo.
+
+---
+
 ## v1.1 — Pestaña Carga Recursos + procesado automático de imágenes
 
 ### Feat — Pestaña 📁 Carga Recursos
