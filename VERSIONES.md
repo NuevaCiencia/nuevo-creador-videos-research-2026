@@ -5,6 +5,29 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.5 — Modal Meta-Prompt: botones Copy + scroll + cierre fijo · `pending`
+
+### Feat — Botón 📋 P&Loc en tabla Img Prompts
+- Botón nuevo al lado del `📋 Copy` existente en el footer de cada textarea de prompt.
+- Copia exactamente el payload que se envía a la IA: `PROMPT: ...\nLOCUCIÓN: ...`.
+- Estilo violeta para distinguirlo visualmente del Copy normal (cian).
+
+### Feat — Botones 📋 Copy en modal ⚙️ Meta-Prompt
+- Pestaña **Activo**: botón Copy en la esquina superior derecha del textarea (posición absoluta).
+- Pestaña **Versiones** → form Nueva versión: ídem en el textarea de edición.
+- Cambia a "✓" verde 1.5s tras copiar.
+
+### Fix — Modal Meta-Prompt no se cierra al clic en el backdrop
+- Flag `noBackdropClose: true` en `openModal` para este modal específico.
+- Variable global `_modalNoBackdrop` evaluada en el `onclick` del overlay.
+- Los demás modales mantienen el comportamiento anterior (clic afuera = cerrar).
+
+### UX — Scrollbar más grueso en textareas y lista de versiones
+- Scrollbar de 8px (antes thin) en `.imp-mp-ta` y `.imp-mp-body`.
+- Estilos webkit + `scrollbar-width/color` para consistencia cross-browser.
+
+---
+
 ## v1.4 — Meta-prompt migrado a DB · `373cbec`
 
 ### Refactor — tabla `meta_prompts` en DB

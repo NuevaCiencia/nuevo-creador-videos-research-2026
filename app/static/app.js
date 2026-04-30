@@ -67,6 +67,7 @@ function applyTheme(t) {
 }
 
 /* ─── MODAL ───────────────────────────────────────────── */
+let _modalNoBackdrop = false;
 function openModal(opts) {
   const box = document.getElementById('modalBox');
   box.classList.toggle('wide', !!opts.wide);
@@ -98,6 +99,7 @@ function openModal(opts) {
       await onConfirm(v);
     };
   }
+  _modalNoBackdrop = !!opts.noBackdropClose;
   document.getElementById('modalOverlay').classList.add('open');
   const first = box.querySelector('input,textarea,select');
   if (first) setTimeout(() => { first.focus(); if(first.select) first.select(); }, 40);
@@ -138,8 +140,9 @@ function openConfirm({ title, msg, onConfirm, requirePin = false }) {
   };
 }
 
-function closeModal() { 
-  document.getElementById('modalOverlay').classList.remove('open'); 
+function closeModal() {
+  _modalNoBackdrop = false;
+  document.getElementById('modalOverlay').classList.remove('open');
   document.getElementById('modalBox').classList.remove('wide');
 }
 
@@ -2160,6 +2163,7 @@ function _buildImgUI(area) {
           ${badgeHtml}
           <span class="imp-chars" id="imp_cc_${i}">${active.length} chars</span>
           <button class="imp-act imp-act-copy" onclick="impCopy(${i})" title="Copiar prompt">📋 Copy</button>
+          <button class="imp-act imp-act-copy-loc" onclick="impCopyWithLoc(${i})" title="Copiar como se envía a la IA: PROMPT + LOCUCIÓN">📋 P&amp;Loc</button>
         </div>
       </td>
       <td class="imp-td-narr">
@@ -2203,6 +2207,18 @@ async function impCopy(i) {
   await navigator.clipboard.writeText(ta.value);
   const btn = ta.closest('td')?.querySelector('.imp-act-copy');
   if (btn) { btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 1500); }
+}
+
+async function impCopyWithLoc(i) {
+  const ta   = document.getElementById(`imp_ta_${i}`);
+  const item = _imgData?.items?.[i];
+  if (!ta || !item) return;
+  const prompt = ta.value.trim();
+  const narr   = (item.narration || '').trim();
+  const text   = `PROMPT: ${prompt}\nLOCUCIÓN: ${narr}`;
+  await navigator.clipboard.writeText(text);
+  const btn = ta.closest('td')?.querySelector('.imp-act-copy-loc');
+  if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '📋 P&Loc'; }, 1500); }
 }
 
 function impDirty(i) {
@@ -2326,15 +2342,15 @@ function _impRenderMetaModal(activeText, tab = 'activo') {
   const totalV = _impVersions.length;
 
   // ── Tab Activo: solo el textarea con el prompt activo ───────────────────────
-  const activoHtml = `<textarea class="imp-mp-ta" readonly spellcheck="false">${esc(activeText)}</textarea>`;
+  const activoHtml = `<div class="imp-mp-ta-wrap"><textarea class="imp-mp-ta" id="impMpActiveTa" readonly spellcheck="false">${esc(activeText)}</textarea><button class="imp-mp-copy-btn" onclick="impCopyTA('impMpActiveTa',this)">📋</button></div>`;
 
   // ── Tab Versiones ───────────────────────────────────────────────────────────
   const addFormHtml = _impAddingNew ? `
     <div class="imp-mp-add-form">
       <input id="impNewNote" type="text" class="imp-mp-note-input"
         placeholder="Nombre de esta versión…" style="margin-bottom:8px">
-      <textarea class="imp-mp-ta" id="impNewText" style="min-height:180px"
-        spellcheck="false">${esc(activeText)}</textarea>
+      <div class="imp-mp-ta-wrap"><textarea class="imp-mp-ta" id="impNewText" style="min-height:180px"
+        spellcheck="false">${esc(activeText)}</textarea><button class="imp-mp-copy-btn" onclick="impCopyTA('impNewText',this)">📋</button></div>
       <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
         <button class="btn btn-ghost" style="font-size:12px" onclick="impCancelNewVersion()">Cancelar</button>
         <button class="btn btn-primary" style="font-size:12px" onclick="impConfirmNewVersion()">Agregar versión</button>
@@ -2388,7 +2404,7 @@ function _impRenderMetaModal(activeText, tab = 'activo') {
 
   const versionesHtml = addFormHtml + verCards + origCard;
 
-  openModal({ wide: true, html: `
+  openModal({ wide: true, noBackdropClose: true, html: `
     <div class="modal-title">⚙️ Meta-Prompt</div>
     <div class="imp-mp-tabs">
       <button class="imp-mp-tab ${tab==='activo'?'active':''}" onclick="impSwitchMetaTab('activo')">🔵 Activo</button>
@@ -2478,6 +2494,19 @@ async function impDeleteVersion(i) {
 
 async function impSaveMetaPrompt() {}
 async function impResetMetaPrompt() {}
+
+function impCopyTA(id, btn) {
+  const ta = document.getElementById(id);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(() => {
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓';
+      btn.style.color = '#4ade80';
+      setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    }
+  }).catch(() => toast('No se pudo copiar', false));
+}
 
 function impOpenModelConfig() {
   const rows = _IMP_MODELS.map(m => `
