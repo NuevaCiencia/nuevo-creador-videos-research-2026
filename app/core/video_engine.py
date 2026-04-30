@@ -89,7 +89,8 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
                     from core.dynamic_animator import generate_dynamic_video
                     generate_dynamic_video(seg, cfg, dyn_path, subtitulos_path, tmp_dir)
                 except Exception as e:
-                    print(f"⚠️ dynamic_animator falló ({e}), usando dummy")
+                    import traceback
+                    print(f"⚠️ dynamic_animator falló: {e}\n{traceback.format_exc()}")
                     _generar_dynamic_dummy(seg, cfg, dyn_path, tmp_dir)
             asset = dyn_path
         else:
