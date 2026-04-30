@@ -55,6 +55,8 @@ def _migrate():
             ("main_text_color",      "VARCHAR(20) DEFAULT '#bd0505'"),
             ("highlight_text_color", "VARCHAR(20) DEFAULT '#e3943b'"),
             ("cover_asset",          "VARCHAR(255) DEFAULT 'videos/portada.mp4'"),
+            ("use_transitions",      "BOOLEAN DEFAULT 1"),
+            ("transition_duration",  "REAL DEFAULT 0.5"),
         ]
         for col, defn in new_cols:
             if col not in existing:

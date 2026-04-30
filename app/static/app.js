@@ -3060,6 +3060,21 @@ function editCourse(id) {
         <label>Asset de portada</label>
         <input id="ec_cover" type="text" value="${escA(c.cover_asset || 'videos/portada.mp4')}"/>
       </div>
+
+      <div class="vc-section-divider">🎬 Transiciones</div>
+      <div class="vc-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field">
+          <label>Transiciones entre pantallas</label>
+          <label class="vc-toggle-row">
+            <input id="ec_transitions" type="checkbox" ${(c.use_transitions !== false) ? 'checked' : ''}/>
+            <span class="vc-toggle-label">Activar fade in/out</span>
+          </label>
+        </div>
+        <div class="field">
+          <label>Duración (segundos)</label>
+          <input id="ec_trans_dur" type="number" value="${c.transition_duration ?? 0.5}" min="0.1" max="2" step="0.1"/>
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -3081,6 +3096,8 @@ async function saveEditCourse(id) {
     main_text_color:      document.getElementById('ec_txt').value.trim(),
     highlight_text_color: document.getElementById('ec_hl').value.trim(),
     cover_asset:          document.getElementById('ec_cover').value.trim(),
+    use_transitions:      document.getElementById('ec_transitions').checked,
+    transition_duration:  parseFloat(document.getElementById('ec_trans_dur').value) || 0.5,
   };
   try {
     const updated = await api('PUT', `/api/courses/${id}`, payload);

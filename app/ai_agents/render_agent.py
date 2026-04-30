@@ -103,15 +103,22 @@ def run_render(class_id: int):
 
             # Config
             cfg = {
-                "FPS":              course.fps or 30,
-                "RESOLUTION":       course.resolution or "1920x1080",
-                "MAIN_FONT":        course.main_font or "Inter",
-                "BACKGROUND_COLOR": course.background_color or "#fefefe",
-                "MAIN_TEXT_COLOR":  course.main_text_color or "#bd0505",
-                "COVER_ASSET":      course.cover_asset or "videos/portada.mp4",
-                "USE_TRANSITIONS":  False,
-                "TRANSITION_DURATION": 0.5,
+                "FPS":               course.fps or 30,
+                "RESOLUTION":        course.resolution or "1920x1080",
+                "MAIN_FONT":         course.main_font or "Inter",
+                "BACKGROUND_COLOR":  course.background_color or "#fefefe",
+                "MAIN_TEXT_COLOR":   course.main_text_color or "#bd0505",
+                "COVER_ASSET":       course.cover_asset or "videos/portada.mp4",
+                "USE_TRANSITIONS":   course.use_transitions if course.use_transitions is not None else True,
+                "TRANSITION_DURATION": course.transition_duration if course.transition_duration is not None else 0.5,
             }
+
+            # Spell-corrected transcription raw_text — used by dynamic_animator for CONCEPT/LIST sync
+            spell_raw_text = ""
+            if cls.spell_correction and cls.spell_correction.raw_text:
+                spell_raw_text = cls.spell_correction.raw_text
+            elif cls.audio and cls.audio.tx_raw_text:
+                spell_raw_text = cls.audio.tx_raw_text  # fallback to unspelled
 
             guion_content = guion_row.content
             audio_path    = audio_row.file_path  # relative to app/
@@ -143,7 +150,11 @@ def run_render(class_id: int):
         meta.setdefault("MAIN_FONT",        cfg["MAIN_FONT"])
         meta.setdefault("MAIN_TEXT_COLOR",  cfg["MAIN_TEXT_COLOR"])
         meta.setdefault("BACKGROUND_COLOR", cfg["BACKGROUND_COLOR"])
-        meta["FILES_FOLDER"] = assets_dir
+        meta["FILES_FOLDER"]        = assets_dir
+        meta["USE_TRANSITIONS"]     = cfg["USE_TRANSITIONS"]
+        meta["TRANSITION_DURATION"] = cfg["TRANSITION_DURATION"]
+        meta["SUBTITULOS_PATH"]     = subtitulos_txt_path
+        meta["FONTS_DIR"]           = fonts_dir_str
 
         sample_rate = get_audio_sample_rate(audio_abs)
         channels    = get_audio_channels(audio_abs)
@@ -157,6 +168,11 @@ def run_render(class_id: int):
 
         tmp_dir = tempfile.mkdtemp(prefix=f"render_{class_id}_")
         try:
+            # Write spell-corrected transcription for dynamic_animator (CONCEPT/LIST sync)
+            subtitulos_txt_path = os.path.join(tmp_dir, "transcripcion.txt")
+            with open(subtitulos_txt_path, "w", encoding="utf-8") as _f:
+                _f.write(spell_raw_text)
+
             ass_path  = os.path.join(tmp_dir, "subtitulos.ass")
             body_path = os.path.join(tmp_dir, "body.mp4")
             out_name  = f"clase_{class_id}_final.mp4"

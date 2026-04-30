@@ -5,6 +5,31 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.7 — Dynamic Animator (CONCEPT/LIST animados) + Transiciones en config · `pending`
+
+### Feat — `dynamic_animator.py` portado desde 0_referencia
+- Nueva pantalla `CONCEPT`: término aparece con fade-in exactamente cuando se pronuncia
+  en el audio; definición aparece escalonada después, también sincronizada.
+- Nueva pantalla `LIST`: fondo verde pizarrón, bullets aparecen uno a uno en sincronía
+  con el audio; ghost title (@prefijo) con opacidad baja desde t=0; subtextos [entre corchetes].
+- Algoritmo `_find_keyword_abs_time`: construye línea de tiempo de caracteres desde la
+  transcripción corregida (ClassSpellCorrection) y localiza el momento exacto en que
+  se pronuncia cada keyword. Fallback elegante si no se encuentra.
+- Fuentes resueltas desde `app/fonts/` (Montserrat-Bold/Regular) — no depende del SO.
+- Fallback automático: si el animator falla por cualquier razón, usa el dummy como antes.
+- `render_agent.py`: escribe la transcripción a un archivo temporal `transcripcion.txt`
+  y lo pasa a `video_engine` via `cfg["SUBTITULOS_PATH"]`.
+
+### Feat — Transiciones en Configuración de Proyecto
+- Dos nuevos campos en `Course`: `use_transitions` (bool, default True) y
+  `transition_duration` (float, default 0.5s).
+- Migración automática (ALTER TABLE) al arrancar el servidor.
+- Modal "Editar Proyecto": nueva sección 🎬 Transiciones con checkbox y campo numérico.
+- `render_agent.py`: usa `course.use_transitions` y `course.transition_duration` en lugar
+  de los anteriores valores hardcodeados (`False` y `0.5`).
+
+---
+
 ## v1.6 — Fix render: fontsdir con backslashes rompe FFmpeg en Windows · `pending`
 
 ### Fix — `_escape_fontsdir` y `_escape_ass_path_vf` normalizan backslashes

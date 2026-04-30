@@ -226,6 +226,8 @@ class CourseUpdate(BaseModel):
     main_text_color:      Optional[str] = None
     highlight_text_color: Optional[str] = None
     cover_asset:          Optional[str] = None
+    use_transitions:      Optional[bool] = None
+    transition_duration:  Optional[float] = None
 
 class SectionIn(BaseModel):
     title: str
@@ -327,6 +329,8 @@ def ser_course(c: models.Course, db: Session = None):
         "main_text_color":      c.main_text_color      or "#bd0505",
         "highlight_text_color": c.highlight_text_color or "#e3943b",
         "cover_asset":          c.cover_asset          or "videos/portada.mp4",
+        "use_transitions":      c.use_transitions      if c.use_transitions is not None else True,
+        "transition_duration":  c.transition_duration  if c.transition_duration is not None else 0.5,
     }
 
 def ser_research_item(item: models.ResearchItem):

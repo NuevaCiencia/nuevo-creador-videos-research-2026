@@ -728,6 +728,12 @@ input,textarea{font-family:inherit;outline:none}
 .vc-hex {
   flex: 1; font-family: monospace; font-size: 12px;
 }
+.vc-toggle-row {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 12px; color: var(--tx2); user-select: none;
+}
+.vc-toggle-row input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+.vc-toggle-label { font-size: 12px; }
 
 /* ─── SETTINGS PANEL ────────────────────────────────────── */
 .overlay-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:150}

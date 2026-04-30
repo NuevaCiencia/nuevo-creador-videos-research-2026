@@ -84,7 +84,13 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
         if asset == "DYNAMIC_GENERATED":
             dyn_path = os.path.join(tmp_dir, f"dynamic_{str(seg['tiempo_inicio']).replace('.','_')}.mp4")
             if not os.path.exists(dyn_path):
-                _generar_dynamic_dummy(seg, cfg, dyn_path, tmp_dir)
+                subtitulos_path = cfg.get("SUBTITULOS_PATH", "")
+                try:
+                    from core.dynamic_animator import generate_dynamic_video
+                    generate_dynamic_video(seg, cfg, dyn_path, subtitulos_path, tmp_dir)
+                except Exception as e:
+                    print(f"⚠️ dynamic_animator falló ({e}), usando dummy")
+                    _generar_dynamic_dummy(seg, cfg, dyn_path, tmp_dir)
             asset = dyn_path
         else:
             if files_folder and not os.path.isabs(asset):

@@ -21,6 +21,8 @@ class Course(Base):
     main_text_color      = Column(String(20),   default="#bd0505")
     highlight_text_color = Column(String(20),   default="#e3943b")
     cover_asset          = Column(String(255),  default="videos/portada.mp4")
+    use_transitions      = Column(Boolean,      default=True)
+    transition_duration  = Column(Float,        default=0.5)
 
     sections = relationship(
         "Section",
