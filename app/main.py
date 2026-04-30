@@ -1539,128 +1539,94 @@ def delete_img_prompt(class_id: int, asset_name: str, db: Session = Depends(get_
         db.commit()
 
 
-_META_PROMPT_PATH        = os.path.join(os.path.dirname(__file__), "..", "0_referencia", "META_PROMPT_ARREGLA_IMAGENES.txt")
-_CUSTOM_META_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "custom_meta_prompt.txt")
-
-def _load_meta_prompt(override: str = None) -> str:
-    """Return override if given, else custom file, else 0_referencia default."""
+def _load_meta_prompt(override: str = None, db: Session = None) -> str:
+    """Return override if given, else active row from DB."""
     if override:
         return override.strip()
+    if db is None:
+        from database import SessionLocal
+        db = SessionLocal()
+        close = True
+    else:
+        close = False
     try:
-        with open(_CUSTOM_META_PROMPT_PATH, encoding="utf-8") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        pass
-    try:
-        with open(_META_PROMPT_PATH, encoding="utf-8") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return None
+        row = db.query(models.MetaPrompt).filter(models.MetaPrompt.is_active == True).first()
+        return row.text.strip() if row else None
+    finally:
+        if close:
+            db.close()
 
 
-_META_PROMPT_HISTORY_DIR = os.path.join(os.path.dirname(__file__), "meta_prompt_history")
-
-
-def _get_active_text() -> str:
-    """Returns the currently active prompt text (custom or original)."""
-    if os.path.exists(_CUSTOM_META_PROMPT_PATH):
-        with open(_CUSTOM_META_PROMPT_PATH, encoding="utf-8") as f:
-            t = f.read().strip()
-        if t:
-            return t
-    try:
-        with open(_META_PROMPT_PATH, encoding="utf-8") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return None
-
-
-def _list_meta_prompt_versions() -> list:
-    """All saved custom versions, each annotated with active:bool."""
-    active_text = _get_active_text() or ""
-    entries = []
-    if os.path.exists(_META_PROMPT_HISTORY_DIR):
-        for fname in sorted(os.listdir(_META_PROMPT_HISTORY_DIR), reverse=True):
-            if not fname.endswith(".json"):
-                continue
-            try:
-                with open(os.path.join(_META_PROMPT_HISTORY_DIR, fname), encoding="utf-8") as fh:
-                    e = json.load(fh)
-                e["filename"] = fname
-                e["active"]   = (e.get("text", "").strip() == active_text) and bool(active_text)
-                entries.append(e)
-            except Exception:
-                pass
-    return entries
-
-
-def _full_versions_response():
-    active_text  = _get_active_text()
-    original_txt = None
-    try:
-        with open(_META_PROMPT_PATH, encoding="utf-8") as f:
-            original_txt = f.read().strip()
-    except FileNotFoundError:
-        pass
-    custom_active = os.path.exists(_CUSTOM_META_PROMPT_PATH)
-    original_active = not custom_active
+def _mp_full_response(db: Session) -> dict:
+    rows = db.query(models.MetaPrompt).order_by(models.MetaPrompt.created_at.desc()).all()
+    orig = next((r for r in rows if r.is_original), None)
+    versions = [
+        {"id": r.id, "note": r.note, "text": r.text,
+         "timestamp": r.created_at.isoformat(), "active": r.is_active}
+        for r in rows if not r.is_original
+    ]
+    active_row = next((r for r in rows if r.is_active), None)
     return {
-        "active_text":     active_text,
-        "original_active": original_active,
-        "versions":        _list_meta_prompt_versions(),
-        "original_text":   original_txt,
+        "active_text":     active_row.text if active_row else "",
+        "original_active": orig.is_active if orig else False,
+        "original_text":   orig.text if orig else "",
+        "versions":        versions,
     }
 
 
 @app.get("/api/img-prompts/meta-prompt")
-def get_meta_prompt():
-    r = _full_versions_response()
+def get_meta_prompt(db: Session = Depends(get_db)):
+    r = _mp_full_response(db)
     if not r["active_text"]:
-        raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado")
+        raise HTTPException(500, "No hay meta-prompt activo en la DB")
     return r
 
 
 @app.post("/api/img-prompts/meta-prompt/version")
-async def add_meta_prompt_version(payload: dict):
-    """Add a new version to the list (inactive by default)."""
+async def add_meta_prompt_version(payload: dict, db: Session = Depends(get_db)):
     text = payload.get("text", "").strip()
     note = payload.get("note", "").strip()
     if not text:
         raise HTTPException(400, "text requerido")
-    os.makedirs(_META_PROMPT_HISTORY_DIR, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    entry = {"timestamp": datetime.utcnow().isoformat(), "note": note, "text": text}
-    with open(os.path.join(_META_PROMPT_HISTORY_DIR, f"{ts}.json"), "w", encoding="utf-8") as f:
-        json.dump(entry, f, ensure_ascii=False, indent=2)
-    return _full_versions_response()
+    db.add(models.MetaPrompt(text=text, note=note, is_active=False, is_original=False))
+    db.commit()
+    return _mp_full_response(db)
 
 
 @app.post("/api/img-prompts/meta-prompt/activate")
-async def activate_meta_prompt_version(payload: dict):
-    """Activate a saved version or the original."""
-    filename = payload.get("filename")  # None or "original" = activate original
-    if not filename or filename == "original":
-        if os.path.exists(_CUSTOM_META_PROMPT_PATH):
-            os.remove(_CUSTOM_META_PROMPT_PATH)
+async def activate_meta_prompt_version(payload: dict, db: Session = Depends(get_db)):
+    version_id = payload.get("id")   # int or None/"original"
+    is_original = not version_id or version_id == "original"
+
+    target = None
+    if is_original:
+        target = db.query(models.MetaPrompt).filter(models.MetaPrompt.is_original == True).first()
     else:
-        path = os.path.join(_META_PROMPT_HISTORY_DIR, filename)
-        if not os.path.exists(path):
-            raise HTTPException(404, "Versión no encontrada")
-        with open(path, encoding="utf-8") as f:
-            entry = json.load(f)
-        text = entry.get("text", "").strip()
-        if not text:
-            raise HTTPException(400, "La versión no tiene texto")
-        with open(_CUSTOM_META_PROMPT_PATH, "w", encoding="utf-8") as f:
-            f.write(text)
-    return _full_versions_response()
+        target = db.query(models.MetaPrompt).filter(models.MetaPrompt.id == int(version_id)).first()
+
+    if not target:
+        raise HTTPException(404, "Versión no encontrada")
+
+    db.query(models.MetaPrompt).update({models.MetaPrompt.is_active: False})
+    target.is_active = True
+    db.commit()
+    return _mp_full_response(db)
 
 
-@app.delete("/api/img-prompts/meta-prompt/version/{filename}", status_code=204)
-def delete_meta_prompt_version(filename: str):
-    path = os.path.join(_META_PROMPT_HISTORY_DIR, filename)
-    if os.path.exists(path):
-        os.remove(path)
+@app.delete("/api/img-prompts/meta-prompt/version/{version_id}", status_code=204)
+def delete_meta_prompt_version(version_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.MetaPrompt).filter(
+        models.MetaPrompt.id == version_id,
+        models.MetaPrompt.is_original == False,
+    ).first()
+    if row:
+        if row.is_active:
+            # activate original before deleting
+            orig = db.query(models.MetaPrompt).filter(models.MetaPrompt.is_original == True).first()
+            if orig:
+                orig.is_active = True
+        db.delete(row)
+        db.commit()
 
 
 @app.post("/api/classes/{class_id}/img-prompts/{asset_name}/fix")
@@ -1678,9 +1644,9 @@ async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
     if not original_prompt and not narration:
         raise HTTPException(400, "Se necesita original_prompt o narration")
 
-    meta_prompt = _load_meta_prompt(override=meta_prompt_override)
+    meta_prompt = _load_meta_prompt(override=meta_prompt_override, db=db)
     if not meta_prompt:
-        raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado en 0_referencia/")
+        raise HTTPException(500, "No hay meta-prompt activo — revisa la DB")
 
     from openai import OpenAI
     client = OpenAI(api_key=api_key)

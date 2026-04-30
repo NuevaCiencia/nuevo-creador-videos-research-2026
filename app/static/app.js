@@ -2443,7 +2443,7 @@ async function impActivateVersion(i) {
   const v = _impVersions[i];
   if (!v) return;
   try {
-    const r = await api('POST', '/api/img-prompts/meta-prompt/activate', { filename: v.filename });
+    const r = await api('POST', '/api/img-prompts/meta-prompt/activate', { id: v.id });
     _impVersions = r.versions || []; _impOriginalActive = r.original_active; _impCustomActive = !r.original_active;
     _impMetaPrompt = r.active_text;
     _impRenderMetaModal(r.active_text, 'versiones');
@@ -2454,7 +2454,7 @@ async function impActivateVersion(i) {
 
 async function impActivateOriginal() {
   try {
-    const r = await api('POST', '/api/img-prompts/meta-prompt/activate', { filename: 'original' });
+    const r = await api('POST', '/api/img-prompts/meta-prompt/activate', { id: 'original' });
     _impVersions = r.versions || []; _impOriginalActive = r.original_active; _impCustomActive = false;
     _impMetaPrompt = null;
     _impRenderMetaModal(r.active_text, 'versiones');
@@ -2467,7 +2467,7 @@ async function impDeleteVersion(i) {
   const v = _impVersions[i];
   if (!v) return;
   try {
-    await api('DELETE', `/api/img-prompts/meta-prompt/version/${encodeURIComponent(v.filename)}`);
+    await api('DELETE', `/api/img-prompts/meta-prompt/version/${v.id}`);
     _impVersions.splice(i, 1);
     if (_impExpandedIdx === i) _impExpandedIdx = null;
     else if (typeof _impExpandedIdx === 'number' && _impExpandedIdx > i) _impExpandedIdx--;

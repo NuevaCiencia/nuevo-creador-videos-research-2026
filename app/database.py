@@ -37,6 +37,7 @@ def init_db():
     _migrate()
     _seed_screen_types()
     _seed_remotion_templates()
+    _seed_meta_prompt()
 
 
 def _migrate():
@@ -276,6 +277,30 @@ def _seed_screen_types():
     except Exception as e:
         db.rollback()
         print(f"⚠️ Screen types seed error: {e}")
+    finally:
+        db.close()
+
+
+def _seed_meta_prompt():
+    """Seed the original meta-prompt from file into DB if table is empty."""
+    from models import MetaPrompt
+    db = SessionLocal()
+    try:
+        if db.query(MetaPrompt).count() > 0:
+            return
+        meta_path = os.path.join(BASE_DIR, "..", "0_referencia", "META_PROMPT_ARREGLA_IMAGENES.txt")
+        try:
+            with open(meta_path, encoding="utf-8") as f:
+                text = f.read().strip()
+        except FileNotFoundError:
+            print("⚠️ META_PROMPT_ARREGLA_IMAGENES.txt not found — meta_prompts table left empty.")
+            return
+        db.add(MetaPrompt(text=text, note="Original", is_active=True, is_original=True))
+        db.commit()
+        print("✅ Meta-prompt original seeded into DB.")
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️ Meta-prompt seed error: {e}")
     finally:
         db.close()
 

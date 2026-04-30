@@ -286,6 +286,22 @@ class RemotionTemplate(Base):
     sort_order  = Column(Integer, default=0)
 
 
+# ── GLOBAL: Meta-Prompts (for image prompt refinement) ────────────────────────
+# Stores all versions of the system prompt used by the Fix feature in Img Prompts.
+# One row has is_original=True (seeded from file, never deleted).
+# Exactly one row has is_active=True at any time.
+
+class MetaPrompt(Base):
+    __tablename__ = "meta_prompts"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    text        = Column(Text, nullable=False)
+    note        = Column(String(255), default="")    # user-given version name
+    is_active   = Column(Boolean, default=False)     # only one active at a time
+    is_original = Column(Boolean, default=False)     # the seeded default, cannot be deleted
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
 # ── Per-class: Image Prompts ───────────────────────────────────────────────────
 # Stores user-edited or AI-fixed prompts for each image asset (S***.png, F***.png).
 # One row per (class_id, asset_name). Overrides the auto-generated ASSET_DESCRIPCION
