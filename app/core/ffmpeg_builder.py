@@ -14,7 +14,10 @@ def _escape_ass_path(path: str) -> str:
 
 
 def _escape_fontsdir(path: str) -> str:
-    """Escape fontsdir path for FFmpeg filter option (no outer quotes needed)."""
+    """Escape fontsdir path for FFmpeg filter option (no outer quotes needed).
+    Backslashes must be converted to forward slashes first — FFmpeg's filtergraph
+    parser can't handle backslashes in option values inside filter scripts."""
+    path = path.replace('\\', '/')
     return _re.sub(r'^([A-Za-z]):', r'\1\\:', path)
 
 

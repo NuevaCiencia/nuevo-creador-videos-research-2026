@@ -5,6 +5,20 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.6 — Fix render: fontsdir con backslashes rompe FFmpeg en Windows · `pending`
+
+### Fix — `_escape_fontsdir` y `_escape_ass_path_vf` normalizan backslashes
+- `ffmpeg_builder.py` → `_escape_fontsdir`: ahora convierte `\` a `/` antes de escapar
+  el colon de la letra de unidad. FFmpeg no puede parsear backslashes como parte del
+  valor de una opción dentro de un filter_complex_script — los trata como separadores.
+- `video_engine.py` → `_escape_ass_path_vf`: mismo fix para el path de `-vf ass=fontsdir=`.
+- Resultado: `C\:/Users/famil/.../app/fonts` en lugar de `C\:\Users\famil\...\app\fonts`.
+- El path del archivo `.ass` ya usaba forward slashes (rutas temporales) — por eso
+  funcionaba en clases anteriores. El problema solo aparece cuando `fonts_dir` apunta
+  a una ruta construida con `os.path.join` en Windows (backslashes nativos).
+
+---
+
 ## v1.5 — Modal Meta-Prompt: botones Copy + scroll + cierre fijo · `pending`
 
 ### Feat — Botón 📋 P&Loc en tabla Img Prompts

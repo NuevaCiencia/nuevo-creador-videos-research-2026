@@ -8,8 +8,8 @@ from .ffmpeg_builder import construir_filtro_ffmpeg
 
 def _escape_ass_path_vf(path: str) -> str:
     """Escape path for -vf ass= argument (not inside filter script).
-    Windows drive colon must be escaped so FFmpeg's filter parser won't
-    treat it as an option separator."""
+    Normalize backslashes first, then escape the Windows drive colon."""
+    path = path.replace('\\', '/')
     return re.sub(r'^([A-Za-z]):', r'\1\\:', path)
 
 
