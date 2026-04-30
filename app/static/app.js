@@ -2294,72 +2294,123 @@ async function impFixAll() {
 
 // ── Meta-prompt modal ─────────────────────────────────────────────────────────
 
-let _impHistory = [];
+let _impHistory      = [];
+let _impExpandedIdx  = null;  // which history card is expanded
 
 async function impOpenMetaPrompt() {
   try {
     const r = await api('GET', '/api/img-prompts/meta-prompt');
     _impCustomActive = r.custom_active;
     _impHistory      = r.history || [];
-    _impRenderMetaModal(r.text);
+    _impExpandedIdx  = null;
+    _impRenderMetaModal(r.text, 'editor');
   } catch(e) { toast('No se pudo cargar el meta-prompt', false); }
 }
 
-function _impRenderMetaModal(text) {
+function _impRenderMetaModal(text, activeTab = 'editor') {
   const isCustom = _impCustomActive;
+  const histCount = _impHistory.length;
 
-  const historyHtml = _impHistory.length ? `
-    <div style="margin-top:18px">
-      <div class="imp-mp-sec-title">🕓 Versiones anteriores (${_impHistory.length})</div>
-      <div class="imp-mp-history">
-        ${_impHistory.map((v, i) => {
-          const dt = new Date(v.timestamp);
-          const label = dt.toLocaleString('es', {dateStyle:'short', timeStyle:'short'});
-          const preview = (v.text || '').substring(0, 160).replace(/\n/g, ' ');
-          return `<div class="imp-mp-hist-card">
-            <div class="imp-mp-hist-head">
+  const editorTab = activeTab === 'editor';
+
+  const editorHtml = `
+    <div class="imp-mp-sec-title">Prompt activo que recibe la IA al hacer Fix</div>
+    <textarea class="imp-mp-ta" id="impMetaTa" spellcheck="false">${esc(text)}</textarea>
+    <div style="margin-top:10px">
+      <div class="imp-mp-sec-title">Nota para archivar esta versión al guardar (opcional)</div>
+      <input id="impMetaNote" type="text" class="imp-mp-note-input"
+        placeholder="Ej: versión con más énfasis en metáforas visuales…">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      ${isCustom ? `<button class="btn btn-ghost" style="font-size:12px;color:var(--err)" onclick="impResetMetaPrompt()">↩ Volver al original</button>` : ''}
+    </div>`;
+
+  const historyHtml = !histCount ? `
+    <div style="text-align:center;padding:32px 0;color:var(--tx3)">Sin versiones archivadas todavía.</div>` :
+    _impHistory.map((v, i) => {
+      const dt    = new Date(v.timestamp);
+      const label = dt.toLocaleString('es', {dateStyle:'medium', timeStyle:'short'});
+      const isExp = _impExpandedIdx === i;
+      return `<div class="imp-mp-hist-card" id="imp_hcard_${i}">
+        <div class="imp-mp-hist-head" onclick="impToggleHistCard(${i})">
+          <span class="imp-mp-hist-chevron">${isExp ? '▾' : '▸'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <span class="imp-mp-hist-date">📅 ${esc(label)}</span>
-              ${v.note ? `<span class="imp-mp-hist-note">💬 ${esc(v.note)}</span>` : ''}
-              <button class="imp-act imp-mp-hist-btn" onclick="impRestoreVersion(${i})">↩ Usar</button>
+              ${v.note ? `<span class="imp-mp-hist-note">💬 ${esc(v.note)}</span>` : '<span class="imp-mp-hist-note" style="opacity:.4">sin nota</span>'}
             </div>
-            <div class="imp-mp-hist-preview">${esc(preview)}${v.text.length > 160 ? '…' : ''}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
+            ${!isExp ? `<div class="imp-mp-hist-preview">${esc((v.text||'').replace(/\n/g,' ').substring(0,120))}…</div>` : ''}
+          </div>
+          <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
+            <button class="imp-mp-hist-btn imp-mp-hist-restore" onclick="impRestoreVersion(${i})">🔄 Restaurar</button>
+            <button class="imp-mp-hist-btn imp-mp-hist-del" onclick="impDeleteVersion(${i})" title="Eliminar esta versión">🗑</button>
+          </div>
+        </div>
+        ${isExp ? `<pre class="imp-mp-hist-full">${esc(v.text)}</pre>` : ''}
+      </div>`;
+    }).join('');
 
   openModal({ wide: true, html: `
     <div class="modal-title">⚙️ Meta-Prompt de Imágenes
-      ${isCustom ? '<span style="font-size:11px;font-weight:500;color:#4ade80;margin-left:8px">● personalizado activo</span>' : ''}
+      ${isCustom ? '<span class="imp-mp-active-dot">● personalizado</span>' : '<span class="imp-mp-active-dot" style="color:var(--tx3)">● original</span>'}
     </div>
-    <div class="modal-body" style="padding:0 0 8px">
-      <div class="imp-mp-sec-title">Prompt que recibe la IA al hacer Fix</div>
-      <textarea class="imp-mp-ta" id="impMetaTa" spellcheck="false">${esc(text)}</textarea>
-      ${isCustom ? `
-      <div style="margin-top:10px">
-        <div class="imp-mp-sec-title">Nota para archivar la versión actual (opcional)</div>
-        <input id="impMetaNote" type="text" class="imp-mp-note-input"
-          placeholder="Ej: versión con más énfasis en metáforas visuales…">
-      </div>` : ''}
-      <div style="display:flex;gap:8px;margin-top:10px">
-        ${isCustom ? `<button class="btn btn-ghost" style="font-size:12px;color:var(--err)" onclick="impResetMetaPrompt()">↩ Restaurar original</button>` : ''}
-      </div>
-      ${historyHtml}
+    <div class="imp-mp-tabs">
+      <button class="imp-mp-tab ${editorTab ? 'active' : ''}" onclick="impSwitchMetaTab('editor',document.getElementById('impMetaTa')?.value)">✏️ Editor</button>
+      <button class="imp-mp-tab ${!editorTab ? 'active' : ''}" onclick="impSwitchMetaTab('history',document.getElementById('impMetaTa')?.value)">🕓 Versiones${histCount ? ` (${histCount})` : ''}</button>
+    </div>
+    <div class="modal-body imp-mp-body">
+      ${editorTab ? editorHtml : historyHtml}
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="impSaveMetaPrompt()">✓ Guardar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+      ${editorTab ? `<button class="btn btn-primary" onclick="impSaveMetaPrompt()">💾 Guardar versión</button>` : ''}
     </div>` });
+
+  window._impCurrentEditorText = text;
 }
 
-function impRestoreVersion(i) {
+function impSwitchMetaTab(tab, currentText) {
+  const text = currentText || window._impCurrentEditorText || '';
+  _impRenderMetaModal(text, tab);
+}
+
+function impToggleHistCard(i) {
+  _impExpandedIdx = _impExpandedIdx === i ? null : i;
+  const text = window._impCurrentEditorText || '';
+  _impRenderMetaModal(text, 'history');
+}
+
+async function impRestoreVersion(i) {
   const v = _impHistory[i];
   if (!v) return;
-  const ta = document.getElementById('impMetaTa');
-  if (ta) ta.value = v.text;
-  document.querySelectorAll('.imp-mp-hist-card').forEach((el, idx) =>
-    el.style.outline = idx === i ? '2px solid var(--accent)' : '');
-  toast('Versión cargada en el editor — pulsa Guardar para aplicarla');
+  const note = prompt(`Nota para archivar la versión actual antes de restaurar (opcional):`, '') ?? null;
+  if (note === null) return; // cancelled
+  try {
+    const r = await api('POST', '/api/img-prompts/meta-prompt/restore',
+      { filename: v.filename, note_for_current: note });
+    _impMetaPrompt   = r.text;
+    _impCustomActive = true;
+    _impHistory      = r.history || [];
+    _impExpandedIdx  = null;
+    window._impCurrentEditorText = r.text;
+    _impRenderMetaModal(r.text, 'editor');
+    toast('Versión restaurada ✓');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) { toast(`Error: ${e.message}`, false); }
+}
+
+async function impDeleteVersion(i) {
+  const v = _impHistory[i];
+  if (!v) return;
+  if (!confirm(`¿Eliminar la versión del ${new Date(v.timestamp).toLocaleString('es')}?`)) return;
+  try {
+    await api('DELETE', `/api/img-prompts/meta-prompt/history/${encodeURIComponent(v.filename)}`);
+    _impHistory.splice(i, 1);
+    if (_impExpandedIdx === i) _impExpandedIdx = null;
+    else if (_impExpandedIdx > i) _impExpandedIdx--;
+    _impRenderMetaModal(window._impCurrentEditorText || '', 'history');
+    toast('Versión eliminada');
+  } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
 async function impSaveMetaPrompt() {
@@ -2374,19 +2425,21 @@ async function impSaveMetaPrompt() {
     _impCustomActive = true;
     _impHistory      = r.history || [];
     closeModal();
-    toast('Meta-prompt guardado ✓ — se usará en próximos Fix');
+    toast('Meta-prompt guardado ✓');
     _buildImgUI(document.getElementById('contentArea'));
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
 async function impResetMetaPrompt() {
+  if (!confirm('¿Volver al meta-prompt original? La versión actual se archivará.')) return;
   try {
     await api('DELETE', '/api/img-prompts/meta-prompt');
     _impMetaPrompt   = null;
     _impCustomActive = false;
-    _impHistory      = (await api('GET', '/api/img-prompts/meta-prompt')).history || [];
+    const r = await api('GET', '/api/img-prompts/meta-prompt');
+    _impHistory = r.history || [];
     closeModal();
-    toast('Meta-prompt restaurado al original');
+    toast('Restaurado al meta-prompt original');
     _buildImgUI(document.getElementById('contentArea'));
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
