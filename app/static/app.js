@@ -1266,11 +1266,11 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
           </div>
         ` : visualDone ? `
           <div class="tx-summary-row">
-            <div class="tx-summary-stat"><span class="tx-stat-val">${(recursos?.total_recursos || 0) + 1}</span><span class="tx-stat-lbl">assets total</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${1 + splits + fulls + videos + remotion}</span><span class="tx-stat-lbl">total</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">1</span><span class="tx-stat-lbl">portada</span></div>
-            <div class="tx-summary-stat"><span class="tx-stat-val">${splits}</span><span class="tx-stat-lbl">split imgs</span></div>
-            <div class="tx-summary-stat"><span class="tx-stat-val">${fulls}</span><span class="tx-stat-lbl">full imgs</span></div>
-            <div class="tx-summary-stat"><span class="tx-stat-val">${videos}</span><span class="tx-stat-lbl">videos</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${splits}</span><span class="tx-stat-lbl">split</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${fulls}</span><span class="tx-stat-lbl">full</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${videos}</span><span class="tx-stat-lbl">video</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${remotion}</span><span class="tx-stat-lbl">remotion</span></div>
           </div>
           <div class="audio-exports">
