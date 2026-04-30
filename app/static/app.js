@@ -2140,12 +2140,13 @@ function _buildImgUI(area) {
         <span class="imp-type-pill" style="background:${col}22;color:${col};border:1px solid ${col}55">${esc(item.screen_type)}</span>
       </td>
       <td class="imp-td-prompt">
-        <textarea class="imp-ta" id="imp_ta_${i}" rows="4" oninput="impDirty(${i})"
+        <textarea class="imp-ta" id="imp_ta_${i}" rows="6" oninput="impDirty(${i})"
           placeholder="${active ? '' : 'Sin prompt — pulsa 🤖 Fix para generar, o escribe uno manualmente'}"
         >${esc(active)}</textarea>
         <div class="imp-ta-foot">
           ${badgeHtml}
           <span class="imp-chars" id="imp_cc_${i}">${active.length} chars</span>
+          <button class="imp-act imp-act-copy" onclick="impCopy(${i})" title="Copiar prompt">📋 Copy</button>
         </div>
       </td>
       <td class="imp-td-narr">
@@ -2177,6 +2178,14 @@ function _buildImgUI(area) {
       </table>
     </div>
   </div>`;
+}
+
+async function impCopy(i) {
+  const ta = document.getElementById(`imp_ta_${i}`);
+  if (!ta?.value) return;
+  await navigator.clipboard.writeText(ta.value);
+  const btn = ta.closest('td')?.querySelector('.imp-act-copy');
+  if (btn) { btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 1500); }
 }
 
 function impDirty(i) {
