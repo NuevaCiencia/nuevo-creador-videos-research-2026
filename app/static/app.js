@@ -2294,31 +2294,38 @@ async function impFixAll() {
 
 // ── Meta-prompt modal ─────────────────────────────────────────────────────────
 
+let _impHistory = [];
+
 async function impOpenMetaPrompt() {
-  let current = '';
   try {
     const r = await api('GET', '/api/img-prompts/meta-prompt');
-    current = r.text;
     _impCustomActive = r.custom_active;
-  } catch(e) { toast('No se pudo cargar el meta-prompt', false); return; }
-
-  _impRenderMetaModal(current, []);
+    _impHistory      = r.history || [];
+    _impRenderMetaModal(r.text);
+  } catch(e) { toast('No se pudo cargar el meta-prompt', false); }
 }
 
-function _impRenderMetaModal(text, versions) {
-  const isCustom = _impMetaPrompt !== null || _impCustomActive;
+function _impRenderMetaModal(text) {
+  const isCustom = _impCustomActive;
 
-  const versionsHtml = versions.length ? `
-    <div class="imp-mp-versions">
-      <div class="imp-mp-sec-title">🔀 Versiones generadas — haz clic para previsualizar</div>
-      ${versions.map((v, i) => `
-        <div class="imp-mp-ver-card" id="imp_ver_${i}" onclick="impSelectVersion(${i})">
-          <div class="imp-mp-ver-head">
-            <span class="imp-mp-ver-title">${esc(v.title)}</span>
-            <span class="imp-mp-ver-desc">${esc(v.description)}</span>
-          </div>
-          <pre class="imp-mp-ver-pre">${esc(v.prompt.substring(0, 280))}${v.prompt.length > 280 ? '…' : ''}</pre>
-        </div>`).join('')}
+  const historyHtml = _impHistory.length ? `
+    <div style="margin-top:18px">
+      <div class="imp-mp-sec-title">🕓 Versiones anteriores (${_impHistory.length})</div>
+      <div class="imp-mp-history">
+        ${_impHistory.map((v, i) => {
+          const dt = new Date(v.timestamp);
+          const label = dt.toLocaleString('es', {dateStyle:'short', timeStyle:'short'});
+          const preview = (v.text || '').substring(0, 160).replace(/\n/g, ' ');
+          return `<div class="imp-mp-hist-card">
+            <div class="imp-mp-hist-head">
+              <span class="imp-mp-hist-date">📅 ${esc(label)}</span>
+              ${v.note ? `<span class="imp-mp-hist-note">💬 ${esc(v.note)}</span>` : ''}
+              <button class="imp-act imp-mp-hist-btn" onclick="impRestoreVersion(${i})">↩ Usar</button>
+            </div>
+            <div class="imp-mp-hist-preview">${esc(preview)}${v.text.length > 160 ? '…' : ''}</div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>` : '';
 
   openModal({ wide: true, html: `
@@ -2328,57 +2335,44 @@ function _impRenderMetaModal(text, versions) {
     <div class="modal-body" style="padding:0 0 8px">
       <div class="imp-mp-sec-title">Prompt que recibe la IA al hacer Fix</div>
       <textarea class="imp-mp-ta" id="impMetaTa" spellcheck="false">${esc(text)}</textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" style="font-size:12px" onclick="impGenerateVersions()">🔀 Generar versiones</button>
+      ${isCustom ? `
+      <div style="margin-top:10px">
+        <div class="imp-mp-sec-title">Nota para archivar la versión actual (opcional)</div>
+        <input id="impMetaNote" type="text" class="imp-mp-note-input"
+          placeholder="Ej: versión con más énfasis en metáforas visuales…">
+      </div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px">
         ${isCustom ? `<button class="btn btn-ghost" style="font-size:12px;color:var(--err)" onclick="impResetMetaPrompt()">↩ Restaurar original</button>` : ''}
       </div>
-      ${versionsHtml}
+      ${historyHtml}
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="impSaveMetaPrompt()">✓ Aplicar</button>
+      <button class="btn btn-primary" onclick="impSaveMetaPrompt()">✓ Guardar</button>
     </div>` });
-
-  // store versions for selection
-  window._impVersionsCache = versions;
 }
 
-function impSelectVersion(i) {
-  const v = window._impVersionsCache?.[i];
+function impRestoreVersion(i) {
+  const v = _impHistory[i];
   if (!v) return;
   const ta = document.getElementById('impMetaTa');
-  if (ta) ta.value = v.prompt;
-  document.querySelectorAll('.imp-mp-ver-card').forEach((el, idx) =>
-    el.classList.toggle('imp-mp-ver-selected', idx === i));
-}
-
-async function impGenerateVersions() {
-  const ta = document.getElementById('impMetaTa');
-  if (!ta?.value.trim()) return;
-  const btn = document.querySelector('#modalBox .btn-primary');
-  const origText = '🔀 Generar versiones';
-  document.querySelectorAll('#modalBox button').forEach(b => {
-    if (b.textContent.includes('Generar')) { b.disabled = true; b.textContent = '⏳ Generando…'; }
-  });
-  try {
-    const r = await api('POST', '/api/img-prompts/meta-prompt/versions', { current: ta.value });
-    _impRenderMetaModal(ta.value, r.versions);
-  } catch(e) {
-    toast(`Error: ${e.message}`, false);
-    document.querySelectorAll('#modalBox button').forEach(b => {
-      if (b.textContent.includes('Generando')) { b.disabled = false; b.textContent = origText; }
-    });
-  }
+  if (ta) ta.value = v.text;
+  document.querySelectorAll('.imp-mp-hist-card').forEach((el, idx) =>
+    el.style.outline = idx === i ? '2px solid var(--accent)' : '');
+  toast('Versión cargada en el editor — pulsa Guardar para aplicarla');
 }
 
 async function impSaveMetaPrompt() {
-  const ta = document.getElementById('impMetaTa');
+  const ta   = document.getElementById('impMetaTa');
+  const note = document.getElementById('impMetaNote')?.value || '';
   if (!ta) return;
   const text = ta.value.trim();
+  if (!text) return;
   try {
-    await api('POST', '/api/img-prompts/meta-prompt', { text });
+    const r = await api('POST', '/api/img-prompts/meta-prompt', { text, note });
     _impMetaPrompt   = text;
     _impCustomActive = true;
+    _impHistory      = r.history || [];
     closeModal();
     toast('Meta-prompt guardado ✓ — se usará en próximos Fix');
     _buildImgUI(document.getElementById('contentArea'));
@@ -2390,6 +2384,7 @@ async function impResetMetaPrompt() {
     await api('DELETE', '/api/img-prompts/meta-prompt');
     _impMetaPrompt   = null;
     _impCustomActive = false;
+    _impHistory      = (await api('GET', '/api/img-prompts/meta-prompt')).history || [];
     closeModal();
     toast('Meta-prompt restaurado al original');
     _buildImgUI(document.getElementById('contentArea'));

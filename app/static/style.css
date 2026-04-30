@@ -1695,29 +1695,41 @@ input,textarea{font-family:inherit;outline:none}
   transition: border-color .15s;
 }
 .imp-mp-ta:focus { border-color: var(--accent); outline: none; }
-.imp-mp-versions { margin-top: 16px; }
-.imp-mp-ver-card {
+.imp-mp-note-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--tx1);
+  font-size: 12px;
+  padding: 7px 10px;
+  transition: border-color .15s;
+}
+.imp-mp-note-input:focus { border-color: var(--accent); outline: none; }
+.imp-mp-history { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.imp-mp-hist-card {
   border: 1px solid var(--border2);
   border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: border-color .15s, background .15s;
+  padding: 8px 12px;
+  background: var(--bg2);
 }
-.imp-mp-ver-card:hover { border-color: var(--accent); background: var(--bg2); }
-.imp-mp-ver-selected { border-color: var(--accent) !important; background: rgba(99,102,241,.08) !important; }
-.imp-mp-ver-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
-.imp-mp-ver-title { font-size: 12px; font-weight: 700; color: var(--tx1); }
-.imp-mp-ver-desc  { font-size: 11px; color: var(--tx3); }
-.imp-mp-ver-pre {
+.imp-mp-hist-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+.imp-mp-hist-date { font-size: 11px; font-weight: 700; color: var(--tx2); white-space: nowrap; }
+.imp-mp-hist-note { font-size: 11px; color: var(--tx3); font-style: italic; flex: 1; }
+.imp-mp-hist-btn  { margin-left: auto; width: auto !important; padding: 2px 10px !important; font-size: 10px !important; }
+.imp-mp-hist-preview {
   font-size: 10.5px;
   font-family: 'JetBrains Mono', monospace;
-  color: var(--tx2);
-  white-space: pre-wrap;
-  line-height: 1.5;
-  margin: 0;
-  max-height: 100px;
+  color: var(--tx3);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .imp-act-copy { margin-left: auto; border-color: rgba(6,182,212,.4); color: #22d3ee; }
 .imp-act-copy:hover { background: rgba(6,182,212,.12); }

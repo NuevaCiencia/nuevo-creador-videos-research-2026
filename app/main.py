@@ -1558,79 +1558,67 @@ def _load_meta_prompt(override: str = None) -> str:
         return None
 
 
+_META_PROMPT_HISTORY_DIR = os.path.join(os.path.dirname(__file__), "meta_prompt_history")
+
+
+def _list_meta_prompt_history():
+    if not os.path.exists(_META_PROMPT_HISTORY_DIR):
+        return []
+    entries = []
+    for f in sorted(os.listdir(_META_PROMPT_HISTORY_DIR), reverse=True):
+        if f.endswith(".json"):
+            try:
+                with open(os.path.join(_META_PROMPT_HISTORY_DIR, f), encoding="utf-8") as fh:
+                    entries.append(json.load(fh))
+            except Exception:
+                pass
+    return entries
+
+
+def _archive_current_meta_prompt(note: str = ""):
+    """Save the current custom meta-prompt to history before replacing it."""
+    if not os.path.exists(_CUSTOM_META_PROMPT_PATH):
+        return
+    with open(_CUSTOM_META_PROMPT_PATH, encoding="utf-8") as f:
+        text = f.read().strip()
+    if not text:
+        return
+    os.makedirs(_META_PROMPT_HISTORY_DIR, exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    entry = {"timestamp": datetime.utcnow().isoformat(), "note": note.strip(), "text": text}
+    with open(os.path.join(_META_PROMPT_HISTORY_DIR, f"{ts}.json"), "w", encoding="utf-8") as f:
+        json.dump(entry, f, ensure_ascii=False, indent=2)
+
+
 @app.get("/api/img-prompts/meta-prompt")
 def get_meta_prompt():
-    """Return current active meta-prompt and whether a custom one is saved."""
+    """Return current active meta-prompt, custom status and version history."""
     custom_active = os.path.exists(_CUSTOM_META_PROMPT_PATH)
     text = _load_meta_prompt()
     if not text:
         raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado")
-    return {"text": text, "custom_active": custom_active}
+    return {"text": text, "custom_active": custom_active, "history": _list_meta_prompt_history()}
 
 
 @app.post("/api/img-prompts/meta-prompt")
 async def save_meta_prompt(payload: dict):
-    """Save a custom meta-prompt override."""
+    """Archive current version (with optional note) then save new one."""
     text = payload.get("text", "").strip()
+    note = payload.get("note", "")
     if not text:
         raise HTTPException(400, "text requerido")
+    _archive_current_meta_prompt(note=note)
     with open(_CUSTOM_META_PROMPT_PATH, "w", encoding="utf-8") as f:
         f.write(text)
-    return {"ok": True, "custom_active": True}
+    return {"ok": True, "custom_active": True, "history": _list_meta_prompt_history()}
 
 
 @app.delete("/api/img-prompts/meta-prompt", status_code=204)
 def reset_meta_prompt():
-    """Delete custom override, revert to 0_referencia default."""
+    """Archive current and revert to 0_referencia default."""
+    _archive_current_meta_prompt(note="Restaurado al original")
     if os.path.exists(_CUSTOM_META_PROMPT_PATH):
         os.remove(_CUSTOM_META_PROMPT_PATH)
-
-
-@app.post("/api/img-prompts/meta-prompt/versions")
-async def generate_meta_prompt_versions(payload: dict):
-    """Ask the AI to generate 3 alternative versions of the meta-prompt."""
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise HTTPException(500, "OPENAI_API_KEY no configurada")
-    current = payload.get("current", "").strip()
-    if not current:
-        raise HTTPException(400, "current requerido")
-
-    from openai import OpenAI
-    client = OpenAI(api_key=api_key)
-
-    system = (
-        "You are a prompt engineering expert for AI image generation in educational video courses. "
-        "Given a meta-prompt (a system prompt used to transform image descriptions into polished prompts), "
-        "generate 3 distinct alternative versions. Each version should have a different visual philosophy "
-        "or stylistic approach while keeping the educational context. "
-        "Respond ONLY with valid JSON in this exact format:\n"
-        '[\n'
-        '  {"title": "Short name", "description": "One sentence about this approach", "prompt": "Full prompt text"},\n'
-        '  {"title": "...", "description": "...", "prompt": "..."},\n'
-        '  {"title": "...", "description": "...", "prompt": "..."}\n'
-        ']'
-    )
-
-    resp = client.chat.completions.create(
-        model="gpt-5.4-mini",
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user",   "content": f"Current meta-prompt:\n\n{current}"},
-        ],
-        temperature=0.8,
-    )
-    raw = resp.choices[0].message.content.strip()
-    # strip markdown fences if present
-    if raw.startswith("```"):
-        raw = "\n".join(raw.split("\n")[1:])
-        if raw.endswith("```"):
-            raw = raw[:-3]
-    try:
-        versions = json.loads(raw)
-    except Exception:
-        raise HTTPException(500, f"Respuesta IA no es JSON válido: {raw[:200]}")
-    return {"versions": versions}
 
 
 @app.post("/api/classes/{class_id}/img-prompts/{asset_name}/fix")
