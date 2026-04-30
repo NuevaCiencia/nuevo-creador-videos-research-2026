@@ -153,7 +153,6 @@ def run_render(class_id: int):
         meta["FILES_FOLDER"]        = assets_dir
         meta["USE_TRANSITIONS"]     = cfg["USE_TRANSITIONS"]
         meta["TRANSITION_DURATION"] = cfg["TRANSITION_DURATION"]
-        meta["SUBTITULOS_PATH"]     = subtitulos_txt_path
         meta["FONTS_DIR"]           = fonts_dir_str
 
         sample_rate = get_audio_sample_rate(audio_abs)
@@ -172,6 +171,7 @@ def run_render(class_id: int):
             subtitulos_txt_path = os.path.join(tmp_dir, "transcripcion.txt")
             with open(subtitulos_txt_path, "w", encoding="utf-8") as _f:
                 _f.write(spell_raw_text)
+            meta["SUBTITULOS_PATH"] = subtitulos_txt_path
 
             ass_path  = os.path.join(tmp_dir, "subtitulos.ass")
             body_path = os.path.join(tmp_dir, "body.mp4")
