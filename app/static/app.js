@@ -2308,93 +2308,95 @@ async function impOpenMetaPrompt() {
 }
 
 function _impRenderMetaModal(text, activeTab = 'editor') {
-  const isCustom = _impCustomActive;
+  const isCustom  = _impCustomActive;
   const histCount = _impHistory.length;
-
   const editorTab = activeTab === 'editor';
 
+  // ── Editor tab ──────────────────────────────────────────────────────────────
   const editorHtml = `
-    <div class="imp-mp-sec-title">Prompt activo que recibe la IA al hacer Fix</div>
+    <div class="imp-mp-sec-title" style="margin-bottom:4px">Prompt activo</div>
     <textarea class="imp-mp-ta" id="impMetaTa" spellcheck="false">${esc(text)}</textarea>
-    <div style="margin-top:10px">
-      <div class="imp-mp-sec-title">Nota para archivar esta versión al guardar (opcional)</div>
-      <input id="impMetaNote" type="text" class="imp-mp-note-input"
-        placeholder="Ej: versión con más énfasis en metáforas visuales…">
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end">
+      <div style="flex:1">
+        <div class="imp-mp-sec-title" style="margin-bottom:4px">Nombre / nota para esta versión</div>
+        <input id="impMetaNote" type="text" class="imp-mp-note-input"
+          placeholder="Ej: estilo más fotográfico, menos texto…">
+      </div>
+      <button class="btn btn-primary" style="flex-shrink:0" onclick="impSaveMetaPrompt()">💾 Guardar versión</button>
     </div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      ${isCustom ? `<button class="btn btn-ghost" style="font-size:12px;color:var(--err)" onclick="impResetMetaPrompt()">↩ Volver al original</button>` : ''}
-    </div>`;
+    ${isCustom ? `<div style="margin-top:10px">
+      <button class="btn btn-ghost" style="font-size:11px;color:var(--tx3)" onclick="impResetMetaPrompt()">↩ Volver al prompt original</button>
+    </div>` : ''}`;
 
-  const historyHtml = !histCount ? `
-    <div style="text-align:center;padding:32px 0;color:var(--tx3)">Sin versiones archivadas todavía.</div>` :
-    _impHistory.map((v, i) => {
-      const dt    = new Date(v.timestamp);
-      const label = dt.toLocaleString('es', {dateStyle:'medium', timeStyle:'short'});
-      const isExp = _impExpandedIdx === i;
-      return `<div class="imp-mp-hist-card" id="imp_hcard_${i}">
-        <div class="imp-mp-hist-head" onclick="impToggleHistCard(${i})">
-          <span class="imp-mp-hist-chevron">${isExp ? '▾' : '▸'}</span>
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <span class="imp-mp-hist-date">📅 ${esc(label)}</span>
-              ${v.note ? `<span class="imp-mp-hist-note">💬 ${esc(v.note)}</span>` : '<span class="imp-mp-hist-note" style="opacity:.4">sin nota</span>'}
+  // ── History tab ─────────────────────────────────────────────────────────────
+  const historyHtml = !histCount
+    ? `<div class="imp-mp-empty">Guarda tu primera versión editando en el tab ✏️ Editor.</div>`
+    : _impHistory.map((v, i) => {
+        const dt    = new Date(v.timestamp);
+        const label = dt.toLocaleString('es', {dateStyle:'medium', timeStyle:'short'});
+        const isExp = _impExpandedIdx === i;
+        return `<div class="imp-mp-hist-card">
+          <div class="imp-mp-hist-head" onclick="impToggleHistCard(${i})">
+            <span class="imp-mp-hist-chevron">${isExp ? '▾' : '▸'}</span>
+            <div style="flex:1;min-width:0">
+              <span class="imp-mp-hist-note">${v.note ? esc(v.note) : '<em style="opacity:.45">sin nombre</em>'}</span>
+              <div class="imp-mp-hist-date">📅 ${esc(label)}</div>
+              ${!isExp ? `<div class="imp-mp-hist-preview">${esc((v.text||'').replace(/\n/g,' ').substring(0,110))}…</div>` : ''}
             </div>
-            ${!isExp ? `<div class="imp-mp-hist-preview">${esc((v.text||'').replace(/\n/g,' ').substring(0,120))}…</div>` : ''}
+            <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
+              <button class="imp-mp-hist-btn imp-mp-hist-activate" onclick="impActivateVersion(${i})">✓ Activar</button>
+              <button class="imp-mp-hist-btn imp-mp-hist-del" onclick="impDeleteVersion(${i})" title="Eliminar">🗑</button>
+            </div>
           </div>
-          <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
-            <button class="imp-mp-hist-btn imp-mp-hist-restore" onclick="impRestoreVersion(${i})">🔄 Restaurar</button>
-            <button class="imp-mp-hist-btn imp-mp-hist-del" onclick="impDeleteVersion(${i})" title="Eliminar esta versión">🗑</button>
-          </div>
-        </div>
-        ${isExp ? `<pre class="imp-mp-hist-full">${esc(v.text)}</pre>` : ''}
-      </div>`;
-    }).join('');
+          ${isExp ? `<pre class="imp-mp-hist-full">${esc(v.text)}</pre>` : ''}
+        </div>`;
+      }).join('');
 
   openModal({ wide: true, html: `
-    <div class="modal-title">⚙️ Meta-Prompt de Imágenes
-      ${isCustom ? '<span class="imp-mp-active-dot">● personalizado</span>' : '<span class="imp-mp-active-dot" style="color:var(--tx3)">● original</span>'}
+    <div class="modal-title">⚙️ Meta-Prompt
+      <span class="imp-mp-active-dot" style="color:${isCustom ? '#4ade80' : 'var(--tx3)'}">
+        ● ${isCustom ? 'personalizado' : 'original'}
+      </span>
     </div>
     <div class="imp-mp-tabs">
-      <button class="imp-mp-tab ${editorTab ? 'active' : ''}" onclick="impSwitchMetaTab('editor',document.getElementById('impMetaTa')?.value)">✏️ Editor</button>
-      <button class="imp-mp-tab ${!editorTab ? 'active' : ''}" onclick="impSwitchMetaTab('history',document.getElementById('impMetaTa')?.value)">🕓 Versiones${histCount ? ` (${histCount})` : ''}</button>
+      <button class="imp-mp-tab ${editorTab ? 'active' : ''}"
+        onclick="impSwitchMetaTab('editor')">✏️ Editor</button>
+      <button class="imp-mp-tab ${!editorTab ? 'active' : ''}"
+        onclick="impSwitchMetaTab('history')">🕓 Versiones guardadas${histCount ? ` (${histCount})` : ''}</button>
     </div>
     <div class="modal-body imp-mp-body">
       ${editorTab ? editorHtml : historyHtml}
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
-      ${editorTab ? `<button class="btn btn-primary" onclick="impSaveMetaPrompt()">💾 Guardar versión</button>` : ''}
     </div>` });
 
   window._impCurrentEditorText = text;
 }
 
-function impSwitchMetaTab(tab, currentText) {
-  const text = currentText || window._impCurrentEditorText || '';
+function impSwitchMetaTab(tab) {
+  const text = document.getElementById('impMetaTa')?.value ?? window._impCurrentEditorText ?? '';
+  window._impCurrentEditorText = text;
   _impRenderMetaModal(text, tab);
 }
 
 function impToggleHistCard(i) {
   _impExpandedIdx = _impExpandedIdx === i ? null : i;
-  const text = window._impCurrentEditorText || '';
-  _impRenderMetaModal(text, 'history');
+  _impRenderMetaModal(window._impCurrentEditorText || '', 'history');
 }
 
-async function impRestoreVersion(i) {
+async function impActivateVersion(i) {
   const v = _impHistory[i];
   if (!v) return;
-  const note = prompt(`Nota para archivar la versión actual antes de restaurar (opcional):`, '') ?? null;
-  if (note === null) return; // cancelled
   try {
-    const r = await api('POST', '/api/img-prompts/meta-prompt/restore',
-      { filename: v.filename, note_for_current: note });
+    const r = await api('POST', '/api/img-prompts/meta-prompt/restore', { filename: v.filename });
     _impMetaPrompt   = r.text;
     _impCustomActive = true;
     _impHistory      = r.history || [];
     _impExpandedIdx  = null;
     window._impCurrentEditorText = r.text;
     _impRenderMetaModal(r.text, 'editor');
-    toast('Versión restaurada ✓');
+    toast(`"${v.note || 'versión'}" activado ✓`);
     _buildImgUI(document.getElementById('contentArea'));
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
@@ -2402,12 +2404,11 @@ async function impRestoreVersion(i) {
 async function impDeleteVersion(i) {
   const v = _impHistory[i];
   if (!v) return;
-  if (!confirm(`¿Eliminar la versión del ${new Date(v.timestamp).toLocaleString('es')}?`)) return;
   try {
     await api('DELETE', `/api/img-prompts/meta-prompt/history/${encodeURIComponent(v.filename)}`);
     _impHistory.splice(i, 1);
     if (_impExpandedIdx === i) _impExpandedIdx = null;
-    else if (_impExpandedIdx > i) _impExpandedIdx--;
+    else if (_impExpandedIdx !== null && _impExpandedIdx > i) _impExpandedIdx--;
     _impRenderMetaModal(window._impCurrentEditorText || '', 'history');
     toast('Versión eliminada');
   } catch(e) { toast(`Error: ${e.message}`, false); }
@@ -2415,7 +2416,7 @@ async function impDeleteVersion(i) {
 
 async function impSaveMetaPrompt() {
   const ta   = document.getElementById('impMetaTa');
-  const note = document.getElementById('impMetaNote')?.value || '';
+  const note = document.getElementById('impMetaNote')?.value.trim() || '';
   if (!ta) return;
   const text = ta.value.trim();
   if (!text) return;
@@ -2424,22 +2425,23 @@ async function impSaveMetaPrompt() {
     _impMetaPrompt   = text;
     _impCustomActive = true;
     _impHistory      = r.history || [];
-    closeModal();
-    toast('Meta-prompt guardado ✓');
+    window._impCurrentEditorText = text;
+    _impRenderMetaModal(text, 'editor');
+    toast('Versión guardada y activa ✓');
     _buildImgUI(document.getElementById('contentArea'));
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
 async function impResetMetaPrompt() {
-  if (!confirm('¿Volver al meta-prompt original? La versión actual se archivará.')) return;
   try {
     await api('DELETE', '/api/img-prompts/meta-prompt');
     _impMetaPrompt   = null;
     _impCustomActive = false;
     const r = await api('GET', '/api/img-prompts/meta-prompt');
     _impHistory = r.history || [];
-    closeModal();
-    toast('Restaurado al meta-prompt original');
+    window._impCurrentEditorText = r.text;
+    _impRenderMetaModal(r.text, 'editor');
+    toast('Vuelto al prompt original');
     _buildImgUI(document.getElementById('contentArea'));
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
