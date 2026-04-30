@@ -2091,13 +2091,18 @@ async function saveEstructura() {
 ═══════════════════════════════════════════════════════ */
 
 let _imgData = null;
+let _impMetaPrompt   = null;   // custom override (null = use server active)
+let _impCustomActive = false;  // whether server has a custom saved
 
 async function renderImgPrompts(area) {
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando prompts…</div></div>`;
   const classId = S.activeClass?.id;
   if (!classId) return;
   try {
-    _imgData = await api('GET', `/api/classes/${classId}/img-prompts`);
+    [_imgData] = await Promise.all([
+      api('GET', `/api/classes/${classId}/img-prompts`),
+      api('GET', '/api/img-prompts/meta-prompt').then(r => { _impCustomActive = r.custom_active; }).catch(() => {}),
+    ]);
     _buildImgUI(area);
   } catch(e) {
     area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px;color:var(--err)">${esc(e.message)}</div></div>`;
@@ -2163,7 +2168,10 @@ function _buildImgUI(area) {
   area.innerHTML = `<div class="imp-phase">
     <div class="imp-bar">
       <span class="imp-bar-title">🖼️ Img Prompts <span class="imp-bar-count">${d.items.length} assets</span></span>
-      <button class="btn btn-primary" onclick="impFixAll()" style="font-size:12px;padding:5px 14px">🤖 Fix All</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="impOpenMetaPrompt()" style="font-size:12px;padding:5px 14px" id="impMetaBtn">⚙️ Prompt${_impCustomActive ? ' <span style="color:#4ade80;font-size:9px">●</span>' : ''}</button>
+        <button class="btn btn-primary" onclick="impFixAll()" style="font-size:12px;padding:5px 14px">🤖 Fix All</button>
+      </div>
     </div>
     <div class="imp-scroll">
       <table class="imp-table">
@@ -2246,9 +2254,11 @@ async function impFixOne(i) {
   const btn = document.getElementById(`imp_fix_${i}`);
   if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
   try {
+    const fixPayload = { original_prompt: item.original_prompt || '', narration: item.narration };
+    if (_impMetaPrompt) fixPayload.meta_prompt = _impMetaPrompt;
     const r = await api('POST',
       `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`,
-      { original_prompt: item.original_prompt || '', narration: item.narration });
+      fixPayload);
     item.custom_prompt = r.prompt;
     item.fixed_by = 'ai';
     toast('Prompt mejorado ✓');
@@ -2268,9 +2278,10 @@ async function impFixAll() {
   for (const item of items) {
     if (!item.asset_name) { done++; continue; }
     try {
+      const payload = { original_prompt: item.original_prompt || '', narration: item.narration };
+      if (_impMetaPrompt) payload.meta_prompt = _impMetaPrompt;
       const r = await api('POST',
-        `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`,
-        { original_prompt: item.original_prompt || '', narration: item.narration });
+        `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`, payload);
       item.custom_prompt = r.prompt;
       item.fixed_by = 'ai';
     } catch(e) { console.warn(`Fix failed ${item.asset_name}:`, e.message); }
@@ -2279,6 +2290,110 @@ async function impFixAll() {
   }
   AIModal.done(`✅ ${done} prompts procesados`);
   _buildImgUI(document.getElementById('contentArea'));
+}
+
+// ── Meta-prompt modal ─────────────────────────────────────────────────────────
+
+async function impOpenMetaPrompt() {
+  let current = '';
+  try {
+    const r = await api('GET', '/api/img-prompts/meta-prompt');
+    current = r.text;
+    _impCustomActive = r.custom_active;
+  } catch(e) { toast('No se pudo cargar el meta-prompt', false); return; }
+
+  _impRenderMetaModal(current, []);
+}
+
+function _impRenderMetaModal(text, versions) {
+  const isCustom = _impMetaPrompt !== null || _impCustomActive;
+
+  const versionsHtml = versions.length ? `
+    <div class="imp-mp-versions">
+      <div class="imp-mp-sec-title">🔀 Versiones generadas — haz clic para previsualizar</div>
+      ${versions.map((v, i) => `
+        <div class="imp-mp-ver-card" id="imp_ver_${i}" onclick="impSelectVersion(${i})">
+          <div class="imp-mp-ver-head">
+            <span class="imp-mp-ver-title">${esc(v.title)}</span>
+            <span class="imp-mp-ver-desc">${esc(v.description)}</span>
+          </div>
+          <pre class="imp-mp-ver-pre">${esc(v.prompt.substring(0, 280))}${v.prompt.length > 280 ? '…' : ''}</pre>
+        </div>`).join('')}
+    </div>` : '';
+
+  openModal({ wide: true, html: `
+    <div class="modal-title">⚙️ Meta-Prompt de Imágenes
+      ${isCustom ? '<span style="font-size:11px;font-weight:500;color:#4ade80;margin-left:8px">● personalizado activo</span>' : ''}
+    </div>
+    <div class="modal-body" style="padding:0 0 8px">
+      <div class="imp-mp-sec-title">Prompt que recibe la IA al hacer Fix</div>
+      <textarea class="imp-mp-ta" id="impMetaTa" spellcheck="false">${esc(text)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="font-size:12px" onclick="impGenerateVersions()">🔀 Generar versiones</button>
+        ${isCustom ? `<button class="btn btn-ghost" style="font-size:12px;color:var(--err)" onclick="impResetMetaPrompt()">↩ Restaurar original</button>` : ''}
+      </div>
+      ${versionsHtml}
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="impSaveMetaPrompt()">✓ Aplicar</button>
+    </div>` });
+
+  // store versions for selection
+  window._impVersionsCache = versions;
+}
+
+function impSelectVersion(i) {
+  const v = window._impVersionsCache?.[i];
+  if (!v) return;
+  const ta = document.getElementById('impMetaTa');
+  if (ta) ta.value = v.prompt;
+  document.querySelectorAll('.imp-mp-ver-card').forEach((el, idx) =>
+    el.classList.toggle('imp-mp-ver-selected', idx === i));
+}
+
+async function impGenerateVersions() {
+  const ta = document.getElementById('impMetaTa');
+  if (!ta?.value.trim()) return;
+  const btn = document.querySelector('#modalBox .btn-primary');
+  const origText = '🔀 Generar versiones';
+  document.querySelectorAll('#modalBox button').forEach(b => {
+    if (b.textContent.includes('Generar')) { b.disabled = true; b.textContent = '⏳ Generando…'; }
+  });
+  try {
+    const r = await api('POST', '/api/img-prompts/meta-prompt/versions', { current: ta.value });
+    _impRenderMetaModal(ta.value, r.versions);
+  } catch(e) {
+    toast(`Error: ${e.message}`, false);
+    document.querySelectorAll('#modalBox button').forEach(b => {
+      if (b.textContent.includes('Generando')) { b.disabled = false; b.textContent = origText; }
+    });
+  }
+}
+
+async function impSaveMetaPrompt() {
+  const ta = document.getElementById('impMetaTa');
+  if (!ta) return;
+  const text = ta.value.trim();
+  try {
+    await api('POST', '/api/img-prompts/meta-prompt', { text });
+    _impMetaPrompt   = text;
+    _impCustomActive = true;
+    closeModal();
+    toast('Meta-prompt guardado ✓ — se usará en próximos Fix');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) { toast(`Error: ${e.message}`, false); }
+}
+
+async function impResetMetaPrompt() {
+  try {
+    await api('DELETE', '/api/img-prompts/meta-prompt');
+    _impMetaPrompt   = null;
+    _impCustomActive = false;
+    closeModal();
+    toast('Meta-prompt restaurado al original');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
 /* ═══════════════════════════════════════════════════════

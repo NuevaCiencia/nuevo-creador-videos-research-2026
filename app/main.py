@@ -1539,17 +1539,98 @@ def delete_img_prompt(class_id: int, asset_name: str, db: Session = Depends(get_
         db.commit()
 
 
-_META_PROMPT_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "0_referencia", "META_PROMPT_ARREGLA_IMAGENES.txt"
-)
+_META_PROMPT_PATH        = os.path.join(os.path.dirname(__file__), "..", "0_referencia", "META_PROMPT_ARREGLA_IMAGENES.txt")
+_CUSTOM_META_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "custom_meta_prompt.txt")
 
-def _load_meta_prompt() -> str:
-    """Load META_PROMPT_ARREGLA_IMAGENES.txt from 0_referencia."""
+def _load_meta_prompt(override: str = None) -> str:
+    """Return override if given, else custom file, else 0_referencia default."""
+    if override:
+        return override.strip()
+    try:
+        with open(_CUSTOM_META_PROMPT_PATH, encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        pass
     try:
         with open(_META_PROMPT_PATH, encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
         return None
+
+
+@app.get("/api/img-prompts/meta-prompt")
+def get_meta_prompt():
+    """Return current active meta-prompt and whether a custom one is saved."""
+    custom_active = os.path.exists(_CUSTOM_META_PROMPT_PATH)
+    text = _load_meta_prompt()
+    if not text:
+        raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado")
+    return {"text": text, "custom_active": custom_active}
+
+
+@app.post("/api/img-prompts/meta-prompt")
+async def save_meta_prompt(payload: dict):
+    """Save a custom meta-prompt override."""
+    text = payload.get("text", "").strip()
+    if not text:
+        raise HTTPException(400, "text requerido")
+    with open(_CUSTOM_META_PROMPT_PATH, "w", encoding="utf-8") as f:
+        f.write(text)
+    return {"ok": True, "custom_active": True}
+
+
+@app.delete("/api/img-prompts/meta-prompt", status_code=204)
+def reset_meta_prompt():
+    """Delete custom override, revert to 0_referencia default."""
+    if os.path.exists(_CUSTOM_META_PROMPT_PATH):
+        os.remove(_CUSTOM_META_PROMPT_PATH)
+
+
+@app.post("/api/img-prompts/meta-prompt/versions")
+async def generate_meta_prompt_versions(payload: dict):
+    """Ask the AI to generate 3 alternative versions of the meta-prompt."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(500, "OPENAI_API_KEY no configurada")
+    current = payload.get("current", "").strip()
+    if not current:
+        raise HTTPException(400, "current requerido")
+
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key)
+
+    system = (
+        "You are a prompt engineering expert for AI image generation in educational video courses. "
+        "Given a meta-prompt (a system prompt used to transform image descriptions into polished prompts), "
+        "generate 3 distinct alternative versions. Each version should have a different visual philosophy "
+        "or stylistic approach while keeping the educational context. "
+        "Respond ONLY with valid JSON in this exact format:\n"
+        '[\n'
+        '  {"title": "Short name", "description": "One sentence about this approach", "prompt": "Full prompt text"},\n'
+        '  {"title": "...", "description": "...", "prompt": "..."},\n'
+        '  {"title": "...", "description": "...", "prompt": "..."}\n'
+        ']'
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-5.4-mini",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user",   "content": f"Current meta-prompt:\n\n{current}"},
+        ],
+        temperature=0.8,
+    )
+    raw = resp.choices[0].message.content.strip()
+    # strip markdown fences if present
+    if raw.startswith("```"):
+        raw = "\n".join(raw.split("\n")[1:])
+        if raw.endswith("```"):
+            raw = raw[:-3]
+    try:
+        versions = json.loads(raw)
+    except Exception:
+        raise HTTPException(500, f"Respuesta IA no es JSON válido: {raw[:200]}")
+    return {"versions": versions}
 
 
 @app.post("/api/classes/{class_id}/img-prompts/{asset_name}/fix")
@@ -1560,12 +1641,13 @@ async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
     if not api_key:
         raise HTTPException(500, "OPENAI_API_KEY no configurada")
 
-    original_prompt = payload.get("original_prompt", "")
-    narration       = payload.get("narration", "")
+    original_prompt   = payload.get("original_prompt", "")
+    narration         = payload.get("narration", "")
+    meta_prompt_override = payload.get("meta_prompt", None)
     if not original_prompt and not narration:
         raise HTTPException(400, "Se necesita original_prompt o narration")
 
-    meta_prompt = _load_meta_prompt()
+    meta_prompt = _load_meta_prompt(override=meta_prompt_override)
     if not meta_prompt:
         raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado en 0_referencia/")
 
