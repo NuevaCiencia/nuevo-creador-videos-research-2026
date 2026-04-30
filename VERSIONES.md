@@ -5,6 +5,32 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.3 — Img Prompts: mejoras de UX + gestión de meta-prompt + Configurar IA · `39ab2cb`
+
+### Feat — Textarea más grande + botón Copy por fila
+- `rows` de 4 → 6 en cada textarea de prompt.
+- Botón **📋 Copy** en el footer de cada textarea; cambia a "✓ Copiado" 1.5s al pulsarlo.
+
+### Feat — Modal ⚙️ Prompt: gestión de versiones del meta-prompt
+- Botón **⚙️ Prompt** al lado de Fix All (punto verde cuando hay versión personalizada activa).
+- **Tab 🔵 Activo**: solo muestra el prompt activo en un textarea de solo lectura.
+- **Tab 📋 Versiones**: lista completa de versiones guardadas.
+  - **Original**: siempre al fondo, badge `ORIGINAL` o `● ACTIVO` si está activa.
+  - Versiones custom: nombre en grande, fecha pequeña, preview colapsable.
+  - Versión activa: borde verde + badge `● ACTIVO`, sin botón Activar.
+  - Versiones inactivas: botón verde **✓ Activar** — activa directamente sin diálogos extra.
+  - Botón **+ Nueva versión**: form inline con nombre + textarea (pre-relleno con el activo); agregar no activa, solo añade a la lista.
+  - **🗑** elimina cualquier versión custom.
+- Backend: `GET/POST /api/img-prompts/meta-prompt/version`, `POST /activate`, `DELETE /version/{filename}`.
+- Versiones persisten en `app/meta_prompt_history/` como JSON con timestamp y nombre.
+
+### Feat — Botón 🤖 Configurar IA
+- Botón junto a ⚙️ Prompt que muestra el modelo activo.
+- Modal con lista de modelos seleccionables: GPT-5.4 Nano, Mini, 5.4, o4-mini.
+- El modelo elegido se usa en Fix y Fix All; default `gpt-5.4-mini`.
+
+---
+
 ## v1.2 — Carga Recursos: grid de cards + lote + validaciones · `85ed7f9`
 
 ### Feat — Grid de cards con preview en Carga Recursos
