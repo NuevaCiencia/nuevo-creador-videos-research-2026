@@ -2091,8 +2091,16 @@ async function saveEstructura() {
 ═══════════════════════════════════════════════════════ */
 
 let _imgData = null;
-let _impMetaPrompt   = null;   // custom override (null = use server active)
-let _impCustomActive = false;  // whether server has a custom saved
+let _impMetaPrompt   = null;
+let _impCustomActive = false;
+let _impModel        = 'gpt-5.4-mini';
+
+const _IMP_MODELS = [
+  { id: 'gpt-5.4-nano-2025-04-14', label: 'GPT-5.4 Nano',  desc: 'Más rápido, menor costo' },
+  { id: 'gpt-5.4-mini',            label: 'GPT-5.4 Mini',  desc: 'Balance calidad/costo (default)' },
+  { id: 'gpt-5.4',                 label: 'GPT-5.4',       desc: 'Mayor calidad' },
+  { id: 'o4-mini',                 label: 'o4-mini',       desc: 'Razonamiento eficiente' },
+];
 
 async function renderImgPrompts(area) {
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando prompts…</div></div>`;
@@ -2168,9 +2176,10 @@ function _buildImgUI(area) {
   area.innerHTML = `<div class="imp-phase">
     <div class="imp-bar">
       <span class="imp-bar-title">🖼️ Img Prompts <span class="imp-bar-count">${d.items.length} assets</span></span>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" onclick="impOpenMetaPrompt()" style="font-size:12px;padding:5px 14px" id="impMetaBtn">⚙️ Prompt${_impCustomActive ? ' <span style="color:#4ade80;font-size:9px">●</span>' : ''}</button>
-        <button class="btn btn-primary" onclick="impFixAll()" style="font-size:12px;padding:5px 14px">🤖 Fix All</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" onclick="impOpenMetaPrompt()" style="font-size:12px;padding:5px 14px">⚙️ Prompt${_impCustomActive ? ' <span style="color:#4ade80;font-size:9px">●</span>' : ''}</button>
+        <button class="btn btn-ghost" onclick="impOpenModelConfig()" style="font-size:12px;padding:5px 14px">🤖 Configurar IA <span style="opacity:.6;font-size:10px">${esc(_impModel)}</span></button>
+        <button class="btn btn-primary" onclick="impFixAll()" style="font-size:12px;padding:5px 14px">Fix All</button>
       </div>
     </div>
     <div class="imp-scroll">
@@ -2254,7 +2263,7 @@ async function impFixOne(i) {
   const btn = document.getElementById(`imp_fix_${i}`);
   if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
   try {
-    const fixPayload = { original_prompt: item.original_prompt || '', narration: item.narration };
+    const fixPayload = { original_prompt: item.original_prompt || '', narration: item.narration, model: _impModel };
     if (_impMetaPrompt) fixPayload.meta_prompt = _impMetaPrompt;
     const r = await api('POST',
       `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`,
@@ -2278,7 +2287,7 @@ async function impFixAll() {
   for (const item of items) {
     if (!item.asset_name) { done++; continue; }
     try {
-      const payload = { original_prompt: item.original_prompt || '', narration: item.narration };
+      const payload = { original_prompt: item.original_prompt || '', narration: item.narration, model: _impModel };
       if (_impMetaPrompt) payload.meta_prompt = _impMetaPrompt;
       const r = await api('POST',
         `/api/classes/${classId}/img-prompts/${encodeURIComponent(item.asset_name)}/fix`, payload);
@@ -2467,8 +2476,42 @@ async function impDeleteVersion(i) {
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
-async function impSaveMetaPrompt() {}  // kept for backwards compat
+async function impSaveMetaPrompt() {}
 async function impResetMetaPrompt() {}
+
+function impOpenModelConfig() {
+  const rows = _IMP_MODELS.map(m => `
+    <label class="imp-model-row ${_impModel === m.id ? 'imp-model-selected' : ''}">
+      <input type="radio" name="impModelRadio" value="${esc(m.id)}" ${_impModel === m.id ? 'checked' : ''}
+        onchange="_impModel=this.value; document.querySelectorAll('.imp-model-row').forEach(el=>el.classList.remove('imp-model-selected')); this.closest('.imp-model-row').classList.add('imp-model-selected')">
+      <div class="imp-model-info">
+        <span class="imp-model-name">${esc(m.label)}</span>
+        <span class="imp-model-desc">${esc(m.desc)}</span>
+        <span class="imp-model-id">${esc(m.id)}</span>
+      </div>
+    </label>`).join('');
+
+  openModal({ html: `
+    <div class="modal-title">🤖 Configurar IA — Img Prompts</div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">
+        Modelo que se usará en Fix y Fix All para mejorar los prompts de imagen.
+      </div>
+      <div class="imp-model-list">${rows}</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="impApplyModel()">Aplicar</button>
+    </div>` });
+}
+
+function impApplyModel() {
+  const sel = document.querySelector('input[name="impModelRadio"]:checked');
+  if (sel) _impModel = sel.value;
+  closeModal();
+  _buildImgUI(document.getElementById('contentArea'));
+  toast(`Modelo: ${_impModel}`);
+}
 
 /* ═══════════════════════════════════════════════════════
    FONTS & COLORS PHASE

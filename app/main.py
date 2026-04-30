@@ -1671,9 +1671,10 @@ async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
     if not api_key:
         raise HTTPException(500, "OPENAI_API_KEY no configurada")
 
-    original_prompt   = payload.get("original_prompt", "")
-    narration         = payload.get("narration", "")
+    original_prompt      = payload.get("original_prompt", "")
+    narration            = payload.get("narration", "")
     meta_prompt_override = payload.get("meta_prompt", None)
+    model                = payload.get("model", "gpt-5.4-mini")
     if not original_prompt and not narration:
         raise HTTPException(400, "Se necesita original_prompt o narration")
 
@@ -1689,7 +1690,7 @@ async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
     if not raw_prompt and narration:
         try:
             seed_resp = client.chat.completions.create(
-                model="gpt-5.4-mini",
+                model=model,
                 messages=[
                     {"role": "system", "content": (
                         "You are an educational image prompt generator. "
@@ -1710,7 +1711,7 @@ async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-5.4-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": meta_prompt},
                 {"role": "user",   "content": user_msg},
