@@ -2294,157 +2294,181 @@ async function impFixAll() {
 
 // ── Meta-prompt modal ─────────────────────────────────────────────────────────
 
-let _impHistory      = [];
-let _impExpandedIdx  = null;  // which history card is expanded
+let _impVersions     = [];
+let _impOriginalText = '';
+let _impOriginalActive = true;
+let _impExpandedIdx  = null;
+let _impAddingNew    = false;
 
 async function impOpenMetaPrompt() {
   try {
     const r = await api('GET', '/api/img-prompts/meta-prompt');
-    _impCustomActive = r.custom_active;
-    _impHistory      = r.history || [];
-    _impExpandedIdx  = null;
-    _impRenderMetaModal(r.text, 'editor');
+    _impCustomActive   = !r.original_active;
+    _impVersions       = r.versions || [];
+    _impOriginalText   = r.original_text || '';
+    _impOriginalActive = r.original_active;
+    _impExpandedIdx    = null;
+    _impAddingNew      = false;
+    _impRenderMetaModal(r.active_text, 'activo');
   } catch(e) { toast('No se pudo cargar el meta-prompt', false); }
 }
 
-function _impRenderMetaModal(text, activeTab = 'editor') {
-  const isCustom  = _impCustomActive;
-  const histCount = _impHistory.length;
-  const editorTab = activeTab === 'editor';
+function _impRenderMetaModal(activeText, tab = 'activo') {
+  const totalV = _impVersions.length;
 
-  // ── Editor tab ──────────────────────────────────────────────────────────────
-  const editorHtml = `
-    <div class="imp-mp-sec-title" style="margin-bottom:4px">Prompt activo</div>
-    <textarea class="imp-mp-ta" id="impMetaTa" spellcheck="false">${esc(text)}</textarea>
-    <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end">
-      <div style="flex:1">
-        <div class="imp-mp-sec-title" style="margin-bottom:4px">Nombre / nota para esta versión</div>
-        <input id="impMetaNote" type="text" class="imp-mp-note-input"
-          placeholder="Ej: estilo más fotográfico, menos texto…">
+  // ── Tab Activo: solo el textarea con el prompt activo ───────────────────────
+  const activoHtml = `<textarea class="imp-mp-ta" readonly spellcheck="false">${esc(activeText)}</textarea>`;
+
+  // ── Tab Versiones ───────────────────────────────────────────────────────────
+  const addFormHtml = _impAddingNew ? `
+    <div class="imp-mp-add-form">
+      <input id="impNewNote" type="text" class="imp-mp-note-input"
+        placeholder="Nombre de esta versión…" style="margin-bottom:8px">
+      <textarea class="imp-mp-ta" id="impNewText" style="min-height:180px"
+        spellcheck="false">${esc(activeText)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="impCancelNewVersion()">Cancelar</button>
+        <button class="btn btn-primary" style="font-size:12px" onclick="impConfirmNewVersion()">Agregar versión</button>
       </div>
-      <button class="btn btn-primary" style="flex-shrink:0" onclick="impSaveMetaPrompt()">💾 Guardar versión</button>
-    </div>
-    ${isCustom ? `<div style="margin-top:10px">
-      <button class="btn btn-ghost" style="font-size:11px;color:var(--tx3)" onclick="impResetMetaPrompt()">↩ Volver al prompt original</button>
-    </div>` : ''}`;
+    </div>` : `<button class="imp-mp-add-btn" onclick="impShowAddForm()">+ Nueva versión</button>`;
 
-  // ── History tab ─────────────────────────────────────────────────────────────
-  const historyHtml = !histCount
-    ? `<div class="imp-mp-empty">Guarda tu primera versión editando en el tab ✏️ Editor.</div>`
-    : _impHistory.map((v, i) => {
-        const dt    = new Date(v.timestamp);
-        const label = dt.toLocaleString('es', {dateStyle:'medium', timeStyle:'short'});
-        const isExp = _impExpandedIdx === i;
-        return `<div class="imp-mp-hist-card">
-          <div class="imp-mp-hist-head" onclick="impToggleHistCard(${i})">
-            <span class="imp-mp-hist-chevron">${isExp ? '▾' : '▸'}</span>
-            <div style="flex:1;min-width:0">
-              <span class="imp-mp-hist-note">${v.note ? esc(v.note) : '<em style="opacity:.45">sin nombre</em>'}</span>
-              <div class="imp-mp-hist-date">📅 ${esc(label)}</div>
-              ${!isExp ? `<div class="imp-mp-hist-preview">${esc((v.text||'').replace(/\n/g,' ').substring(0,110))}…</div>` : ''}
-            </div>
-            <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
-              <button class="imp-mp-hist-btn imp-mp-hist-activate" onclick="impActivateVersion(${i})">✓ Activar</button>
-              <button class="imp-mp-hist-btn imp-mp-hist-del" onclick="impDeleteVersion(${i})" title="Eliminar">🗑</button>
-            </div>
+  const verCards = _impVersions.map((v, i) => {
+    const isAct = !!v.active;
+    const isExp = _impExpandedIdx === i;
+    const dt    = new Date(v.timestamp);
+    const label = dt.toLocaleString('es', {dateStyle:'short', timeStyle:'short'});
+    return `<div class="imp-mp-ver2-card ${isAct ? 'imp-mp-ver2-active' : ''}">
+      <div class="imp-mp-ver2-head" onclick="impToggleHistCard(${i})">
+        <span class="imp-mp-hist-chevron">${isExp ? '▾' : '▸'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="imp-mp-ver2-name">${v.note ? esc(v.note) : '<em style="opacity:.4;font-style:normal">sin nombre</em>'}</span>
+            ${isAct ? `<span class="imp-mp-ver2-badge">● ACTIVO</span>` : ''}
           </div>
-          ${isExp ? `<pre class="imp-mp-hist-full">${esc(v.text)}</pre>` : ''}
-        </div>`;
-      }).join('');
+          <div class="imp-mp-hist-date">📅 ${esc(label)}</div>
+          ${!isExp ? `<div class="imp-mp-hist-preview">${esc((v.text||'').replace(/\n/g,' ').substring(0,100))}…</div>` : ''}
+        </div>
+        <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
+          ${!isAct ? `<button class="imp-mp-hist-btn imp-mp-hist-activate" onclick="impActivateVersion(${i})">✓ Activar</button>` : ''}
+          <button class="imp-mp-hist-btn imp-mp-hist-del" onclick="impDeleteVersion(${i})" title="Eliminar">🗑</button>
+        </div>
+      </div>
+      ${isExp ? `<pre class="imp-mp-hist-full">${esc(v.text)}</pre>` : ''}
+    </div>`;
+  }).join('');
+
+  const origIsAct = _impOriginalActive;
+  const origExp   = _impExpandedIdx === 'orig';
+  const origCard  = `
+    <div class="imp-mp-ver2-card ${origIsAct ? 'imp-mp-ver2-active' : 'imp-mp-ver2-orig'}">
+      <div class="imp-mp-ver2-head" onclick="impToggleOrigCard()">
+        <span class="imp-mp-hist-chevron">${origExp ? '▾' : '▸'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="imp-mp-ver2-name">Original</span>
+            ${origIsAct ? `<span class="imp-mp-ver2-badge">● ACTIVO</span>` : `<span class="imp-mp-ver2-orig-label">ORIGINAL</span>`}
+          </div>
+          ${!origExp ? `<div class="imp-mp-hist-preview">${esc((_impOriginalText||'').replace(/\n/g,' ').substring(0,100))}…</div>` : ''}
+        </div>
+        <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
+          ${!origIsAct ? `<button class="imp-mp-hist-btn imp-mp-hist-activate" onclick="impActivateOriginal()">✓ Activar</button>` : ''}
+        </div>
+      </div>
+      ${origExp ? `<pre class="imp-mp-hist-full">${esc(_impOriginalText)}</pre>` : ''}
+    </div>`;
+
+  const versionesHtml = addFormHtml + verCards + origCard;
 
   openModal({ wide: true, html: `
-    <div class="modal-title">⚙️ Meta-Prompt
-      <span class="imp-mp-active-dot" style="color:${isCustom ? '#4ade80' : 'var(--tx3)'}">
-        ● ${isCustom ? 'personalizado' : 'original'}
-      </span>
-    </div>
+    <div class="modal-title">⚙️ Meta-Prompt</div>
     <div class="imp-mp-tabs">
-      <button class="imp-mp-tab ${editorTab ? 'active' : ''}"
-        onclick="impSwitchMetaTab('editor')">✏️ Editor</button>
-      <button class="imp-mp-tab ${!editorTab ? 'active' : ''}"
-        onclick="impSwitchMetaTab('history')">🕓 Versiones guardadas${histCount ? ` (${histCount})` : ''}</button>
+      <button class="imp-mp-tab ${tab==='activo'?'active':''}" onclick="impSwitchMetaTab('activo')">🔵 Activo</button>
+      <button class="imp-mp-tab ${tab==='versiones'?'active':''}" onclick="impSwitchMetaTab('versiones')">📋 Versiones${totalV ? ` (${totalV})` : ''}</button>
     </div>
     <div class="modal-body imp-mp-body">
-      ${editorTab ? editorHtml : historyHtml}
+      ${tab === 'activo' ? activoHtml : versionesHtml}
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
-    </div>` });
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cerrar</button></div>` });
 
-  window._impCurrentEditorText = text;
+  window._impActiveText = activeText;
 }
 
 function impSwitchMetaTab(tab) {
-  const text = document.getElementById('impMetaTa')?.value ?? window._impCurrentEditorText ?? '';
-  window._impCurrentEditorText = text;
-  _impRenderMetaModal(text, tab);
+  _impRenderMetaModal(window._impActiveText || '', tab);
 }
 
 function impToggleHistCard(i) {
   _impExpandedIdx = _impExpandedIdx === i ? null : i;
-  _impRenderMetaModal(window._impCurrentEditorText || '', 'history');
+  _impRenderMetaModal(window._impActiveText || '', 'versiones');
+}
+
+function impToggleOrigCard() {
+  _impExpandedIdx = _impExpandedIdx === 'orig' ? null : 'orig';
+  _impRenderMetaModal(window._impActiveText || '', 'versiones');
+}
+
+function impShowAddForm() {
+  _impAddingNew = true;
+  _impRenderMetaModal(window._impActiveText || '', 'versiones');
+}
+
+function impCancelNewVersion() {
+  _impAddingNew = false;
+  _impRenderMetaModal(window._impActiveText || '', 'versiones');
+}
+
+async function impConfirmNewVersion() {
+  const note = document.getElementById('impNewNote')?.value.trim() || '';
+  const text = document.getElementById('impNewText')?.value.trim() || '';
+  if (!text) { toast('Escribe el texto de la versión', false); return; }
+  try {
+    const r = await api('POST', '/api/img-prompts/meta-prompt/version', { note, text });
+    _impVersions = r.versions || []; _impOriginalActive = r.original_active;
+    _impAddingNew = false; _impExpandedIdx = null;
+    _impRenderMetaModal(r.active_text, 'versiones');
+    toast('Versión agregada ✓');
+  } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
 async function impActivateVersion(i) {
-  const v = _impHistory[i];
+  const v = _impVersions[i];
   if (!v) return;
   try {
-    const r = await api('POST', '/api/img-prompts/meta-prompt/restore', { filename: v.filename });
-    _impMetaPrompt   = r.text;
-    _impCustomActive = true;
-    _impHistory      = r.history || [];
-    _impExpandedIdx  = null;
-    window._impCurrentEditorText = r.text;
-    _impRenderMetaModal(r.text, 'editor');
+    const r = await api('POST', '/api/img-prompts/meta-prompt/activate', { filename: v.filename });
+    _impVersions = r.versions || []; _impOriginalActive = r.original_active; _impCustomActive = !r.original_active;
+    _impMetaPrompt = r.active_text;
+    _impRenderMetaModal(r.active_text, 'versiones');
     toast(`"${v.note || 'versión'}" activado ✓`);
     _buildImgUI(document.getElementById('contentArea'));
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
+async function impActivateOriginal() {
+  try {
+    const r = await api('POST', '/api/img-prompts/meta-prompt/activate', { filename: 'original' });
+    _impVersions = r.versions || []; _impOriginalActive = r.original_active; _impCustomActive = false;
+    _impMetaPrompt = null;
+    _impRenderMetaModal(r.active_text, 'versiones');
+    toast('Original activado ✓');
+    _buildImgUI(document.getElementById('contentArea'));
+  } catch(e) { toast(`Error: ${e.message}`, false); }
+}
+
 async function impDeleteVersion(i) {
-  const v = _impHistory[i];
+  const v = _impVersions[i];
   if (!v) return;
   try {
-    await api('DELETE', `/api/img-prompts/meta-prompt/history/${encodeURIComponent(v.filename)}`);
-    _impHistory.splice(i, 1);
+    await api('DELETE', `/api/img-prompts/meta-prompt/version/${encodeURIComponent(v.filename)}`);
+    _impVersions.splice(i, 1);
     if (_impExpandedIdx === i) _impExpandedIdx = null;
-    else if (_impExpandedIdx !== null && _impExpandedIdx > i) _impExpandedIdx--;
-    _impRenderMetaModal(window._impCurrentEditorText || '', 'history');
+    else if (typeof _impExpandedIdx === 'number' && _impExpandedIdx > i) _impExpandedIdx--;
+    _impRenderMetaModal(window._impActiveText || '', 'versiones');
     toast('Versión eliminada');
   } catch(e) { toast(`Error: ${e.message}`, false); }
 }
 
-async function impSaveMetaPrompt() {
-  const ta   = document.getElementById('impMetaTa');
-  const note = document.getElementById('impMetaNote')?.value.trim() || '';
-  if (!ta) return;
-  const text = ta.value.trim();
-  if (!text) return;
-  try {
-    const r = await api('POST', '/api/img-prompts/meta-prompt', { text, note });
-    _impMetaPrompt   = text;
-    _impCustomActive = true;
-    _impHistory      = r.history || [];
-    window._impCurrentEditorText = text;
-    _impRenderMetaModal(text, 'editor');
-    toast('Versión guardada y activa ✓');
-    _buildImgUI(document.getElementById('contentArea'));
-  } catch(e) { toast(`Error: ${e.message}`, false); }
-}
-
-async function impResetMetaPrompt() {
-  try {
-    await api('DELETE', '/api/img-prompts/meta-prompt');
-    _impMetaPrompt   = null;
-    _impCustomActive = false;
-    const r = await api('GET', '/api/img-prompts/meta-prompt');
-    _impHistory = r.history || [];
-    window._impCurrentEditorText = r.text;
-    _impRenderMetaModal(r.text, 'editor');
-    toast('Vuelto al prompt original');
-    _buildImgUI(document.getElementById('contentArea'));
-  } catch(e) { toast(`Error: ${e.message}`, false); }
-}
+async function impSaveMetaPrompt() {}  // kept for backwards compat
+async function impResetMetaPrompt() {}
 
 /* ═══════════════════════════════════════════════════════
    FONTS & COLORS PHASE

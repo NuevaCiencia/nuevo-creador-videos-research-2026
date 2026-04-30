@@ -1790,6 +1790,18 @@ input,textarea{font-family:inherit;outline:none}
 }
 .imp-mp-hist-activate { border-color: rgba(34,197,94,.4); color: #4ade80; }
 .imp-mp-hist-activate:hover { background: rgba(34,197,94,.12); }
+/* Version cards v2 */
+.imp-mp-ver2-card { border: 1px solid var(--border2); border-radius: 8px; margin-bottom: 8px; background: var(--bg2); overflow: hidden; transition: border-color .15s; }
+.imp-mp-ver2-card:hover { border-color: var(--border); }
+.imp-mp-ver2-active { border-color: #4ade80 !important; background: rgba(74,222,128,.05) !important; }
+.imp-mp-ver2-orig   { opacity: .8; }
+.imp-mp-ver2-head   { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; cursor: pointer; user-select: none; }
+.imp-mp-ver2-name   { font-size: 13px; font-weight: 700; color: var(--tx1); }
+.imp-mp-ver2-badge  { font-size: 10px; font-weight: 700; color: #4ade80; background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.3); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.imp-mp-ver2-orig-label { font-size: 10px; font-weight: 700; color: var(--tx3); background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; padding: 1px 8px; }
+.imp-mp-add-btn { width: 100%; padding: 10px; border: 1px dashed var(--border2); border-radius: 8px; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: background .15s; }
+.imp-mp-add-btn:hover { background: var(--bg2); }
+.imp-mp-add-form { border: 1px solid var(--accent)44; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: var(--bg2); }
 .imp-mp-hist-del { color: var(--err); border-color: rgba(239,68,68,.3); }
 .imp-mp-hist-del:hover { background: rgba(239,68,68,.1); }
 .imp-act-copy { margin-left: auto; border-color: rgba(6,182,212,.4); color: #22d3ee; }

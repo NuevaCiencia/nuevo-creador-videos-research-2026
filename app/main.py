@@ -1561,93 +1561,103 @@ def _load_meta_prompt(override: str = None) -> str:
 _META_PROMPT_HISTORY_DIR = os.path.join(os.path.dirname(__file__), "meta_prompt_history")
 
 
-def _list_meta_prompt_history():
-    if not os.path.exists(_META_PROMPT_HISTORY_DIR):
-        return []
+def _get_active_text() -> str:
+    """Returns the currently active prompt text (custom or original)."""
+    if os.path.exists(_CUSTOM_META_PROMPT_PATH):
+        with open(_CUSTOM_META_PROMPT_PATH, encoding="utf-8") as f:
+            t = f.read().strip()
+        if t:
+            return t
+    try:
+        with open(_META_PROMPT_PATH, encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return None
+
+
+def _list_meta_prompt_versions() -> list:
+    """All saved custom versions, each annotated with active:bool."""
+    active_text = _get_active_text() or ""
     entries = []
-    for f in sorted(os.listdir(_META_PROMPT_HISTORY_DIR), reverse=True):
-        if f.endswith(".json"):
+    if os.path.exists(_META_PROMPT_HISTORY_DIR):
+        for fname in sorted(os.listdir(_META_PROMPT_HISTORY_DIR), reverse=True):
+            if not fname.endswith(".json"):
+                continue
             try:
-                with open(os.path.join(_META_PROMPT_HISTORY_DIR, f), encoding="utf-8") as fh:
-                    entry = json.load(fh)
-                    entry["filename"] = f
-                    entries.append(entry)
+                with open(os.path.join(_META_PROMPT_HISTORY_DIR, fname), encoding="utf-8") as fh:
+                    e = json.load(fh)
+                e["filename"] = fname
+                e["active"]   = (e.get("text", "").strip() == active_text) and bool(active_text)
+                entries.append(e)
             except Exception:
                 pass
     return entries
 
 
-def _archive_current_meta_prompt(note: str = ""):
-    """Save the current custom meta-prompt to history before replacing it."""
-    if not os.path.exists(_CUSTOM_META_PROMPT_PATH):
-        return
-    with open(_CUSTOM_META_PROMPT_PATH, encoding="utf-8") as f:
-        text = f.read().strip()
-    if not text:
-        return
-    os.makedirs(_META_PROMPT_HISTORY_DIR, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    entry = {"timestamp": datetime.utcnow().isoformat(), "note": note.strip(), "text": text}
-    with open(os.path.join(_META_PROMPT_HISTORY_DIR, f"{ts}.json"), "w", encoding="utf-8") as f:
-        json.dump(entry, f, ensure_ascii=False, indent=2)
+def _full_versions_response():
+    active_text  = _get_active_text()
+    original_txt = None
+    try:
+        with open(_META_PROMPT_PATH, encoding="utf-8") as f:
+            original_txt = f.read().strip()
+    except FileNotFoundError:
+        pass
+    custom_active = os.path.exists(_CUSTOM_META_PROMPT_PATH)
+    original_active = not custom_active
+    return {
+        "active_text":     active_text,
+        "original_active": original_active,
+        "versions":        _list_meta_prompt_versions(),
+        "original_text":   original_txt,
+    }
 
 
 @app.get("/api/img-prompts/meta-prompt")
 def get_meta_prompt():
-    """Return current active meta-prompt, custom status and version history."""
-    custom_active = os.path.exists(_CUSTOM_META_PROMPT_PATH)
-    text = _load_meta_prompt()
-    if not text:
+    r = _full_versions_response()
+    if not r["active_text"]:
         raise HTTPException(500, "META_PROMPT_ARREGLA_IMAGENES.txt no encontrado")
-    return {"text": text, "custom_active": custom_active, "history": _list_meta_prompt_history()}
+    return r
 
 
-@app.post("/api/img-prompts/meta-prompt")
-async def save_meta_prompt(payload: dict):
-    """Archive current version (with optional note) then save new one."""
+@app.post("/api/img-prompts/meta-prompt/version")
+async def add_meta_prompt_version(payload: dict):
+    """Add a new version to the list (inactive by default)."""
     text = payload.get("text", "").strip()
-    note = payload.get("note", "")
+    note = payload.get("note", "").strip()
     if not text:
         raise HTTPException(400, "text requerido")
-    _archive_current_meta_prompt(note=note)
-    with open(_CUSTOM_META_PROMPT_PATH, "w", encoding="utf-8") as f:
-        f.write(text)
-    return {"ok": True, "custom_active": True, "history": _list_meta_prompt_history()}
+    os.makedirs(_META_PROMPT_HISTORY_DIR, exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    entry = {"timestamp": datetime.utcnow().isoformat(), "note": note, "text": text}
+    with open(os.path.join(_META_PROMPT_HISTORY_DIR, f"{ts}.json"), "w", encoding="utf-8") as f:
+        json.dump(entry, f, ensure_ascii=False, indent=2)
+    return _full_versions_response()
 
 
-@app.delete("/api/img-prompts/meta-prompt", status_code=204)
-def reset_meta_prompt():
-    """Archive current and revert to 0_referencia default."""
-    _archive_current_meta_prompt(note="Restaurado al original")
-    if os.path.exists(_CUSTOM_META_PROMPT_PATH):
-        os.remove(_CUSTOM_META_PROMPT_PATH)
+@app.post("/api/img-prompts/meta-prompt/activate")
+async def activate_meta_prompt_version(payload: dict):
+    """Activate a saved version or the original."""
+    filename = payload.get("filename")  # None or "original" = activate original
+    if not filename or filename == "original":
+        if os.path.exists(_CUSTOM_META_PROMPT_PATH):
+            os.remove(_CUSTOM_META_PROMPT_PATH)
+    else:
+        path = os.path.join(_META_PROMPT_HISTORY_DIR, filename)
+        if not os.path.exists(path):
+            raise HTTPException(404, "Versión no encontrada")
+        with open(path, encoding="utf-8") as f:
+            entry = json.load(f)
+        text = entry.get("text", "").strip()
+        if not text:
+            raise HTTPException(400, "La versión no tiene texto")
+        with open(_CUSTOM_META_PROMPT_PATH, "w", encoding="utf-8") as f:
+            f.write(text)
+    return _full_versions_response()
 
 
-@app.post("/api/img-prompts/meta-prompt/restore")
-async def restore_meta_prompt(payload: dict):
-    """Restore a historical version: archive current, activate selected."""
-    filename = payload.get("filename", "")
-    note     = payload.get("note_for_current", "")
-    if not filename:
-        raise HTTPException(400, "filename requerido")
-    path = os.path.join(_META_PROMPT_HISTORY_DIR, filename)
-    if not os.path.exists(path):
-        raise HTTPException(404, "Versión no encontrada")
-    with open(path, encoding="utf-8") as f:
-        entry = json.load(f)
-    text = entry.get("text", "").strip()
-    if not text:
-        raise HTTPException(400, "La versión no tiene texto")
-    _archive_current_meta_prompt(note=note or f"Reemplazado por restauración de {filename[:15]}")
-    os.remove(path)
-    with open(_CUSTOM_META_PROMPT_PATH, "w", encoding="utf-8") as f:
-        f.write(text)
-    return {"ok": True, "text": text, "history": _list_meta_prompt_history()}
-
-
-@app.delete("/api/img-prompts/meta-prompt/history/{filename}", status_code=204)
+@app.delete("/api/img-prompts/meta-prompt/version/{filename}", status_code=204)
 def delete_meta_prompt_version(filename: str):
-    """Delete a specific historical version."""
     path = os.path.join(_META_PROMPT_HISTORY_DIR, filename)
     if os.path.exists(path):
         os.remove(path)
