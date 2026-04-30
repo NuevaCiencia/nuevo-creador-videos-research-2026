@@ -5,6 +5,19 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.8 — Botón 🤖 Rellenar con IA en tab Pantallas (CONCEPT y LIST) · `pending`
+
+### Feat — AI fill para CONCEPT y LIST en Pantallas
+- Botón **🤖 Rellenar con IA** aparece junto a "✎ Editar Contenido" solo para tipos CONCEPT y LIST.
+- Envía la narración del segmento a GPT y rellena automáticamente:
+  - **CONCEPT**: extrae el término principal y escribe una definición concisa.
+  - **LIST**: extrae el título del tema y los ítems enumerados (máx 6).
+- Abre el formulario de edición tras rellenar para que el usuario pueda revisar y ajustar.
+- Endpoint `POST /api/segments/{id}/ai-fill` — guarda en DB y marca guiones como stale.
+- Modelo configurable en el payload (default `gpt-5.4-mini`).
+
+---
+
 ## v1.7 — Dynamic Animator (CONCEPT/LIST animados) + Transiciones en config · `pending`
 
 ### Feat — `dynamic_animator.py` portado desde 0_referencia

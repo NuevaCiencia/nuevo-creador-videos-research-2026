@@ -1682,9 +1682,15 @@ function _buildVizUI(area) {
         </div>
 
         ${st.has_params ? `
-        <button class="viz-edit-btn${isEdit ? ' active' : ''}" onclick="vizToggleEdit(${i})">
-          ${isEdit ? '✕ Cerrar edición' : '✎ Editar Contenido'}
-        </button>` : ''}
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="viz-edit-btn${isEdit ? ' active' : ''}" onclick="vizToggleEdit(${i})">
+            ${isEdit ? '✕ Cerrar edición' : '✎ Editar Contenido'}
+          </button>
+          ${(seg.screen_type === 'CONCEPT' || seg.screen_type === 'LIST') ? `
+          <button class="viz-ai-fill-btn" id="viz-aifill-${i}" onclick="vizAiFill(${i})" title="Rellenar campos con IA a partir de la narración">
+            🤖 Rellenar con IA
+          </button>` : ''}
+        </div>` : ''}
 
         ${badges ? `<div class="viz-params-shelf">${badges}</div>` : ''}
         ${isEdit ? _vizParamsForm(seg, i) : ''}
@@ -1766,6 +1772,24 @@ function _vizParamsForm(seg, i) {
     </div>`;
   }
   return '';
+}
+
+async function vizAiFill(i) {
+  const seg = _vizData?.segments?.[i];
+  if (!seg) return;
+  const btn = document.getElementById(`viz-aifill-${i}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando…'; }
+  try {
+    const r = await api('POST', `/api/segments/${seg.id}/ai-fill`, { model: 'gpt-5.4-mini' });
+    seg.params = r.params;
+    // Open the edit form so the user sees the filled fields
+    _vizEditingIdx = i;
+    _rebuildViz();
+    toast('Campos rellenados ✓');
+  } catch(e) {
+    toast(`Error: ${e.message}`, false);
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 Rellenar con IA'; }
+  }
 }
 
 function _rebuildViz() {

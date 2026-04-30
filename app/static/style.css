@@ -1194,6 +1194,22 @@ input,textarea{font-family:inherit;outline:none}
 }
 .viz-edit-btn:hover { background: var(--vt-border); transform: translateY(-1px); }
 .viz-edit-btn.active { background: var(--vt-border); }
+.viz-ai-fill-btn {
+  flex: 1;
+  padding: 7px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid rgba(168,85,247,.4);
+  border-radius: 6px;
+  background: rgba(168,85,247,.08);
+  color: #c084fc;
+  cursor: pointer;
+  margin-top: 2px;
+  font-family: inherit;
+  transition: background .15s, transform .1s;
+  white-space: nowrap;
+}
+.viz-ai-fill-btn:hover { background: rgba(168,85,247,.18); transform: translateY(-1px); }
+.viz-ai-fill-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 
 /* Params badges */
 .viz-params-shelf {

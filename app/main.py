@@ -1202,6 +1202,94 @@ def update_segment_type(segment_id: int, payload: dict, db: Session = Depends(ge
     return {"id": seg.id, "screen_type": seg.screen_type, "params": seg.params}
 
 
+@app.post("/api/segments/{segment_id}/ai-fill")
+def ai_fill_segment_params(segment_id: int, payload: dict, db: Session = Depends(get_db)):
+    """Use AI to auto-fill CONCEPT or LIST params from the segment narration."""
+    import os
+    from openai import OpenAI
+
+    seg = db.query(models.ScreenSegment).filter(models.ScreenSegment.id == segment_id).first()
+    if not seg:
+        raise HTTPException(404, "Segmento no encontrado")
+    if seg.screen_type not in ("CONCEPT", "LIST"):
+        raise HTTPException(400, "Solo disponible para tipos CONCEPT y LIST")
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(500, "OPENAI_API_KEY no configurada")
+
+    narration = seg.narration or ""
+    model     = payload.get("model", "gpt-5.4-mini")
+
+    if seg.screen_type == "CONCEPT":
+        system_msg = (
+            "Eres un asistente para crear materiales educativos en video. "
+            "A partir de un fragmento de narración, extrae el concepto principal que se está definiendo "
+            "y escribe una definición clara y concisa.\n\n"
+            "Responde SOLO con este formato exacto (sin explicaciones extra):\n"
+            "TERMINO: <nombre del concepto, máx 5 palabras>\n"
+            "DEFINICION: <definición clara, 1-2 frases, máx 25 palabras>"
+        )
+        user_msg = f"NARRACIÓN:\n{narration}"
+
+    else:  # LIST
+        system_msg = (
+            "Eres un asistente para crear materiales educativos en video. "
+            "A partir de un fragmento de narración, extrae el título del tema y los ítems principales "
+            "que se enumeran o explican (máx 6 ítems).\n\n"
+            "Responde SOLO con este formato exacto (sin explicaciones extra):\n"
+            "TITULO: <título breve del tema, máx 5 palabras>\n"
+            "ITEM1: <ítem 1, máx 8 palabras>\n"
+            "ITEM2: <ítem 2, máx 8 palabras>\n"
+            "... (solo los ítems que correspondan, mínimo 2)"
+        )
+        user_msg = f"NARRACIÓN:\n{narration}"
+
+    client = OpenAI(api_key=api_key)
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user",   "content": user_msg},
+            ],
+            temperature=0.3,
+        )
+        text = resp.choices[0].message.content.strip()
+    except Exception as e:
+        raise HTTPException(500, f"Error OpenAI: {e}")
+
+    # Parse response into params string
+    lines = {k.strip().upper(): v.strip()
+             for line in text.splitlines()
+             if ':' in line
+             for k, v in [line.split(':', 1)]}
+
+    if seg.screen_type == "CONCEPT":
+        termino    = lines.get("TERMINO", lines.get("TÉRMINO", ""))
+        definicion = lines.get("DEFINICION", lines.get("DEFINICIÓN", ""))
+        params = " // ".join(filter(None, [termino, definicion]))
+    else:
+        titulo = lines.get("TITULO", lines.get("TÍTULO", ""))
+        items  = [lines[k] for k in sorted(lines) if k.startswith("ITEM") and lines[k]]
+        parts  = []
+        if titulo:
+            parts.append(f"@ {titulo}")
+        parts.extend(items)
+        params = " // ".join(parts)
+
+    # Save to DB
+    seg.params = params
+    class_id = seg.class_id
+    for model_cls in (models.ClassGuionBase, models.ClassGuionConsolidado):
+        row = db.query(model_cls).filter(model_cls.class_id == class_id).first()
+        if row:
+            row.status = "stale"
+            row.phase  = "⚠️ Params editados por IA — re-ejecuta Alineación"
+    db.commit()
+    return {"id": seg.id, "params": params}
+
+
 # ── Screen Segmentation ────────────────────────────────────────────────────────
 
 @app.get("/api/classes/{class_id}/segments")
