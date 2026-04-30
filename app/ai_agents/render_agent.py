@@ -128,8 +128,9 @@ def run_render(class_id: int):
             db.close()
 
         # Resolve absolute paths
-        app_dir    = Path(__file__).parent.parent                    # app/
-        assets_dir = str(app_dir / "assets" / str(class_id))        # app/assets/{class_id}/
+        app_dir       = Path(__file__).parent.parent                    # app/
+        assets_dir    = str(app_dir / "assets" / str(class_id))        # app/assets/{class_id}/
+        fonts_dir_str = str(app_dir / "fonts") if (app_dir / "fonts").exists() else ""
 
         cfg["FILES_FOLDER"] = assets_dir
 
@@ -163,7 +164,6 @@ def run_render(class_id: int):
         # ── Prepare output dirs ──────────────────────────────────────────────
         renders_dir = app_dir / "renders"
         renders_dir.mkdir(exist_ok=True)
-        fonts_dir_str = str(app_dir / "fonts") if (app_dir / "fonts").exists() else ""
 
         tmp_dir = tempfile.mkdtemp(prefix=f"render_{class_id}_")
         try:
