@@ -1034,9 +1034,12 @@ def get_visualizador(class_id: int, db: Session = Depends(get_db)):
                 k, v = map(str.strip, line.split("=", 1))
                 cur[k.upper()] = v
 
-    # Merge: pair each screen_segment with its guion segment by index
+    # Merge: pair each screen_segment with its guion segment by index.
+    # If guion exists, only show segments that have a corresponding guion entry —
+    # orphan ScreenSegments beyond the guion count are stale and not rendered anyway.
+    n_show = min(len(segs), len(guion_segments)) if guion_segments else len(segs)
     result = []
-    for i, seg in enumerate(segs):
+    for i, seg in enumerate(segs[:n_show]):
         g = guion_segments[i] if i < len(guion_segments) else {}
         result.append({
             "id":          seg.id,
