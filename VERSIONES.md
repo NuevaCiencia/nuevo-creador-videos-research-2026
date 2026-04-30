@@ -5,6 +5,19 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.4 — Meta-prompt migrado a DB · `373cbec`
+
+### Refactor — tabla `meta_prompts` en DB
+- Nueva tabla `meta_prompts`: `id`, `text`, `note`, `is_active`, `is_original`, `created_at`.
+- Seed al arrancar: lee `META_PROMPT_ARREGLA_IMAGENES.txt` de `0_referencia/` **una sola vez**
+  e inserta el original como `is_original=True, is_active=True`. Después el archivo no se vuelve a usar.
+- Toda la gestión de versiones (agregar, activar, eliminar) opera contra la DB.
+- Si se elimina la versión activa, el original recupera el estado activo automáticamente.
+- El backup automático de DB al arrancar captura el historial de versiones también.
+- Eliminada toda dependencia activa de la app sobre `0_referencia/`.
+
+---
+
 ## v1.3 — Img Prompts: mejoras de UX + gestión de meta-prompt + Configurar IA · `39ab2cb`
 
 ### Feat — Textarea más grande + botón Copy por fila
