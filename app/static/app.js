@@ -1937,17 +1937,19 @@ function vizRenderPreview(i) {
 ═══════════════════════════════════════════════════════ */
 
 let _estData    = null;
-let _estTags    = [];      // [{para_idx, screen_type, params}]
-let _estDragIdx = null;
-let _estDirty   = false;
+let _estTags       = [];      // [{para_idx, screen_type, params}]
+let _estDragIdx    = null;
+let _estDirty      = false;
+let _estUnlocked   = false;   // true when user confirmed unlock via warning dialog
 
 async function renderEstructura(area) {
   if (!S.activeClass) return;
   area.innerHTML = `<div class="audio-phase"><div class="rp-loading" style="padding:60px">Cargando estructura…</div></div>`;
   try {
-    _estData  = await api('GET', `/api/classes/${S.activeClass.id}/estructura`);
-    _estTags  = _estData.tags.map(t => ({ ...t }));
-    _estDirty = false;
+    _estData     = await api('GET', `/api/classes/${S.activeClass.id}/estructura`);
+    _estTags     = _estData.tags.map(t => ({ ...t }));
+    _estDirty    = false;
+    _estUnlocked = false;
     _buildEstUI(area);
   } catch(e) {
     area.innerHTML = `<div class="audio-phase"><div class="rp-loading">Error: ${esc(e.message)}</div></div>`;
@@ -1962,6 +1964,7 @@ function _estHex(color, alpha) {
 
 function _buildEstUI(area) {
   const { paragraphs, screen_types, has_segments } = _estData;
+  const locked = _estData.locked && !_estUnlocked;
   const typeMap = {};
   screen_types.forEach(st => { typeMap[st.name] = st; });
 
@@ -1972,37 +1975,33 @@ function _buildEstUI(area) {
   let rows = '';
 
   paragraphs.forEach((para, pi) => {
-    // 1. Slot separator (drop zone + add button) — BEFORE tag and para
+    // 1. Slot separator — drop zone + add button (disabled when locked)
     const hasTagHere = tagAtPara[pi] !== undefined;
     rows += `<div class="est-slot ${hasTagHere ? 'est-slot-occupied' : ''}"
-      ondragover="estDragOver(event,${pi})"
-      ondragleave="estDragLeave(event)"
-      ondrop="estDrop(event,${pi})">
+      ${!locked ? `ondragover="estDragOver(event,${pi})" ondragleave="estDragLeave(event)" ondrop="estDrop(event,${pi})"` : ''}>
       ${!hasTagHere
-        ? `<button class="est-add-btn" onclick="estAddTag(${pi})">＋ nueva pantalla aquí</button>`
+        ? (!locked ? `<button class="est-add-btn" onclick="estAddTag(${pi})">＋ nueva pantalla aquí</button>` : '')
         : `<div class="est-slot-occupied-line"></div>`}
     </div>`;
 
-    // 2. Tag chip (if a tag starts at this paragraph)
+    // 2. Tag chip
     if (hasTagHere) {
       const ti    = tagAtPara[pi];
       const tag   = _estTags[ti];
       const st    = typeMap[tag.screen_type] || {};
       const color = st.color || '#666666';
-      const bgCol = _estHex(color, 0.12);
-      const bdCol = _estHex(color, 0.55);
-      rows += `<div class="est-tag"
-        draggable="true"
-        style="background:${bgCol};border-color:${bdCol};color:${color}"
-        ondragstart="estDragStart(event,${ti})"
-        ondragend="estDragEnd(event)">
-        <span class="est-tag-grip">⠿</span>
-        <select class="est-tag-select" style="color:${color}" onchange="estChangeType(${ti},this.value)">
+      const bgCol = _estHex(color, locked ? 0.07 : 0.12);
+      const bdCol = _estHex(color, locked ? 0.30 : 0.55);
+      rows += `<div class="est-tag${locked ? ' est-tag-locked' : ''}"
+        ${!locked ? `draggable="true" ondragstart="estDragStart(event,${ti})" ondragend="estDragEnd(event)"` : ''}
+        style="background:${bgCol};border-color:${bdCol};color:${color}">
+        <span class="est-tag-grip" style="${locked ? 'opacity:.3;cursor:default' : ''}">${locked ? '🔒' : '⠿'}</span>
+        <select class="est-tag-select" style="color:${color}" ${locked ? 'disabled' : `onchange="estChangeType(${ti},this.value)"`}>
           ${screen_types.map(st2 =>
             `<option value="${st2.name}" ${st2.name === tag.screen_type ? 'selected' : ''}>${st2.icon || ''} ${st2.label || st2.name}</option>`
           ).join('')}
         </select>
-        ${_estTags.length > 1 ? `<button class="est-tag-del" onclick="estRemoveTag(${ti})">×</button>` : ''}
+        ${(!locked && _estTags.length > 1) ? `<button class="est-tag-del" onclick="estRemoveTag(${ti})">×</button>` : ''}
       </div>`;
     }
 
@@ -2012,8 +2011,13 @@ function _buildEstUI(area) {
 
   const tagCount = _estTags.length;
 
-  area.innerHTML = `
-  <div class="est-phase">
+  const lockBanner = locked ? `
+    <div class="est-lock-banner">
+      <span>🔒 Estructura bloqueada — el pipeline ya avanzó a partir de aquí</span>
+      <button class="est-btn-unlock" onclick="estUnlock()">⚠ Editar arquitectura</button>
+    </div>` : '';
+
+  const toolbar = !locked ? `
     <div class="est-toolbar">
       <div class="est-toolbar-info">
         <strong>${tagCount}</strong> pantalla${tagCount !== 1 ? 's' : ''}
@@ -2023,9 +2027,30 @@ function _buildEstUI(area) {
         <button class="est-btn-discard" onclick="renderEstructura(document.getElementById('contentArea'))">↺ Descartar</button>
         <button class="est-btn-save${_estDirty ? ' dirty' : ''}" id="estSaveBtn" onclick="saveEstructura()">💾 Guardar</button>
       </div>
-    </div>
-    <div class="est-editor" id="estEditor">${rows}</div>
+    </div>` : `
+    <div class="est-toolbar">
+      <div class="est-toolbar-info">
+        <strong>${tagCount}</strong> pantalla${tagCount !== 1 ? 's' : ''}
+      </div>
+    </div>`;
+
+  area.innerHTML = `
+  <div class="est-phase">
+    ${lockBanner}
+    ${toolbar}
+    <div class="est-editor${locked ? ' est-editor-locked' : ''}" id="estEditor">${rows}</div>
   </div>`;
+}
+
+function estUnlock() {
+  openConfirm({
+    title: '⚠ Editar arquitectura',
+    msg: 'Cambiar la estructura invalidará el guion base y los visuales. Tendrás que re-ejecutar esas fases desde cero.',
+    onConfirm: () => {
+      _estUnlocked = true;
+      _buildEstUI(document.getElementById('contentArea'));
+    }
+  });
 }
 
 function estDragStart(e, ti) {
@@ -2103,6 +2128,7 @@ async function saveEstructura() {
     const res = await api('PUT', `/api/classes/${S.activeClass.id}/estructura`, {
       tags:       _estTags,
       paragraphs: _estData.paragraphs,
+      force:      _estUnlocked || undefined,
     });
     _estDirty = false;
     toast(`✅ ${res.saved} pantalla${res.saved !== 1 ? 's' : ''} guardada${res.saved !== 1 ? 's' : ''}`, true);

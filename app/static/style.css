@@ -1053,6 +1053,24 @@ input,textarea{font-family:inherit;outline:none}
   flex-shrink: 0;
 }
 .est-tag-del:hover { color: #ef4444; }
+.est-tag-locked { cursor: default !important; transform: none !important; box-shadow: none !important; }
+.est-tag-locked .est-tag-select { cursor: default; opacity: 0.75; }
+
+/* Lock banner */
+.est-lock-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.3);
+  border-radius: 8px; padding: 10px 16px; margin-bottom: 10px;
+  font-size: 12px; font-weight: 600; color: #d97706;
+}
+.est-btn-unlock {
+  flex-shrink: 0; font-size: 11px; font-weight: 700;
+  background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.4);
+  color: #d97706; border-radius: 6px; padding: 4px 12px; cursor: pointer;
+  transition: background .15s;
+}
+.est-btn-unlock:hover { background: rgba(245,158,11,.28); }
+.est-editor-locked { opacity: 0.85; pointer-events: none; }
 
 /* Paragraph text block */
 .est-para {

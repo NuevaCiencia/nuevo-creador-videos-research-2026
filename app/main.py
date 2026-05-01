@@ -1126,11 +1126,15 @@ def get_estructura(class_id: int, db: Session = Depends(get_db)):
         })
         search_from = matched + 1
 
+    guion_base = cls.guion_base
+    locked = bool(guion_base and guion_base.status == "done")
+
     return {
         "paragraphs":   paragraphs,
         "tags":         tags,
         "screen_types": [ser_screen_type(st) for st in st_rows],
         "has_segments": len(segs) > 0,
+        "locked":       locked,
     }
 
 
@@ -1144,6 +1148,11 @@ def save_estructura(class_id: int, payload: dict, db: Session = Depends(get_db))
     cls = db.query(models.Class).filter(models.Class.id == class_id).first()
     if not cls:
         raise HTTPException(404, "Clase no encontrada")
+
+    if not payload.get("force"):
+        guion_base = cls.guion_base
+        if guion_base and guion_base.status == "done":
+            raise HTTPException(423, "Estructura bloqueada — el pipeline ya avanzó. Usa force=true para desbloquear.")
 
     tags       = sorted(payload.get("tags", []),       key=lambda t: t["para_idx"])
     paragraphs = payload.get("paragraphs", [])

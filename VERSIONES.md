@@ -5,6 +5,22 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.12 — UX: Estructura bloqueada cuando el pipeline ya avanzó · `(pending)`
+
+### Feat — Bloqueo automático de la pestaña Estructura
+- Una vez que se ejecuta la Alineación (`guion_base` en estado `done`), la pestaña
+  Estructura pasa a modo solo lectura automáticamente.
+- Banner ámbar con texto "🔒 Estructura bloqueada — el pipeline ya avanzó".
+- Todos los controles (drag-drop, selects de tipo, botones + y ×) quedan deshabilitados.
+- Botón "⚠ Editar arquitectura" muestra diálogo de confirmación; al confirmar,
+  desbloquea la sesión actual sin recargar (`_estUnlocked = true`).
+- Al guardar tras desbloquear, el PUT envía `force: true` y el backend procede
+  marcando `guion_base` y `guion_consolidado` como stale en cascada.
+- Backend: `GET /estructura` incluye campo `locked`; `PUT /estructura` devuelve
+  HTTP 423 si el pipeline avanzó y no se envía `force: true`.
+
+---
+
 ## v1.11 — Fix: transiciones en VIDEO/CONCEPT/LIST (overlay alpha) · `(pending)`
 
 ### Fix — Transiciones no visibles en clips de video/CONCEPT/LIST
