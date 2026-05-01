@@ -5,7 +5,23 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.8 — Botón 🤖 Rellenar con IA en tab Pantallas (CONCEPT y LIST) · `pending`
+## v1.9 — Debug dynamic_animator: error visible en UI + pantallas huérfanas ocultas · `09ab7a9`
+
+### Fix — Pantallas fantasma en tab Pantallas
+- El visualizador ahora muestra `min(ScreenSegments, guion_consolidado)` — los segmentos
+  huérfanos que quedan en DB tras fusionar pantallas en Estructura ya no aparecen.
+- No afecta el render (usa el guion_consolidado directamente).
+
+### Debug — Error dynamic_animator visible en UI
+- Si `dynamic_animator` falla al generar video para CONCEPT/LIST, el error completo
+  (con traceback) ahora se propaga y aparece en rojo en la UI del render.
+- Antes fallaba silenciosamente y usaba el dummy sin avisar.
+- En investigación: las pantallas CONCEPT/LIST renderizan como dummy (con `@` visible)
+  en lugar de la animación. Pendiente de diagnóstico con el error real.
+
+---
+
+## v1.8 — Botón 🤖 Rellenar con IA en tab Pantallas (CONCEPT y LIST) · `44d17d5`
 
 ### Feat — AI fill para CONCEPT y LIST en Pantallas
 - Botón **🤖 Rellenar con IA** aparece junto a "✎ Editar Contenido" solo para tipos CONCEPT y LIST.
@@ -18,7 +34,7 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.7 — Dynamic Animator (CONCEPT/LIST animados) + Transiciones en config · `pending`
+## v1.7 — Dynamic Animator (CONCEPT/LIST animados) + Transiciones en config · `538a00a`
 
 ### Feat — `dynamic_animator.py` portado desde 0_referencia
 - Nueva pantalla `CONCEPT`: término aparece con fade-in exactamente cuando se pronuncia
@@ -29,7 +45,7 @@ de trabajo coherente sobre la app web (`app/`).
   transcripción corregida (ClassSpellCorrection) y localiza el momento exacto en que
   se pronuncia cada keyword. Fallback elegante si no se encuentra.
 - Fuentes resueltas desde `app/fonts/` (Montserrat-Bold/Regular) — no depende del SO.
-- Fallback automático: si el animator falla por cualquier razón, usa el dummy como antes.
+- Fallback al dummy si el animator falla (cambiado a error explícito en v1.9 para diagnóstico).
 - `render_agent.py`: escribe la transcripción a un archivo temporal `transcripcion.txt`
   y lo pasa a `video_engine` via `cfg["SUBTITULOS_PATH"]`.
 
@@ -43,7 +59,7 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.6 — Fix render: fontsdir con backslashes rompe FFmpeg en Windows · `pending`
+## v1.6 — Fix render: fontsdir con backslashes rompe FFmpeg en Windows · `61da1df`
 
 ### Fix — `_escape_fontsdir` y `_escape_ass_path_vf` normalizan backslashes
 - `ffmpeg_builder.py` → `_escape_fontsdir`: ahora convierte `\` a `/` antes de escapar
@@ -57,7 +73,7 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.5 — Modal Meta-Prompt: botones Copy + scroll + cierre fijo · `pending`
+## v1.5 — Modal Meta-Prompt: botones Copy + scroll + cierre fijo · `f967000`
 
 ### Feat — Botón 📋 P&Loc en tabla Img Prompts
 - Botón nuevo al lado del `📋 Copy` existente en el footer de cada textarea de prompt.
