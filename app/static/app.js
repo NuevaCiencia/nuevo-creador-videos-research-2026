@@ -2861,6 +2861,13 @@ async function renderVideo(area) {
   }
 }
 
+function _fmtDuration(seconds) {
+  if (!seconds) return null;
+  const s = Math.round(seconds);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
 function _buildVideoUI(area, visual, renderStatus, assetsStatus) {
   const visualOk      = visual?.status === 'done';
   const st            = renderStatus?.status || 'idle';
@@ -2910,7 +2917,14 @@ function _buildVideoUI(area, visual, renderStatus, assetsStatus) {
           <div class="tx-summary-row" style="margin-bottom:12px">
             <div class="tx-summary-stat"><span class="tx-stat-val" style="color:#22c55e">✓</span><span class="tx-stat-lbl">completado</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${totalCount}</span><span class="tx-stat-lbl">assets</span></div>
+            ${renderStatus?.duration_s ? `
+            <div class="tx-summary-stat"><span class="tx-stat-val">${_fmtDuration(renderStatus.duration_s)}</span><span class="tx-stat-lbl">duración</span></div>
+            ` : ''}
           </div>
+          ${renderStatus?.system_info ? `
+          <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">
+            🖥 ${esc(renderStatus.system_info)}
+          </div>` : ''}
           <div class="audio-exports">
             <a href="/api/classes/${S.activeClass.id}/render/download" class="btn btn-primary" download>⬇ Descargar Video</a>
           </div>

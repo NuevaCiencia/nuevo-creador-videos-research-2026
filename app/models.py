@@ -201,9 +201,11 @@ class ClassRender(Base):
     progress    = Column(Integer,     default=0)         # 0-100
     phase       = Column(String(255), default="")        # human-readable step
     error       = Column(Text,        nullable=True)
-    output_path = Column(String(500), nullable=True)     # relative to app/
-    created_at  = Column(DateTime,    default=datetime.utcnow)
-    updated_at  = Column(DateTime,    nullable=True)
+    output_path  = Column(String(500), nullable=True)     # relative to app/
+    duration_s   = Column(Float,      nullable=True)      # render wall-clock seconds
+    system_info  = Column(String(200), nullable=True)     # "macOS (Apple M2 Pro)"
+    created_at   = Column(DateTime,   default=datetime.utcnow)
+    updated_at   = Column(DateTime,   nullable=True)
 
     class_obj = relationship("Class", back_populates="render")
 

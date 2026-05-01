@@ -64,6 +64,13 @@ def _migrate():
                 print(f"  migration: courses.{col} added")
         conn.commit()
 
+        existing_renders = {r[1] for r in conn.execute("PRAGMA table_info(class_renders)")}
+        for col, defn in [("duration_s", "REAL"), ("system_info", "VARCHAR(200)")]:
+            if col not in existing_renders:
+                conn.execute(f"ALTER TABLE class_renders ADD COLUMN {col} {defn}")
+                print(f"  migration: class_renders.{col} added")
+        conn.commit()
+
         # Sanitize absolute audio paths stored from a different machine
         _migrate_audio_paths(conn)
 

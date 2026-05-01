@@ -5,6 +5,19 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.13 — Feat: duración y sistema en render completado · `(pending)`
+
+### Feat — Tiempo de render y sistema mostrados al terminar
+- Al completar el render se guardan `duration_s` (segundos de wall-clock) y
+  `system_info` ("macOS (Apple M2 Pro)") en la tabla `class_renders`.
+- El card de Render Final muestra duración formateada (ej. "2m 34s") como stat
+  junto al número de assets, y el sistema justo debajo.
+- `_get_system_info()` en `render_agent.py`: detecta OS + CPU vía `sysctl` en Mac,
+  `wmic` en Windows, `/proc/cpuinfo` en Linux.
+- Migración no-destructiva en `database.py` para las dos columnas nuevas.
+
+---
+
 ## v1.12 — UX: Estructura bloqueada cuando el pipeline ya avanzó · `(pending)`
 
 ### Feat — Bloqueo automático de la pestaña Estructura

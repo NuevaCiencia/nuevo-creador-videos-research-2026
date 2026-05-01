@@ -1972,6 +1972,8 @@ def get_render_status(class_id: int, db: Session = Depends(get_db)):
         "phase":       row.phase or "",
         "error":       row.error,
         "output_path": row.output_path,
+        "duration_s":  row.duration_s,
+        "system_info": row.system_info,
     }
 
 

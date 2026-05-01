@@ -16,7 +16,39 @@ import json
 import shutil
 import traceback
 import tempfile
+import time
+import platform
+import subprocess
 from pathlib import Path
+
+
+def _get_system_info() -> str:
+    """Return a short human-readable string like 'macOS (Apple M2 Pro)'."""
+    system = platform.system()
+    os_name = {'Darwin': 'macOS', 'Windows': 'Windows', 'Linux': 'Linux'}.get(system, system)
+    try:
+        if system == 'Darwin':
+            cpu = subprocess.check_output(
+                ['sysctl', '-n', 'machdep.cpu.brand_string'], stderr=subprocess.DEVNULL
+            ).decode().strip()
+            if not cpu:
+                cpu = subprocess.check_output(
+                    ['sysctl', '-n', 'hw.model'], stderr=subprocess.DEVNULL
+                ).decode().strip()
+        elif system == 'Windows':
+            out = subprocess.check_output(
+                ['wmic', 'cpu', 'get', 'name', '/format:value'], stderr=subprocess.DEVNULL
+            ).decode()
+            cpu = next((l.split('=')[1].strip() for l in out.splitlines() if 'Name=' in l), platform.machine())
+        else:
+            cpu = platform.machine()
+            with open('/proc/cpuinfo') as f:
+                for line in f:
+                    if 'model name' in line:
+                        cpu = line.split(':', 1)[1].strip(); break
+    except Exception:
+        cpu = platform.machine()
+    return f"{os_name} ({cpu})"
 
 
 def _resolve_path(stored_path: str, app_dir: Path) -> str:
@@ -50,7 +82,8 @@ def _resolve_path(stored_path: str, app_dir: Path) -> str:
     return str(app_dir / "assets" / p.name)
 
 
-def _update_render(class_id: int, status: str, pct: int, msg: str, error=None, output_path=None):
+def _update_render(class_id: int, status: str, pct: int, msg: str, error=None, output_path=None,
+                   duration_s=None, system_info=None):
     from database import SessionLocal
     import models
     from datetime import datetime
@@ -71,6 +104,10 @@ def _update_render(class_id: int, status: str, pct: int, msg: str, error=None, o
             row.error = error
         if output_path is not None:
             row.output_path = output_path
+        if duration_s is not None:
+            row.duration_s = duration_s
+        if system_info is not None:
+            row.system_info = system_info
         db.commit()
     finally:
         db.close()
@@ -80,6 +117,9 @@ def run_render(class_id: int):
     """Entry point — called from background thread."""
     from database import SessionLocal
     import models
+
+    _render_start = time.time()
+    _system_info  = _get_system_info()
 
     try:
         _update_render(class_id, "rendering", 2, "⚙️ Cargando datos…")
@@ -204,8 +244,10 @@ def run_render(class_id: int):
             # Copy to renders/
             shutil.copy2(final_path, out_path)
 
-            rel_out = f"renders/{out_name}"
-            _update_render(class_id, "done", 100, "✅ Video renderizado", output_path=rel_out)
+            rel_out    = f"renders/{out_name}"
+            elapsed    = time.time() - _render_start
+            _update_render(class_id, "done", 100, "✅ Video renderizado",
+                           output_path=rel_out, duration_s=elapsed, system_info=_system_info)
 
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
