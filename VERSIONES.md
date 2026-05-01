@@ -5,6 +5,17 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.10 — Fix: paths multiplataforma Windows → Mac en render · `(pending)`
+
+### Fix — FileNotFoundError al renderizar en Mac con paths guardados desde Windows
+- `_resolve_path` en `render_agent.py` ahora normaliza backslashes (`\` → `/`) antes
+  de procesar el path, evitando que rutas relativas como `assets\2\audio\original.mp3`
+  se traten como un único nombre de archivo en macOS/Linux.
+- Causa: `os.path.relpath()` en Windows genera separadores `\` que se almacenan en DB;
+  al leer en Mac, `pathlib.Path` no los interpreta como separadores de directorio.
+
+---
+
 ## v1.9 — Debug dynamic_animator: error visible en UI + pantallas huérfanas ocultas · `09ab7a9`
 
 ### Fix — Pantallas fantasma en tab Pantallas

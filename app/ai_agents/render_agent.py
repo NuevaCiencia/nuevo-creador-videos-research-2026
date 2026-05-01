@@ -28,6 +28,8 @@ def _resolve_path(stored_path: str, app_dir: Path) -> str:
     3. If absolute and missing, find the 'assets/' subtree portion and
        rebuild relative to app_dir (handles DB migration across machines).
     """
+    # Normalize Windows backslashes → forward slashes (cross-platform safety)
+    stored_path = stored_path.replace("\\", "/")
     if not os.path.isabs(stored_path):
         return str(app_dir / stored_path)
     if os.path.exists(stored_path):
