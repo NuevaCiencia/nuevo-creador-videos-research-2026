@@ -5,6 +5,19 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.11 — Fix: transiciones en VIDEO/CONCEPT/LIST (overlay alpha) · `(pending)`
+
+### Fix — Transiciones no visibles en clips de video/CONCEPT/LIST
+- El filtro `overlay` de FFmpeg usa `format=yuv420` por defecto, que descarta el canal
+  alpha antes de componer. El `fade=alpha=1` producía transparencia en RGBA pero
+  el overlay la ignoraba → todos los clips aparecían/desaparecían con corte abrupto.
+- Fix: añadido `:format=auto` en todos los `overlay` de `ffmpeg_builder.py`.
+  FFmpeg negocia automáticamente YUVA420P/RGBA y respeta el alpha del fade.
+- Aplica a todos los tipos (img y video); el encoder libx264 recibe yuv420p
+  automáticamente vía conversión de formato que FFmpeg inserta al final de la cadena.
+
+---
+
 ## v1.10 — Fix: paths multiplataforma Windows → Mac en render · `79a6448`
 
 ### Fix — FileNotFoundError al renderizar en Mac con paths guardados desde Windows
