@@ -50,7 +50,7 @@ def construir_filtro_ffmpeg(recursos, W, H, fps, ass_path_ffmpeg, filtro_path,
                 tag = f"img{overlay_idx}"
                 ovl = f"overlay=x={x_pos}:y=0:enable='between(t,{ini-margen},{fin+margen})':format=auto"
             else:
-                f.write(f"[{idx_in}:v]trim=duration={dur},setpts=PTS-STARTPTS+{ini}/TB,"
+                f.write(f"[{idx_in}:v]tpad=stop=-1:stop_mode=clone,trim=duration={dur},setpts=PTS-STARTPTS+{ini}/TB,"
                         f"scale={W}:{H},setsar=1,fps={fps}:round=near{fade_filter}[vid{overlay_idx}];\n")
                 tag = f"vid{overlay_idx}"
                 ovl = f"overlay=x=0:y=0:enable='between(t,{ini-margen},{fin+margen})':format=auto"

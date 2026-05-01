@@ -7,6 +7,9 @@ de trabajo coherente sobre la app web (`app/`).
 
 ## v1.13 — Feat: duración y sistema en render completado · `(pending)`
 
+### Fix — Cortes abruptos en transiciones de video
+- Añadido el filtro `tpad=stop=-1:stop_mode=clone` antes del `trim` en `ffmpeg_builder.py` para asegurar que los videos (como CONCEPT, LIST o los renderizados por Remotion) siempre tengan fotogramas suficientes para que el filtro `fade` pueda completar su transición hasta el 0% de opacidad sin congelarse ni cortarse abruptamente debido a diferencias de milisegundos en la duración.
+
 ### Feat — Tiempo de render y sistema mostrados al terminar
 - Al completar el render se guardan `duration_s` (segundos de wall-clock) y
   `system_info` ("macOS (Apple M2 Pro)") en la tabla `class_renders`.
