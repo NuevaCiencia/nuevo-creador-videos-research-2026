@@ -90,8 +90,13 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
                     generate_dynamic_video(seg, cfg, dyn_path, subtitulos_path, tmp_dir)
                 except Exception as e:
                     import traceback
-                    print(f"⚠️ dynamic_animator falló: {e}\n{traceback.format_exc()}")
-                    _generar_dynamic_dummy(seg, cfg, dyn_path, tmp_dir)
+                    tb = traceback.format_exc()
+                    print(f"⚠️ dynamic_animator falló: {e}\n{tb}")
+                    # Raise so the error is visible in the render UI — do not silently use dummy
+                    raise RuntimeError(
+                        f"dynamic_animator falló en segmento {seg.get('TYPE')} "
+                        f"t={seg.get('tiempo_inicio')}: {e}\n\nDetalle:\n{tb}"
+                    )
             asset = dyn_path
         else:
             if files_folder and not os.path.isabs(asset):
