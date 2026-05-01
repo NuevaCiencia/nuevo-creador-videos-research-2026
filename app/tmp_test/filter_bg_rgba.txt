@@ -1,3 +1,0 @@
-[0:v]format=rgba[bg];
-[1:v]format=rgba,fade=t=in:st=0:d=1:alpha=1[fg_faded];
-[bg][fg_faded]overlay=x=0:y=0:format=auto[vout]
