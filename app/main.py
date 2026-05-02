@@ -2002,8 +2002,24 @@ async def upload_asset_split(
     left_name = match.group(1).upper() + ".png"
     right_name = match.group(2).upper() + ".png"
     
-    left_ubicacion = f"visuals/{left_name}"
-    right_ubicacion = f"visuals/{right_name}"
+    left_ubicacion = f"images/{left_name}"
+    right_ubicacion = f"images/{right_name}"
+
+    # Try to find the exact ubicacion from the database
+    guion = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+    if guion and guion.recursos_json:
+        import json
+        try:
+            data = json.loads(guion.recursos_json)
+            for r in data.get("recursos", []):
+                if r.get("nombre") == left_name:
+                    left_ubicacion = r.get("ubicacion", left_ubicacion)
+                if r.get("nombre") == right_name:
+                    right_ubicacion = r.get("ubicacion", right_ubicacion)
+        except:
+            pass
 
     content = await file.read()
     
