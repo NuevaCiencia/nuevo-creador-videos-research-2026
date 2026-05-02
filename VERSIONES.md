@@ -7,6 +7,11 @@ de trabajo coherente sobre la app web (`app/`).
 
 ## v1.13 — Feat: duración y sistema en render completado · `(pending)`
 
+### Feat — Prompts Consolidados y Carga de Lote Unidos (Split 16:9)
+- **Prompts Consolidados**: Añadido botón en "Img Prompts" que agrupa programáticamente las pantallas divididas (`S`) en pares. Genera un prompt maestro unificado con formato de lienzo 16:9 para Midjourney/DALL-E. Si hay pantallas impares, replica el prompt para obtener dos variaciones en la misma imagen.
+- **Carga Lote Unidos**: Nuevo botón en "Carga Recursos" que recibe imágenes dobles (ej. `S001_S002_midjourney.png`), extrae las etiquetas del nombre, y corta la imagen por la mitad en el backend mediante Pillow.
+- Cada mitad cortada pasa automáticamente por el flujo `_procesar_imagen_asset`, reescalando o añadiendo letterbox para asegurar que encaje perfectamente en la resolución 1920x1080 del video.
+
 ### Feat — Edición "en caliente" de Texto en Pantalla
 - Añadido soporte para editar el valor `TEXT=` (Texto en Pantalla) desde la pestaña Pantallas para todos los tipos de pantalla.
 - La edición guarda directamente en el archivo `guion_consolidado.txt` mediante el nuevo endpoint `PUT /api/segments/{segment_id}/text` sin invalidar el pipeline (el estado de la fase Visual no cambia a `stale`).

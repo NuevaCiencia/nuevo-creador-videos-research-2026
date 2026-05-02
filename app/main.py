@@ -1983,6 +1983,67 @@ async def upload_asset(
     return {"ok": True, "path": ubicacion, "size": len(content), "mode": mode}
 
 
+@app.post("/api/classes/{class_id}/assets/upload-split")
+async def upload_asset_split(
+    class_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Uploads a combined image (e.g. S001_S002_...) and splits it into two assets."""
+    if not db.query(models.Class).filter(models.Class.id == class_id).first():
+        raise HTTPException(404, "Clase no encontrada")
+
+    filename = file.filename or ""
+    import re
+    match = re.match(r"^(S\d{3})_(S\d{3})", filename, re.IGNORECASE)
+    if not match:
+        raise HTTPException(400, "Nombre de archivo inválido. Debe empezar con SXXX_SXXX.")
+
+    left_name = match.group(1).upper() + ".png"
+    right_name = match.group(2).upper() + ".png"
+    
+    left_ubicacion = f"visuals/{left_name}"
+    right_ubicacion = f"visuals/{right_name}"
+
+    content = await file.read()
+    
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(content)).convert("RGBA")
+        w, h = img.size
+        
+        left_img = img.crop((0, 0, w // 2, h))
+        right_img = img.crop((w // 2, 0, w, h))
+        
+        left_buf = io.BytesIO()
+        left_img.save(left_buf, format="PNG")
+        left_bytes = left_buf.getvalue()
+        
+        right_buf = io.BytesIO()
+        right_img.save(right_buf, format="PNG")
+        right_bytes = right_buf.getvalue()
+        
+    except Exception as e:
+        raise HTTPException(400, f"Error al procesar la imagen: {str(e)}")
+
+    left_bytes_final, _ = _procesar_imagen_asset(left_bytes, left_ubicacion)
+    right_bytes_final, _ = _procesar_imagen_asset(right_bytes, right_ubicacion)
+
+    left_dest = os.path.join(ASSETS_DIR, str(class_id), left_ubicacion)
+    right_dest = os.path.join(ASSETS_DIR, str(class_id), right_ubicacion)
+
+    os.makedirs(os.path.dirname(left_dest), exist_ok=True)
+    with open(left_dest, "wb") as f:
+        f.write(left_bytes_final)
+        
+    with open(right_dest, "wb") as f:
+        f.write(right_bytes_final)
+        
+    return {"ok": True, "saved": [left_ubicacion, right_ubicacion]}
+
+
+
 @app.post("/api/classes/{class_id}/render/build-dummies")
 def build_dummies(class_id: int, db: Session = Depends(get_db)):
     """Launches background task to build placeholder files for missing assets."""

@@ -2246,6 +2246,7 @@ function _buildImgUI(area) {
     <div class="imp-bar">
       <span class="imp-bar-title">🖼️ Img Prompts <span class="imp-bar-count">${d.items.length} assets</span></span>
       <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" onclick="impOpenConsolidatedModal()" style="font-size:12px;padding:5px 14px">🧩 Prompts Consolidados</button>
         <button class="btn btn-ghost" onclick="impOpenMetaPrompt()" style="font-size:12px;padding:5px 14px">⚙️ Prompt${_impCustomActive ? ' <span style="color:#4ade80;font-size:9px">●</span>' : ''}</button>
         <button class="btn btn-ghost" onclick="impOpenModelConfig()" style="font-size:12px;padding:5px 14px">🤖 Configurar IA <span style="opacity:.6;font-size:10px">${esc(_impModel)}</span></button>
         <button class="btn btn-primary" onclick="impFixAll()" style="font-size:12px;padding:5px 14px">Fix All</button>
@@ -2264,6 +2265,94 @@ function _buildImgUI(area) {
       </table>
     </div>
   </div>`;
+}
+
+function impOpenConsolidatedModal() {
+  const d = _imgData;
+  if (!d) return;
+
+  const splits = d.items.filter(it => it.asset_name && it.asset_name.startsWith('S'));
+  if (splits.length === 0) {
+    toast('No hay pantallas divididas (S) en esta clase', false);
+    return;
+  }
+
+  const pairs = [];
+  for (let i = 0; i < splits.length; i += 2) {
+    pairs.push({
+      left: splits[i],
+      right: splits[i+1] || splits[i] // si es impar, repite el mismo prompt
+    });
+  }
+
+  const htmls = pairs.map((pair, idx) => {
+    const leftPrompt = pair.left.custom_prompt || pair.left.original_prompt || '';
+    const rightPrompt = pair.right.custom_prompt || pair.right.original_prompt || '';
+    
+    const consolidated = `A premium educational infographic, Scientific American style, horizontal 16:9 canvas, pure white seamless background. The image contains two completely independent infographic compositions placed side by side, each occupying approximately half of the canvas width.
+
+Do NOT include any divider, line, border, seam, gap, shadow, gradient change, alignment cue, or visual artifact that suggests separation. The background must remain perfectly continuous and uniform across the entire canvas. No symmetry cues or central alignment that imply a split.
+
+Each composition must be internally centered within its own side and leave generous empty space near the middle area, so the image can be cleanly cropped into two separate images without losing content.
+
+LEFT SIDE composition:
+${leftPrompt}
+
+RIGHT SIDE composition:
+${rightPrompt}
+
+Critical constraint: no elements from either composition may touch, align to, or visually reference the center of the canvas. Avoid mirrored layouts or bilateral symmetry.
+
+Shared visual style only: elegant typography, minimal and highly legible labels, spacious layout, no clutter.
+
+Color palette: electric blue #1E88E5, teal/cyan (#00A6A6, #00BCD4), graphite/slate gray (#263238, #455A64), and warm amber (#F9A825, #FFB300).
+
+Ultra-detailed, studio lighting, subtle glass and metal textures, crisp 8K resolution, didactic and visually authoritative.`;
+
+    const isSame = pair.left === pair.right;
+    const title = isSame
+      ? `Prompt para ${pair.left.asset_name} (Replicado 2 veces)`
+      : `Prompt para ${pair.left.asset_name} + ${pair.right.asset_name}`;
+
+    return `
+      <div style="margin-bottom:20px;background:var(--bg2);padding:15px;border-radius:8px;border:1px solid var(--border2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <strong style="color:var(--tx1)">${title}</strong>
+          <button class="btn btn-ghost" onclick="copyConsolidated(${idx})" id="btn_cons_copy_${idx}" style="font-size:11px;padding:4px 10px">📋 Copiar</button>
+        </div>
+        <textarea id="ta_cons_${idx}" readonly style="width:100%;height:150px;resize:vertical;font-family:inherit;font-size:12px;padding:10px;background:var(--bg1);color:var(--tx2);border:1px solid var(--border1);border-radius:4px">${esc(consolidated)}</textarea>
+      </div>
+    `;
+  }).join('');
+
+  openModal({
+    wide: true,
+    html: `
+      <div class="modal-title">🧩 Prompts Consolidados (Split 16:9)</div>
+      <div class="modal-body" style="max-height:70vh;overflow-y:auto;padding:20px">
+        <p style="color:var(--tx3);font-size:13px;margin-bottom:20px">
+          Los siguientes prompts combinan dos pantallas divididas secuenciales en un solo lienzo 16:9, ideal para generar la imagen completa en Midjourney/DALL-E de una sola vez y cortarla a la mitad posteriormente.
+        </p>
+        ${htmls}
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-primary" onclick="closeModal()">Cerrar</button>
+      </div>
+    `
+  });
+}
+
+async function copyConsolidated(idx) {
+  const ta = document.getElementById(`ta_cons_${idx}`);
+  if (ta) {
+    await navigator.clipboard.writeText(ta.value);
+    const btn = document.getElementById(`btn_cons_copy_${idx}`);
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copiado';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }
+  }
 }
 
 async function impCopy(i) {
@@ -4087,6 +4176,11 @@ function _buildCrUI(area) {
         <span class="imp-bar-count">${nOk}/${d.total} presentes</span>
       </span>
       <div style="display:flex;gap:8px;align-items:center">
+        <label class="btn btn-secondary" style="font-size:12px;padding:5px 14px;cursor:pointer;background:var(--bg3);color:var(--tx1);border:1px solid var(--border1);border-radius:4px">
+          ✂️ Carga Lote Unidos
+          <input type="file" multiple accept="image/*" style="display:none"
+            onchange="crBatchSplitSelect(this)">
+        </label>
         <label class="btn btn-primary" style="font-size:12px;padding:5px 14px;cursor:pointer">
           📦 Carga en lote
           <input type="file" multiple accept="image/*,video/mp4" style="display:none"
@@ -4253,5 +4347,52 @@ async function crBatchUpload(matched) {
     ? `⚠️ ${total - errors} subidos, ${errors} con error`
     : `✅ ${total} archivo(s) subidos correctamente`;
   AIModal.done(msg);
+  _buildCrUI(document.getElementById('contentArea'));
+}
+
+async function crBatchSplitSelect(input) {
+  const files = Array.from(input.files);
+  input.value = '';
+  
+  if (!files.length) return;
+  const classId = S.activeClass?.id;
+  if (!classId) return;
+
+  const validFiles = files.filter(f => /^S\d{3}_S\d{3}/i.test(f.name));
+  
+  if (validFiles.length === 0) {
+    toast('Ningún archivo tiene el formato correcto (ej. S001_S002_...).', false);
+    return;
+  }
+
+  AIModal.show('✂️ Cortando Lote Unidos', `0 / ${validFiles.length} imágenes divididas`);
+  let successes = 0;
+
+  for (let i = 0; i < validFiles.length; i++) {
+    const file = validFiles[i];
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      
+      const res = await fetch(`/api/classes/${classId}/assets/upload-split`, { method: 'POST', body: form });
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.detail || res.statusText);
+      }
+      const r = await res.json();
+      
+      r.saved.forEach(savedName => {
+        const item = _crData?.items.find(it => (it.ubicacion || '').endsWith(savedName));
+        if (item) item.exists = true;
+      });
+      successes++;
+      AIModal.update(`Cortada ${i + 1} / ${validFiles.length}: ${file.name}`);
+    } catch(e) {
+      console.error(e);
+      toast(`Error en ${file.name}: ${e.message}`, false);
+    }
+  }
+
+  AIModal.done(`✅ ${successes} imágenes divididas (${successes * 2} assets)`);
   _buildCrUI(document.getElementById('contentArea'));
 }
