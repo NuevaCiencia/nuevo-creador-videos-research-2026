@@ -3,8 +3,8 @@ from utils.llm import call_llm
 SYSTEM_SEGMENT = """\
 Eres un experto en diseño instruccional y producción de video educativo.
 
-Tu tarea es leer un guion de locución y dividirlo en PANTALLAS, asignando a cada \
-fragmento el tipo de pantalla más adecuado pedagógicamente para mantener la atención \
+Tu tarea es leer una lista estructurada de fragmentos de guion (párrafos) y asignar a CADA UNO \
+el tipo de pantalla más adecuado pedagógicamente para mantener la atención \
 y lograr una progresión clara y coherente del contenido.
 
 TIPOS DE PANTALLA DISPONIBLES:
@@ -33,8 +33,7 @@ REGLAS PEDAGÓGICAS:
 comparaciones o jerarquías que se benefician de animación.
 7. Usa SPLIT_LEFT/SPLIT_RIGHT para ejemplos o demostraciones con imagen de apoyo.
 8. Usa FULL_IMAGE para síntesis visuales de alto impacto o cierre con imagen.
-9. Cada pantalla debe cubrir entre 15 y 60 segundos de locución aproximadamente.
-10. Respeta los límites de cada tipo (max_items, max_words si se indican).
+9. Respeta los límites de cada tipo (max_items, max_words si se indican).
 
 REGLAS DE PARÁMETROS:
 - LIST → params: "@ Título de la Lista // Ítem 1 // Ítem 2 // ..."  (respeta max_items)
@@ -42,17 +41,17 @@ REGLAS DE PARÁMETROS:
 - REMOTION → params: "$NombreTemplate"  (nombre exacto del template elegido)
 - TEXT, SPLIT_LEFT, SPLIT_RIGHT, FULL_IMAGE, VIDEO → params: ""
 
-REGLA CRÍTICA: El campo "narration" de cada pantalla es el texto EXACTO que el locutor \
-dice mientras esa pantalla es visible. NO inventes texto ni resumas — solo divide y \
-asigna fragmentos del guion original tal como aparecen.
+REGLA CRÍTICA: El sistema ya ha separado el texto programáticamente en bloques (párrafos). \
+Recibirás un JSON con un array de bloques, cada uno con un "id" y un "text". \
+Debes devolver EXACTAMENTE el mismo número de elementos que recibes. \
+No puedes unir párrafos, ni dividirlos, ni omitir ninguno. Para cada elemento, usa el mismo "id".
 
 Responde ÚNICAMENTE en JSON válido, sin texto adicional:
 {{
   "screens": [
     {{
-      "order": 1,
+      "id": 0,
       "screen_type": "TEXT",
-      "narration": "Fragmento exacto del guion para esta pantalla",
       "params": "",
       "remotion_template": null,
       "notes": "Razón breve de la elección de tipo"
@@ -62,6 +61,13 @@ Responde ÚNICAMENTE en JSON válido, sin texto adicional:
 
 
 def segment_narration(narration: str, screen_types: list, remotion_templates: list) -> list:
+    # Programmatically split by newlines (ignoring empty lines) to guarantee exact 1:1 mapping
+    paragraphs = [p.strip() for p in narration.split('\n') if p.strip()]
+    if not paragraphs:
+        return []
+
+    input_json = [{"id": i, "text": p} for i, p in enumerate(paragraphs)]
+
     st_lines = []
     for st in screen_types:
         line = f"- {st.name} ({st.category}): {st.description}"
@@ -83,10 +89,28 @@ def segment_narration(narration: str, screen_types: list, remotion_templates: li
         remotion_str="\n".join(rem_lines) if rem_lines else "No hay templates habilitados.",
     )
 
+    import json
     result = call_llm(
-        f"GUION A SEGMENTAR:\n\n{narration}",
+        f"FRAGMENTOS A ANALIZAR:\n\n{json.dumps(input_json, ensure_ascii=False, indent=2)}",
         system,
         temperature=0.3,
         model="gpt-5.4-mini",
     )
-    return result.get("screens", [])
+    
+    # Re-stitch the programmatic text back into the LLM's classification
+    llm_screens = result.get("screens", [])
+    screens_map = {s.get("id"): s for s in llm_screens if "id" in s}
+
+    final_screens = []
+    for i, text in enumerate(paragraphs):
+        s_data = screens_map.get(i, {})
+        final_screens.append({
+            "order": i,
+            "screen_type": s_data.get("screen_type", "TEXT"),
+            "narration": text,
+            "params": s_data.get("params", ""),
+            "remotion_template": s_data.get("remotion_template"),
+            "notes": s_data.get("notes", "Asignado automáticamente")
+        })
+
+    return final_screens
