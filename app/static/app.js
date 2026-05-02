@@ -1681,7 +1681,6 @@ function _buildVizUI(area) {
           </select>
         </div>
 
-        ${st.has_params ? `
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <button class="viz-edit-btn${isEdit ? ' active' : ''}" onclick="vizToggleEdit(${i})">
             ${isEdit ? '✕ Cerrar edición' : '✎ Editar Contenido'}
@@ -1690,7 +1689,7 @@ function _buildVizUI(area) {
           <button class="viz-ai-fill-btn" id="viz-aifill-${i}" onclick="vizAiFill(${i})" title="Rellenar campos con IA a partir de la narración">
             🤖 Rellenar con IA
           </button>` : ''}
-        </div>` : ''}
+        </div>
 
         ${badges ? `<div class="viz-params-shelf">${badges}</div>` : ''}
         ${isEdit ? _vizParamsForm(seg, i) : ''}
@@ -1701,7 +1700,7 @@ function _buildVizUI(area) {
         <div class="viz-section-label">Narración (Speech)</div>
         <div class="viz-narration">${esc(seg.narration) || '<em>sin narración</em>'}</div>
 
-        ${seg.text_on_screen ? `
+        ${(seg.text_on_screen && !isEdit) ? `
           <div class="viz-section-label">Texto en Pantalla</div>
           <div class="viz-text-screen">${esc(seg.text_on_screen)}</div>` : ''}
 
@@ -1743,35 +1742,40 @@ function _buildVizUI(area) {
 
 function _vizParamsForm(seg, i) {
   const parts = (seg.params||'').split('//').map(p => p.trim());
+  let html = '';
 
   if (seg.screen_type === 'LIST') {
     const title = parts[0]||'';
     const items = parts.slice(1);
-    return `<div class="viz-params-form">
+    html = `<div class="viz-params-form">
       <input placeholder="@ Título (opcional)" value="${escA(title)}" oninput="vizSyncParams(${i})">
       ${[0,1,2,3,4,5,6].map(j =>
         `<input class="viz-list-item-${i}" placeholder="Ítem ${j+1}" value="${escA(items[j]||'')}" oninput="vizSyncParams(${i})">`
       ).join('')}
     </div>`;
-  }
-  if (seg.screen_type === 'CONCEPT') {
-    return `<div class="viz-params-form">
+  } else if (seg.screen_type === 'CONCEPT') {
+    html = `<div class="viz-params-form">
       <input id="viz-ct-${i}" placeholder="Nombre del concepto" value="${escA(parts[0]||'')}" oninput="vizSyncParams(${i})">
       <textarea id="viz-cb-${i}" placeholder="Definición" rows="3" oninput="vizSyncParams(${i})">${escA(parts[1]||'')}</textarea>
     </div>`;
-  }
-  if (seg.screen_type === 'REMOTION') {
+  } else if (seg.screen_type === 'REMOTION') {
     // Only the 4 templates with real implementations in 0_referencia
     const TEMPLATES = ["TypeWriter","MindMap","LinearSteps","FlipCards"];
     const selected = (parts[0]||'').replace('$','').trim();
-    return `<div class="viz-params-form">
+    html = `<div class="viz-params-form">
       <select id="viz-rt-${i}" onchange="vizSyncParams(${i})">
         <option value="">-- Selecciona template --</option>
         ${TEMPLATES.map(t => `<option value="${t}" ${t===selected?'selected':''}>${t}</option>`).join('')}
       </select>
     </div>`;
   }
-  return '';
+
+  html += `<div class="viz-params-form" style="margin-top:8px">
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;font-weight:600">Texto en Pantalla (TEXT=)</div>
+    <textarea id="viz-tos-${i}" class="viz-text-input" style="width:100%;resize:vertical;min-height:60px;font-family:inherit;font-size:13px;padding:8px;border-radius:4px;border:1px solid var(--border2);background:var(--bg2);color:var(--tx1);" placeholder="Texto superpuesto en el video..." oninput="vizSyncParams(${i})">${escA(seg.text_on_screen || '')}</textarea>
+  </div>`;
+
+  return html;
 }
 
 async function vizAiFill(i) {
@@ -1837,8 +1841,19 @@ async function vizSyncParams(i) {
     if (tpl) parts.push(`$${tpl}`);
   }
   seg.params = parts.join(' // ');
+
+  const tosEl = document.getElementById(`viz-tos-${i}`);
+  const oldText = seg.text_on_screen;
+  if (tosEl) {
+    seg.text_on_screen = tosEl.value;
+  }
+
   vizRenderPreview(i);
   try { await api('PUT', `/api/segments/${seg.id}/type`, { screen_type: seg.screen_type, params: seg.params }); } catch(e) {}
+  
+  if (tosEl && oldText !== seg.text_on_screen) {
+    try { await api('PUT', `/api/segments/${seg.id}/text`, { text_on_screen: seg.text_on_screen }); } catch(e) {}
+  }
 }
 
 function vizRenderPreview(i) {

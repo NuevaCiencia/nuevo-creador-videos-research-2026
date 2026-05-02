@@ -7,6 +7,11 @@ de trabajo coherente sobre la app web (`app/`).
 
 ## v1.13 — Feat: duración y sistema en render completado · `(pending)`
 
+### Feat — Edición "en caliente" de Texto en Pantalla
+- Añadido soporte para editar el valor `TEXT=` (Texto en Pantalla) desde la pestaña Pantallas para todos los tipos de pantalla.
+- La edición guarda directamente en el archivo `guion_consolidado.txt` mediante el nuevo endpoint `PUT /api/segments/{segment_id}/text` sin invalidar el pipeline (el estado de la fase Visual no cambia a `stale`).
+- Esto permite hacer correcciones finales de ortografía o ajustes en los textos de los overlays justo antes de renderizar, tal como se hacía en `0_referencia`.
+
 ### Fix — Cortes abruptos en transiciones de video
 - Añadido el filtro `tpad=stop=-1:stop_mode=clone` antes del `trim` en `ffmpeg_builder.py` para asegurar que los videos (como CONCEPT, LIST o los renderizados por Remotion) siempre tengan fotogramas suficientes para que el filtro `fade` pueda completar su transición hasta el 0% de opacidad sin congelarse ni cortarse abruptamente debido a diferencias de milisegundos en la duración.
 

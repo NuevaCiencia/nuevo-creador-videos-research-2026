@@ -1214,6 +1214,63 @@ def update_segment_type(segment_id: int, payload: dict, db: Session = Depends(ge
     return {"id": seg.id, "screen_type": seg.screen_type, "params": seg.params}
 
 
+@app.put("/api/segments/{segment_id}/text")
+def update_segment_text(segment_id: int, payload: dict, db: Session = Depends(get_db)):
+    """Update text_on_screen (TEXT=) in guion_consolidado directly sin invalidar el pipeline."""
+    seg = db.query(models.ScreenSegment).filter(models.ScreenSegment.id == segment_id).first()
+    if not seg:
+        raise HTTPException(404, "Segmento no encontrado")
+
+    if "text_on_screen" not in payload:
+        raise HTTPException(400, "Se requiere text_on_screen")
+
+    new_text = payload["text_on_screen"].strip()
+    class_id = seg.class_id
+    index = seg.order
+
+    guion_row = db.query(models.ClassGuionConsolidado).filter(
+        models.ClassGuionConsolidado.class_id == class_id
+    ).first()
+
+    if guion_row and guion_row.content and guion_row.status == "done":
+        lines = guion_row.content.splitlines()
+        new_lines = []
+        current_idx = -1
+        in_target_block = False
+        text_updated = False
+
+        for line in lines:
+            if line.strip().upper().startswith("#SEGMENT"):
+                if in_target_block and not text_updated:
+                    new_lines.append(f"TEXT={new_text}")
+                    if len(new_lines) >= 2 and new_lines[-2] != "": new_lines.append("")
+                current_idx += 1
+                in_target_block = (current_idx == index)
+                text_updated = False
+                new_lines.append(line)
+            elif in_target_block and "=" in line:
+                k, v = line.split("=", 1)
+                if k.strip().upper() == "TEXT":
+                    new_lines.append(f"TEXT={new_text}")
+                    text_updated = True
+                else:
+                    new_lines.append(line)
+            elif in_target_block and not line.strip() and not text_updated:
+                new_lines.append(f"TEXT={new_text}")
+                new_lines.append(line)
+                text_updated = True
+            else:
+                new_lines.append(line)
+
+        if in_target_block and not text_updated:
+            new_lines.append(f"TEXT={new_text}")
+
+        guion_row.content = "\n".join(new_lines)
+        db.commit()
+
+    return {"id": seg.id, "text_on_screen": new_text}
+
+
 @app.post("/api/segments/{segment_id}/ai-fill")
 def ai_fill_segment_params(segment_id: int, payload: dict, db: Session = Depends(get_db)):
     """Use AI to auto-fill CONCEPT or LIST params from the segment narration."""
