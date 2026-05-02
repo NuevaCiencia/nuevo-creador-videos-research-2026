@@ -7,6 +7,10 @@ de trabajo coherente sobre la app web (`app/`).
 
 ## v1.13 — Feat: duración y sistema en render completado · `(pending)`
 
+### Feat — Estadísticas de Pantallas (Guion)
+- Añadido un botón de estadísticas (📊) en el panel de Pantallas de la pestaña Guion.
+- Muestra un modal elegante con el conteo total de pantallas y un desglose ordenado por tipo de pantalla, incluyendo porcentajes y barras de progreso visuales para verificar el equilibrio del guion.
+
 ### Feat — Prompts Consolidados y Carga de Lote Unidos (Split 16:9)
 - **Prompts Consolidados**: Añadido botón en "Img Prompts" que agrupa programáticamente las pantallas divididas (`S`) en pares. Genera un prompt maestro unificado con formato de lienzo 16:9 para Midjourney/DALL-E. Si hay pantallas impares, replica el prompt para obtener dos variaciones en la misma imagen.
 - **Carga Lote Unidos**: Nuevo botón en "Carga Recursos" que recibe imágenes dobles (ej. `S001_S002_midjourney.png`), extrae las etiquetas del nombre, y corta la imagen por la mitad en el backend mediante Pillow.

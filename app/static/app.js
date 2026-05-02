@@ -429,8 +429,9 @@ function renderGuion(area) {
         </div>
 
         <div id="screensSection" class="${tab === 'screens' ? '' : 'hidden'}">
-          <div class="rp-tab-toolbar">
-            <button class="btn btn-sm btn-primary" style="width:100%" onclick="runSegmentation()">✦ Segmentar con IA</button>
+          <div class="rp-tab-toolbar" style="display:flex;gap:4px">
+            <button class="btn btn-sm btn-primary" style="flex:1" onclick="runSegmentation()">✦ Segmentar con IA</button>
+            <button class="btn btn-sm btn-ghost" style="padding:0 12px;font-size:16px" onclick="showScreenStats()" title="Estadísticas de Pantallas">📊</button>
           </div>
           <div class="rp-body" id="screensBody">
             <div class="rp-empty">Pulsa el botón para que la IA divida el guion en pantallas.</div>
