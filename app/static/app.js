@@ -1890,6 +1890,10 @@ function _buildVizUI(area) {
         ${has_guion
           ? `· <span style="color:#22c55e">con timing ✓</span>`
           : `· <span style="color:var(--tx3)">sin guion consolidado aún</span>`}
+        
+        <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="cargarEsquemaExterno()">
+          📁 Cargar Esquema Externo
+        </button>
       </div>
       <div style="font-size:11px;color:var(--tx3)">Cambiar tipo invalida Alineación y Visuales</div>
     </div>
@@ -1897,6 +1901,10 @@ function _buildVizUI(area) {
   </div>`;
 
   segments.forEach((_, i) => vizRenderPreview(i));
+}
+
+function cargarEsquemaExterno() {
+  toast("Cargar Esquema Externo: Funcionalidad en desarrollo");
 }
 
 function _vizParamsForm(seg, i) {
