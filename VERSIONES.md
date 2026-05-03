@@ -5,6 +5,15 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.15 — Auditoría: Analizador de Integridad por Fases (Nativo) · `(pending)`
+
+### Feat — Analizador de Integridad por Fases (Nativo)
+- **Motor de Auditoría**: Implementación final del sistema de validación de esquemas externos usando el componente de modal nativo de la App. Esto garantiza que la interfaz de auditoría sea consistente en macOS y Windows sin depender de librerías externas de UI.
+- **Selector de Archivos**: Eliminación de restricciones estrictas de extensión MIME en el selector de carga para prevenir errores de acceso a archivos en sistemas macOS.
+- **Auditoría Detallada**: El sistema realiza ahora una comparación determinista campo a campo (tipos de pantalla, parámetros, texto de locución) entre el archivo fuente Markdown y el estado actual de la base de datos, resaltando discrepancias.
+
+---
+
 ## v1.14 — UX: Consistencia y Sincronización de la Fase Visual · `(pending)`
 
 ### Feat — Rediseño de "CARGA RECURSOS" (Pestaña Visuales)
