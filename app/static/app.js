@@ -1934,7 +1934,9 @@ async function handleExternalSchemeFile(input) {
 }
 
 async function showPhasedIntegrityModal(ext) {
-  const { value: proceed } = await Swal.fire({
+  alert("💎 Intentando abrir ventana de resultados para " + ext.length + " pantallas...");
+  
+  Swal.fire({
     title: '🔍 Analizador de Integridad',
     html: `<div id="phased-report-body" style="text-align:left; font-size:13px; padding:10px; background:#f8f9fa; border-radius:8px; border:1px solid #ddd">
              <div id="p-step-1">⏳ Cargando datos de la App...</div>
@@ -1944,14 +1946,16 @@ async function showPhasedIntegrityModal(ext) {
     showConfirmButton: false,
     allowOutsideClick: false,
     didOpen: async () => {
+      alert("🔓 Ventana abierta. Iniciando fase de comparación...");
       const step1 = document.getElementById('p-step-1');
       const step2 = document.getElementById('p-step-2');
       const step3 = document.getElementById('p-step-3');
 
       try {
-        // Step 1: Fetch App Screens
         const classId = S.activeClass?.id;
+        console.log("Fetching current screens for class:", classId);
         const curr = await api('GET', `/api/classes/${classId}/screens`);
+        console.log("Screens fetched:", curr);
         
         step1.innerHTML = `✅ Datos de la App cargados.`;
         step2.style.display = 'block';
