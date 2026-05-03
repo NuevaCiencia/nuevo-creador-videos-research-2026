@@ -1982,18 +1982,51 @@ def get_assets_status(class_id: int, db: Session = Depends(get_db)):
     if not cls:
         raise HTTPException(404, "Clase no encontrada")
 
-    guion = db.query(models.ClassGuionConsolidado).filter(
+    # Check if structure is stale and needs sync
+    guion_base = db.query(models.ClassGuionBase).filter(
+        models.ClassGuionBase.class_id == class_id
+    ).first()
+    
+    consolidado = db.query(models.ClassGuionConsolidado).filter(
         models.ClassGuionConsolidado.class_id == class_id
     ).first()
-    if not guion or not guion.recursos_json:
-        raise HTTPException(400, "No hay guion visual — ejecuta la fase Visual primero")
+
+    # If base is stale, we force a sync of the structure so CARGA RECURSOS matches Screens
+    if guion_base and guion_base.status == 'stale':
+        segs = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id==class_id).order_by(models.ScreenSegment.order).all()
+        new_recursos = []
+        for i, s in enumerate(segs, 1):
+            prefix = "S"; ext = "png"; tipo_label = "split"
+            if s.screen_type == 'FULL_IMAGE': prefix="F"; tipo_label="full"
+            elif s.screen_type == 'VIDEO': prefix="V"; ext="mp4"; tipo_label="video"
+            elif s.screen_type == 'REMOTION': prefix="REM"; ext="mp4"; tipo_label="remotion"
+            elif s.screen_type == 'TEXT': prefix="T"; tipo_label="imagen" # Text screens might need a placeholder or be skipped
+            
+            fname = f"{prefix}{i:03d}.{ext}"
+            new_recursos.append({
+                "nombre": fname,
+                "tipo": tipo_label,
+                "ubicacion": f"{'videos/' if ext=='mp4' else 'images/'}{fname}",
+                "segmento": f"Segmento {i}"
+            })
+        
+        if not consolidado:
+            consolidado = models.ClassGuionConsolidado(class_id=class_id)
+            db.add(consolidado)
+        
+        import json
+        consolidado.recursos_json = json.dumps({"recursos": new_recursos}, ensure_ascii=False)
+        db.commit()
+
+    if not consolidado or not consolidado.recursos_json:
+        raise HTTPException(400, "No hay recursos definidos. Ve a Visuales primero.")
 
     section = db.query(models.Section).filter(models.Section.id == cls.section_id).first()
     course  = db.query(models.Course).filter(models.Course.id == section.course_id).first()
     assets_base = os.path.join(ASSETS_DIR, str(class_id))
 
     result = dummy_builder.check_assets_status(
-        guion.recursos_json, assets_base, course.cover_asset or "videos/portada.mp4"
+        consolidado.recursos_json, assets_base, course.cover_asset or "videos/portada.mp4"
     )
     return result
 
