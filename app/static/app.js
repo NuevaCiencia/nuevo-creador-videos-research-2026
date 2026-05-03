@@ -858,6 +858,7 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
         <span class="audio-card-title">🎙️ Transcripción con Whisper</span>
       </div>
       <div class="audio-card-body">
+        ${(!txDone || running) ? `
         <div class="audio-tx-controls">
           <div class="audio-model-row">
             <label class="audio-model-label">Modelo</label>
@@ -870,6 +871,17 @@ function _buildAudioUI(area, state, spell = null, guion = null) {
             ${running ? '⏳ Transcribiendo…' : '🎙️ ATT con Whisper'}
           </button>
         </div>
+        ` : `
+        <div class="audio-tx-controls" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; color:var(--tx2);">✅ Transcripción lista (Modelo: <strong>${state.whisper_model || 'large-v3'}</strong>)</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <select id="whisperModel" class="audio-model-select" style="padding:2px 6px; font-size:11px; width:auto; border-color:transparent; background:transparent;">
+              ${modelOptions}
+            </select>
+            <button class="btn btn-sm btn-ghost" style="color:var(--tx3);" onclick="startWhisperATT()">↻ Re-transcribir</button>
+          </div>
+        </div>
+        `}
 
         <!-- Progress -->
         <div class="audio-progress-wrap" id="audioProgressWrap" style="${running || txDone ? '' : 'display:none'}">
