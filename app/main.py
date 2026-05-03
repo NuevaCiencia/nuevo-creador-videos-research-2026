@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+import platform
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional
@@ -493,6 +494,26 @@ def delete_section(section_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Sección no encontrada")
     db.delete(section)
     db.commit()
+
+
+# ── Utils ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/utils/open-file")
+async def open_local_file(payload: dict):
+    path = payload.get("path")
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "Archivo no encontrado")
+    
+    try:
+        if platform.system() == "Darwin":
+            subprocess.run(["open", path])
+        elif platform.system() == "Windows":
+            os.startfile(path)
+        else:
+            subprocess.run(["xdg-open", path])
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(500, f"Error al abrir archivo: {e}")
 
 
 # ── Classes ────────────────────────────────────────────────────────────────────

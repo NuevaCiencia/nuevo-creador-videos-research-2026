@@ -147,8 +147,17 @@ function closeModal() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   SIDEBAR: COURSE PICKER
+   UTILITIES
 ═══════════════════════════════════════════════════════ */
+async function openLocalFile(path) {
+  if (!path) return;
+  try {
+    await api('POST', '/api/utils/open-file', { path });
+  } catch (e) {
+    toast(`Error al abrir: ${e.message}`, false);
+  }
+}
+
 function showCourseList() {
   // Switch sidebar back to picker
   S.activeCourse = null;
@@ -1346,7 +1355,7 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
   let dummiesRows = '';
   if (assetsStatus?.items) {
     dummiesRows = assetsStatus.items.map(item => `
-      <tr>
+      <tr ondblclick="openLocalFile('${item.full_path.replace(/\\/g, '/')}')" style="cursor:pointer" title="Doble click para abrir con el programa del sistema">
         <td style="font-family:monospace;font-size:11px;padding:6px 10px">${esc(item.nombre)}</td>
         <td style="padding:6px 10px"><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(item.tipo)}</span></td>
         <td style="padding:6px 10px;text-align:center">
@@ -1464,13 +1473,17 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
                 <td class="stat-cls-num">—</td>
                 <td class="stat-cls-num">—</td>
               </tr>` : '';
-              const assetRows = recursos.recursos.map(r => `
-                <tr>
+              const assetRows = recursos.recursos.map(r => {
+                const item = assetsStatus?.items?.find(it => it.nombre === r.nombre);
+                const path = (item?.full_path || '').replace(/\\/g, '/');
+                return `
+                <tr ${path ? `ondblclick="openLocalFile('${path}')" style="cursor:pointer" title="Doble click para abrir"` : ''}>
                   <td class="stat-cls-name" style="font-family:monospace;font-size:11px">${esc(r.nombre)}</td>
                   <td><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(r.tipo_contenido || r.tipo)}</span></td>
                   <td class="stat-cls-num">[${esc(r.segmento)}]</td>
                   <td class="stat-cls-num">${parseFloat(r.duracion||0).toFixed(1)}s</td>
-                </tr>`).join('');
+                </tr>`;
+              }).join('');
               return portadaRow + assetRows;
             })()}
           </tbody>

@@ -181,6 +181,7 @@ def check_assets_status(recursos_json: str, assets_base_dir: str,
             "nombre":    r.get("nombre", ""),
             "tipo":      r.get("tipo", ""),
             "ubicacion": ubicacion,
+            "full_path": str((assets_base / ubicacion).absolute()) if ubicacion else "",
             "segmento":  r.get("segmento", ""),
             "exists":    exists,
         })
