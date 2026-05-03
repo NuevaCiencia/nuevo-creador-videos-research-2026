@@ -1118,9 +1118,14 @@ def get_estructura(class_id: int, db: Session = Depends(get_db)):
             if first and paragraphs[pi]["text"].strip().startswith(first):
                 matched = pi
                 break
+        
+        type_key = seg.screen_type
+        if seg.screen_type == "REMOTION" and seg.remotion_template:
+            type_key = f"REMOTION__{seg.remotion_template}"
+
         tags.append({
             "para_idx":    matched,
-            "screen_type": seg.screen_type,
+            "screen_type": type_key,
             "params":      seg.params or "",
             "seg_id":      seg.id,
         })
@@ -1129,10 +1134,22 @@ def get_estructura(class_id: int, db: Session = Depends(get_db)):
     guion_base = cls.guion_base
     locked = bool(guion_base and guion_base.status == "done")
 
+    remotion_rows = db.query(models.RemotionTemplate).filter_by(enabled=True).all()
+    screen_types_out = []
+    for st in st_rows:
+        if st.name == "REMOTION":
+            for rt in remotion_rows:
+                st_dict = ser_screen_type(st)
+                st_dict["name"] = f"REMOTION__{rt.name}"
+                st_dict["label"] = f"Remotion - {rt.name}"
+                screen_types_out.append(st_dict)
+        else:
+            screen_types_out.append(ser_screen_type(st))
+
     return {
         "paragraphs":   paragraphs,
         "tags":         tags,
-        "screen_types": [ser_screen_type(st) for st in st_rows],
+        "screen_types": screen_types_out,
         "has_segments": len(segs) > 0,
         "locked":       locked,
     }
@@ -1172,13 +1189,23 @@ def save_estructura(class_id: int, payload: dict, db: Session = Depends(get_db))
         narration = "\n\n".join(
             p["text"] for p in paragraphs[start:end] if p["text"].strip()
         )
+        
+        st_val = tag["screen_type"]
+        remotion_tpl = None
+        if st_val.startswith("REMOTION__"):
+            parts = st_val.split("__")
+            st_val = parts[0]
+            if len(parts) > 1:
+                remotion_tpl = parts[1]
+
         db.add(models.ScreenSegment(
-            class_id    = class_id,
-            order       = order,
-            screen_type = tag["screen_type"],
-            params      = tag.get("params", ""),
-            narration   = narration,
-            notes       = "",
+            class_id          = class_id,
+            order             = order,
+            screen_type       = st_val,
+            params            = tag.get("params", ""),
+            remotion_template = remotion_tpl,
+            narration         = narration,
+            notes             = "",
         ))
 
     # Cascade invalidation

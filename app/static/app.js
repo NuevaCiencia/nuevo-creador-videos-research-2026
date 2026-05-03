@@ -2064,7 +2064,7 @@ function _buildEstUI(area) {
         ${!locked ? `draggable="true" ondragstart="estDragStart(event,${ti})" ondragend="estDragEnd(event)"` : ''}
         style="background:${bgCol};border-color:${bdCol};color:${color}">
         <span class="est-tag-grip" style="${locked ? 'opacity:.3;cursor:default' : ''}">${locked ? '🔒' : '⠿'}</span>
-        <select class="est-tag-select" style="color:${color}" ${locked ? 'disabled' : `onchange="estChangeType(${ti},this.value)"`}>
+        <select class="est-tag-select" style="color:${color}" ${locked ? 'disabled' : `onchange="estChangeType(${ti},this.value,this)"`}>
           ${screen_types.map(st2 =>
             `<option value="${st2.name}" ${st2.name === tag.screen_type ? 'selected' : ''}>${st2.icon || ''} ${st2.label || st2.name}</option>`
           ).join('')}
@@ -2181,11 +2181,23 @@ function estRemoveTag(ti) {
   _buildEstUI(document.getElementById('contentArea'));
 }
 
-function estChangeType(ti, newType) {
+function estChangeType(ti, newType, selectEl) {
   _estTags[ti].screen_type = newType;
   _estDirty = true;
   const btn = document.getElementById('estSaveBtn');
   if (btn) btn.classList.add('dirty');
+  
+  if (selectEl) {
+    const st = _estData.screen_types.find(t => t.name === newType) || {};
+    const color = st.color || '#666666';
+    const tagEl = selectEl.closest('.est-tag');
+    if (tagEl) {
+      tagEl.style.background = _estHex(color, 0.12);
+      tagEl.style.borderColor = _estHex(color, 0.55);
+      tagEl.style.color = color;
+      selectEl.style.color = color;
+    }
+  }
 }
 
 async function saveEstructura() {
