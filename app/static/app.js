@@ -443,6 +443,22 @@ function renderGuion(area) {
   _updateGuionStats(cls.raw_narration || '');
   if (tab === 'research') renderResearchItems();
   else renderSegmentCards();
+
+  api('GET', `/api/classes/${cls.id}/guion-base`).then(gb => {
+    if (gb && (gb.status === 'done' || gb.status === 'stale')) {
+      const tabBtn = document.querySelector('.rp-tab[onclick="switchGuionTab(\\'screens\\')"]');
+      if (tabBtn) {
+        tabBtn.style.opacity = '0.5';
+        tabBtn.style.cursor = 'not-allowed';
+        tabBtn.removeAttribute('onclick');
+        tabBtn.innerHTML = '🔒 Pantallas';
+        tabBtn.addEventListener('click', () => toast('Bloqueado: Estructura modificada o Alineación completada.', false));
+      }
+      if (S.guionRightTab === 'screens') {
+        switchGuionTab('research');
+      }
+    }
+  }).catch(e => {});
 }
 
 function unlockGuion() {
