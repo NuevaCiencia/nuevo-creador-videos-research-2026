@@ -1891,10 +1891,10 @@ function _buildVizUI(area) {
           ? `· <span style="color:#22c55e">con timing ✓</span>`
           : `· <span style="color:var(--tx3)">sin guion consolidado aún</span>`}
         
-        <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="document.getElementById('externalSchemeInput').click()">
+        <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="document.getElementById('extSchInp').click()">
           📁 Cargar Esquema Externo
         </button>
-        <input type="file" id="externalSchemeInput" style="display:none" onchange="handleExternalSchemeFile(this)">
+        <input type="file" id="extSchInp" style="display:none" onchange="handleExternalSchemeFile(this)">
       </div>
       <div style="font-size:11px;color:var(--tx3)">Cambiar tipo invalida Alineación y Visuales</div>
     </div>
@@ -1905,23 +1905,29 @@ function _buildVizUI(area) {
 }
 
 async function handleExternalSchemeFile(input) {
+  alert("🟢 Función iniciada. Archivo detectado.");
   try {
     const file = input.files[0];
-    if (!file) return;
+    if (!file) {
+      alert("❌ No se detectó ningún archivo.");
+      return;
+    }
     
     const text = await file.text();
+    alert("📖 Texto leído. Longitud: " + text.length);
+    
     const externalSegments = parseExternalMd(text);
+    alert("🔍 Pantallas encontradas en archivo: " + externalSegments.length);
     
     if (externalSegments.length === 0) {
       return Swal.fire("Archivo Vacío", "No se encontraron etiquetas <!-- type:TIPO -->.", "error");
     }
 
-    // Phase 1: Open modal and start process
     showPhasedIntegrityModal(externalSegments);
     
   } catch (err) {
+    alert("💥 ERROR CRÍTICO: " + err.message);
     console.error("Error:", err);
-    Swal.fire("Error", "No se pudo leer el archivo: " + err.message, "error");
   } finally {
     input.value = '';
   }
