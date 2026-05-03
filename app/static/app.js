@@ -1328,17 +1328,28 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
   const visualStale   = visual?.status === 'stale';
   const recursos      = visual?.recursos_json ? JSON.parse(visual.recursos_json) : null;
 
-  const _cnt = (tipo) => recursos?.recursos?.filter(r => r.tipo === tipo).length || 0;
-  const splits = recursos?.recursos?.filter(r => r.tipo === 'imagen_split').length   || 0;
-  const fulls  = recursos?.recursos?.filter(r => r.tipo === 'imagen_completa').length|| 0;
-  const videos = recursos?.recursos?.filter(r => r.tipo === 'video' && r.tipo_contenido !== 'remotion').length || 0;
-  const remotion = recursos?.recursos?.filter(r => r.tipo_contenido === 'remotion').length || 0;
-
   const assetsStatus   = extra?.assetsStatus   || null;
   const renderStatus   = extra?.renderStatus   || null;
   const remotionStatus = extra?.remotionStatus || null;
+
+  // If resources are empty (e.g. just cleared), try to estimate from guion.content
+  let splits = 0, fulls = 0, videos = 0, remotion = 0, totalAssets = 0;
+  if (recursos?.recursos) {
+    splits   = recursos.recursos.filter(r => r.tipo === 'split' || r.tipo === 'imagen_split').length;
+    fulls    = recursos.recursos.filter(r => r.tipo === 'full' || r.tipo === 'imagen_completa').length;
+    videos   = recursos.recursos.filter(r => r.tipo === 'video' && r.tipo_contenido !== 'remotion').length;
+    remotion = recursos.recursos.filter(r => r.tipo_contenido === 'remotion').length;
+    totalAssets = recursos.recursos.length;
+  } else if (guion?.content) {
+    totalAssets = guion.content.split('#SEGMENT').length - 1;
+    fulls    = (guion.content.match(/TYPE=FULL_IMAGE/g) || []).length;
+    videos   = (guion.content.match(/TYPE=VIDEO/g) || []).length;
+    remotion = (guion.content.match(/TYPE=REMOTION/g) || []).length;
+    splits   = (guion.content.match(/TYPE=SPLIT_/g) || []).length;
+  }
+
   const missingCount  = assetsStatus?.missing ?? 0;
-  const totalCount    = assetsStatus?.total   ?? 0;
+  const totalCount    = assetsStatus?.total   ?? (totalAssets + 1);
   const dummiesSt     = renderStatus?.status || 'idle';
   const isBuilding    = dummiesSt === 'building_dummies';
   const dummiesDone   = dummiesSt === 'dummies_done' || (dummiesSt === 'done') || (missingCount === 0 && assetsStatus);
@@ -1400,7 +1411,7 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
             <button class="btn btn-sm btn-primary" onclick="startVisualOrchestration()" style="background:#f59e0b;border:0;height:32px">Cargar Cambios</button>
           </div>
           <div class="tx-summary-row" style="margin-top:15px">
-            <div class="tx-summary-stat"><span class="tx-stat-val">${1 + splits + fulls + videos + remotion}</span><span class="tx-stat-lbl">total</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${totalAssets + 1}</span><span class="tx-stat-lbl">total</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${splits}</span><span class="tx-stat-lbl">split</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${fulls}</span><span class="tx-stat-lbl">full</span></div>
             <div class="tx-summary-stat"><span class="tx-stat-val">${videos}</span><span class="tx-stat-lbl">video</span></div>
