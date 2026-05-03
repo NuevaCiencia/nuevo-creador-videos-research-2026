@@ -1370,7 +1370,10 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
     <div class="audio-card">
       <div class="audio-card-head">
         <span class="audio-card-title">🧠 Arquitectura Visual</span>
-        ${visualStale ? `<span class="audio-done-badge" style="background:#f59e0b22;color:#f59e0b;border-color:#f59e0b44">⚠️ Desactualizado</span>` : visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-xs btn-ghost" onclick="renderVisuales(document.getElementById('contentArea'))" title="Recargar datos del servidor y disco">↻ Recargar</button>
+          ${visualStale ? `<span class="audio-done-badge" style="background:#f59e0b22;color:#f59e0b;border-color:#f59e0b44">⚠️ Desactualizado</span>` : visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
+        </div>
       </div>
       <div class="audio-card-body">
         ${!guionOk ? `
