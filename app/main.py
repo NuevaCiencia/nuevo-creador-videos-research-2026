@@ -1995,6 +1995,10 @@ def get_assets_status(class_id: int, force_sync: bool = False, db: Session = Dep
     if force_sync or (guion_base and guion_base.status == 'stale'):
         segs = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id==class_id).order_by(models.ScreenSegment.order).all()
         new_recursos = []
+        
+        # Counters per type
+        counts = {"S": 0, "F": 0, "V": 0, "REM": 0}
+        
         for i, s in enumerate(segs, 1):
             if s.screen_type in ('TEXT', 'CONCEPT', 'LIST'):
                 continue # These are text-only types, no external assets needed
@@ -2004,12 +2008,15 @@ def get_assets_status(class_id: int, force_sync: bool = False, db: Session = Dep
             elif s.screen_type == 'VIDEO': prefix="V"; ext="mp4"; tipo_label="video"
             elif s.screen_type == 'REMOTION': prefix="REM"; ext="mp4"; tipo_label="remotion"
             
-            fname = f"{prefix}{i:03d}.{ext}"
+            counts[prefix] += 1
+            num = counts[prefix]
+            
+            fname = f"{prefix}{num:03d}.{ext}"
             new_recursos.append({
                 "nombre": fname,
                 "tipo": tipo_label,
                 "ubicacion": f"{'videos/' if ext=='mp4' else 'images/'}{fname}",
-                "segmento": f"Segmento {i}"
+                "segmento": f"Pantalla {i}"
             })
         
         if not consolidado:
