@@ -446,7 +446,7 @@ function renderGuion(area) {
 
   api('GET', `/api/classes/${cls.id}/guion-base`).then(gb => {
     if (gb && (gb.status === 'done' || gb.status === 'stale')) {
-      const tabBtn = document.querySelector('.rp-tab[onclick="switchGuionTab(\\'screens\\')"]');
+      const tabBtn = document.querySelector(`.rp-tab[onclick="switchGuionTab('screens')"]`);
       if (tabBtn) {
         tabBtn.style.opacity = '0.5';
         tabBtn.style.cursor = 'not-allowed';
