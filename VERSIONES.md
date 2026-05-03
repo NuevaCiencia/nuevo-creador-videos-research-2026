@@ -5,7 +5,29 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.13 — Feat: duración y sistema en render completado · `(pending)`
+## v1.14 — UX: Consistencia y Sincronización de la Fase Visual · `(pending)`
+
+### Feat — Rediseño de "CARGA RECURSOS" (Pestaña Visuales)
+- **Sincronización Total**: El botón **↺ Recargar** ahora fuerza una sincronización real con la base de datos de Pantallas. Si cambias la estructura en el editor, la pestaña de recursos se actualiza al instante para reflejar el nuevo número de elementos.
+- **Numeración Correlativa por Tipo**: Implementado sistema de nombres determinista y ordenado:
+  - **S001, S002...** para Imágenes (Split/Full).
+  - **V001, V002...** para Videos.
+  - **REM001, REM002...** para Remotion (unificado a 3 dígitos).
+  - Se eliminan los "saltos" de numeración; cada categoría empieza en 001 independientemente de su posición en el guion.
+- **Filtrado Inteligente**: Las pantallas de tipo `TEXT`, `CONCEPT` y `LIST` ya no aparecen en la lista de recursos, ya que se generan automáticamente y no requieren assets externos. Esto limpia la interfaz y evita confusiones con archivos innecesarios (ej. `T001.png`).
+- **Consistencia del Sistema**: La nueva nomenclatura se ha "reafirmado" en todo el pipeline: desde la generación del Agente Visual hasta el motor de renderizado de video.
+
+### UX — Acceso Premium a Archivos Locales
+- **Botón 📂 Abrir**: Cada tarjeta de recurso cuenta ahora con un botón explícito para abrir el archivo local directamente en el sistema operativo (Mac/Windows).
+- **Doble Click**: Soporte para abrir archivos mediante doble click en la miniatura de la tarjeta, agilizando la revisión de assets.
+- **Robustez**: Mejorado el manejo de rutas para evitar bloqueos de la UI cuando faltan rutas en la base de datos.
+
+### Fix — Sincronización de Contadores
+- Corregida la discrepancia entre las pestañas "Visuales" y "Carga Recursos". Ahora ambas muestran el mismo conteo total (Pantallas + Portada) y el desglose de assets es idéntico.
+
+---
+
+## v1.13 — Feat: duración y sistema en render completado · `a71bac5`
 
 ### Feat — Estadísticas de Pantallas (Guion)
 - Añadido un botón de estadísticas (📊) en el panel de Pantallas de la pestaña Guion.
