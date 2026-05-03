@@ -1355,7 +1355,7 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
   let dummiesRows = '';
   if (assetsStatus?.items) {
     dummiesRows = assetsStatus.items.map(item => `
-      <tr ondblclick="openLocalFile('${item.full_path.replace(/\\/g, '/')}')" style="cursor:pointer" title="Doble click para abrir con el programa del sistema">
+      <tr ondblclick="openLocalFile('${(item.full_path || '').replace(/\\/g, '/')}')" style="cursor:pointer" title="Doble click para abrir con el programa del sistema">
         <td style="font-family:monospace;font-size:11px;padding:6px 10px">${esc(item.nombre)}</td>
         <td style="padding:6px 10px"><span class="seg-type-badge" style="background:var(--bg3);color:var(--tx2);border-color:var(--border2)">${esc(item.tipo)}</span></td>
         <td style="padding:6px 10px;text-align:center">

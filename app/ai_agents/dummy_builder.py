@@ -169,6 +169,7 @@ def check_assets_status(recursos_json: str, assets_base_dir: str,
         "nombre":    "portada.mp4",
         "tipo":      "portada",
         "ubicacion": cover_asset,
+        "full_path": str(portada_path.absolute()),
         "exists":    portada_ok,
     })
     if portada_ok: n_ok += 1
