@@ -1903,8 +1903,121 @@ function _buildVizUI(area) {
   segments.forEach((_, i) => vizRenderPreview(i));
 }
 
-function cargarEsquemaExterno() {
-  toast("Cargar Esquema Externo: Funcionalidad en desarrollo");
+async function cargarEsquemaExterno() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.md';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const text = await file.text();
+    const externalSegments = parseExternalMd(text);
+    
+    // Get current segments from the state (assuming they are in S.activeClassSegments or similar)
+    // We fetch them if not available
+    const classId = S.activeClass?.id;
+    const currentSegments = await api('GET', `/api/classes/${classId}/screens`);
+    
+    const report = compareSchemes(externalSegments, currentSegments);
+    showComparisonReport(report, externalSegments.length, currentSegments.length);
+  };
+  input.click();
+}
+
+function parseExternalMd(text) {
+  const segments = [];
+  // Split by the start of a comment tag: <!-- type:
+  const blocks = text.split(/<!--\s*type:/i);
+  
+  // First block is before the first tag, usually empty
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i];
+    // Find the end of the comment tag
+    const tagEnd = block.indexOf('-->');
+    if (tagEnd === -1) continue;
+    
+    const tagContent = block.substring(0, tagEnd).trim();
+    const rest = block.substring(tagEnd + 3);
+    
+    // Extract type and params (e.g. "LIST // @ Propiedades")
+    const parts = tagContent.split('//');
+    const type = parts[0].trim().toUpperCase();
+    const params = parts.slice(1).join('//').trim();
+    
+    // Extract narration from ==text== blocks
+    const narrationMatches = [...rest.matchAll(/==([\s\S]*?)==/g)];
+    const narration = narrationMatches.map(m => m[1].trim().replace(/\s+/g, ' ')).join(' ');
+    
+    segments.push({ type, params, narration });
+  }
+  return segments;
+}
+
+function compareSchemes(ext, curr) {
+  const diffs = [];
+  const max = Math.max(ext.length, curr.length);
+  
+  for (let i = 0; i < max; i++) {
+    const e = ext[i];
+    const c = curr[i];
+    
+    if (!e) {
+      diffs.push(`Pantalla ${i+1}: Existe en la App pero NO en el archivo externo.`);
+      continue;
+    }
+    if (!c) {
+      diffs.push(`Pantalla ${i+1}: Existe en el archivo externo pero NO en la App.`);
+      continue;
+    }
+    
+    const errors = [];
+    if (e.type !== c.screen_type) errors.push(`Tipo incorrecto (Ext: ${e.type} vs App: ${c.screen_type})`);
+    
+    // Normalize params for comparison
+    const normP = (p) => (p || '').replace(/\s+/g, ' ').trim();
+    if (normP(e.params) !== normP(c.params)) errors.push(`Parámetros distintos`);
+    
+    // Normalize narration (ignoring minor whitespace/line break diffs)
+    const normN = (n) => (n || '').replace(/\s+/g, ' ').trim();
+    if (normN(e.narration) !== normN(c.narration)) {
+       // We only flag it if they are significantly different to avoid noise
+       errors.push(`Texto de locución distinto`);
+    }
+    
+    if (errors.length > 0) {
+      diffs.push(`Pantalla ${i+1}: ${errors.join(' | ')}`);
+    }
+  }
+  return diffs;
+}
+
+function showComparisonReport(diffs, extCount, currCount) {
+  if (diffs.length === 0 && extCount === currCount) {
+    Swal.fire({
+      icon: 'success',
+      title: '¡Sincronización Perfecta!',
+      text: `Las ${extCount} pantallas coinciden exactamente con el archivo externo.`,
+      confirmButtonColor: 'var(--p1)'
+    });
+  } else {
+    const html = `
+      <div style="text-align:left; font-size:13px; max-height:400px; overflow-y:auto; padding:10px; background:#f8f9fa; border-radius:8px; border:1px solid #ddd">
+        <div style="margin-bottom:10px; font-weight:bold; color:var(--tx1)">
+          Resumen: Ext(${extCount}) vs App(${currCount})
+        </div>
+        ${diffs.map(d => `<div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #eee; color:#d32f2f">⚠️ ${d}</div>`).join('')}
+      </div>
+    `;
+    Swal.fire({
+      title: 'Discrepancias Detectadas',
+      html: html,
+      icon: 'warning',
+      width: '600px',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: 'var(--p1)'
+    });
+  }
 }
 
 function _vizParamsForm(seg, i) {
