@@ -1968,7 +1968,13 @@ function parseExternalMd(text) {
 }
 
 function compareSchemes(ext, curr) {
+  console.log("Iniciando comparación...", { ext_len: ext.length, curr_len: curr ? curr.length : 'null' });
   const diffs = [];
+  if (!Array.isArray(curr)) {
+    diffs.push("Error: No se pudieron obtener las pantallas de la App correctamente.");
+    return diffs;
+  }
+  
   const max = Math.max(ext.length, curr.length);
   
   for (let i = 0; i < max; i++) {
@@ -1976,26 +1982,27 @@ function compareSchemes(ext, curr) {
     const c = curr[i];
     
     if (!e) {
-      diffs.push(`Pantalla ${i+1}: Existe en la App pero NO en el archivo externo.`);
+      diffs.push(`Pantalla ${i+1}: Sobra en la App (no está en el archivo).`);
       continue;
     }
     if (!c) {
-      diffs.push(`Pantalla ${i+1}: Existe en el archivo externo pero NO en la App.`);
+      diffs.push(`Pantalla ${i+1}: Falta en la App (está en el archivo).`);
       continue;
     }
     
     const errors = [];
-    if (e.type !== c.screen_type) errors.push(`Tipo incorrecto (Ext: ${e.type} vs App: ${c.screen_type})`);
+    if (e.type !== c.screen_type) errors.push(`Tipo: ${c.screen_type} -> ${e.type}`);
     
-    // Normalize params for comparison
     const normP = (p) => (p || '').replace(/\s+/g, ' ').trim();
-    if (normP(e.params) !== normP(c.params)) errors.push(`Parámetros distintos`);
+    if (normP(e.params) !== normP(c.params)) errors.push(`Params distintos`);
     
-    // Normalize narration (ignoring minor whitespace/line break diffs)
-    const normN = (n) => (n || '').replace(/\s+/g, ' ').trim();
-    if (normN(e.narration) !== normN(c.narration)) {
-       // We only flag it if they are significantly different to avoid noise
-       errors.push(`Texto de locución distinto`);
+    const normN = (n) => (n || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const extN = normN(e.narration);
+    const currN = normN(c.narration);
+    
+    if (extN !== currN) {
+       // Only show first 30 chars of diff to avoid huge alerts
+       errors.push(`Texto distinto`);
     }
     
     if (errors.length > 0) {
@@ -2006,29 +2013,34 @@ function compareSchemes(ext, curr) {
 }
 
 function showComparisonReport(diffs, extCount, currCount) {
-  if (diffs.length === 0 && extCount === currCount) {
+  console.log("Mostrando reporte...", { diffs_count: diffs.length, extCount, currCount });
+  
+  if (diffs.length === 0 && extCount === currCount && extCount > 0) {
     Swal.fire({
       icon: 'success',
       title: '¡Sincronización Perfecta!',
-      text: `Las ${extCount} pantallas coinciden exactamente con el archivo externo.`,
+      text: `Las ${extCount} pantallas coinciden exactamente.`,
       confirmButtonColor: 'var(--p1)'
     });
   } else {
-    const html = `
-      <div style="text-align:left; font-size:13px; max-height:400px; overflow-y:auto; padding:10px; background:#f8f9fa; border-radius:8px; border:1px solid #ddd">
-        <div style="margin-bottom:10px; font-weight:bold; color:var(--tx1)">
-          Resumen: Ext(${extCount}) vs App(${currCount})
-        </div>
-        ${diffs.map(d => `<div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #eee; color:#d32f2f">⚠️ ${d}</div>`).join('')}
-      </div>
-    `;
+    let html = `<div style="text-align:left; font-size:12px; max-height:300px; overflow-y:auto; padding:10px; background:#fff; color:#333; border:1px solid #ccc">`;
+    html += `<div style="font-weight:bold; margin-bottom:10px">Resumen: Archivo (${extCount}) vs App (${currCount})</div>`;
+    
+    if (diffs.length === 0) {
+      html += `<div style="color:blue">Los contenidos coinciden, pero la cantidad de pantallas es distinta.</div>`;
+    } else {
+      diffs.forEach(d => {
+        html += `<div style="margin-bottom:4px; border-bottom:1px solid #eee; padding-bottom:2px; color:#c00">● ${d}</div>`;
+      });
+    }
+    html += `</div>`;
+
     Swal.fire({
-      title: 'Discrepancias Detectadas',
+      title: 'Resultado de Integridad',
       html: html,
-      icon: 'warning',
-      width: '600px',
-      confirmButtonText: 'Entendido',
-      confirmButtonColor: 'var(--p1)'
+      icon: diffs.length === 0 ? 'info' : 'warning',
+      width: '550px',
+      confirmButtonText: 'Entendido'
     });
   }
 }
