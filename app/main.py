@@ -998,10 +998,10 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
         })
         curr_time += dur
     
-    guion.content = GuionFormatter().to_text(aligned_data)
+    final_content = GuionFormatter().to_text(aligned_data)
+    guion.content = final_content
     db.commit()
     db.refresh(guion)
-    final_content = guion.content
 
     # Get course config
     cls     = db.query(models.Class).filter(models.Class.id == class_id).first()
@@ -1023,16 +1023,16 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
         "cover_asset":         course.cover_asset or "videos/portada.mp4",
     }
 
-    # Upsert visual row
+    # Upsert visual row — CRITICAL: Clear resources_json to force a fresh start
     row = db.query(models.ClassGuionConsolidado).filter(
         models.ClassGuionConsolidado.class_id == class_id
     ).first()
     if row:
         row.status = "running"; row.progress = 0; row.phase = "⏳ Iniciando…"
-        row.error  = None; row.content = None; # Don't wipe recursos_json here, let the agent overwrite it later
+        row.error  = None; row.content = None; row.recursos_json = None
     else:
         row = models.ClassGuionConsolidado(class_id=class_id, status="running",
-                                           progress=0, phase="⏳ Iniciando…")
+                                           progress=0, phase="⏳ Iniciando…", recursos_json=None)
         db.add(row)
     db.commit()
 
