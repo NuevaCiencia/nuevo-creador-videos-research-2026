@@ -1996,8 +1996,8 @@ def get_assets_status(class_id: int, force_sync: bool = False, db: Session = Dep
         segs = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id==class_id).order_by(models.ScreenSegment.order).all()
         new_recursos = []
         for i, s in enumerate(segs, 1):
-            if s.screen_type == 'TEXT':
-                continue # Text screens don't need external assets
+            if s.screen_type in ('TEXT', 'CONCEPT', 'LIST'):
+                continue # These are text-only types, no external assets needed
                 
             prefix = "S"; ext = "png"; tipo_label = "split"
             if s.screen_type == 'FULL_IMAGE': prefix="F"; tipo_label="full"
