@@ -1909,33 +1909,85 @@ async function handleExternalSchemeFile(input) {
     const file = input.files[0];
     if (!file) return;
     
-    toast("Leyendo archivo...");
     const text = await file.text();
-    console.log("Contenido del archivo leído:", text.substring(0, 100) + "...");
-    
     const externalSegments = parseExternalMd(text);
-    console.log("Segmentos externos parseados:", externalSegments);
     
     if (externalSegments.length === 0) {
-      return Swal.fire("Archivo Vacío", "No se encontraron etiquetas <!-- type:TIPO --> en el archivo.", "error");
+      return Swal.fire("Archivo Vacío", "No se encontraron etiquetas <!-- type:TIPO -->.", "error");
     }
-    
-    toast(`Comparando ${externalSegments.length} pantallas...`);
-    
-    const classId = S.activeClass?.id;
-    if (!classId) throw new Error("No hay una clase activa seleccionada.");
-    
-    const currentSegments = await api('GET', `/api/classes/${classId}/screens`);
-    
-    const report = compareSchemes(externalSegments, currentSegments);
-    showComparisonReport(report, externalSegments.length, currentSegments.length);
+
+    // Phase 1: Open modal and start process
+    showPhasedIntegrityModal(externalSegments);
     
   } catch (err) {
-    console.error("Error cargando esquema:", err);
-    Swal.fire("Error", "No se pudo procesar el archivo: " + err.message, "error");
+    console.error("Error:", err);
+    Swal.fire("Error", "No se pudo leer el archivo: " + err.message, "error");
   } finally {
     input.value = '';
   }
+}
+
+async function showPhasedIntegrityModal(ext) {
+  const { value: proceed } = await Swal.fire({
+    title: '🔍 Analizador de Integridad',
+    html: `<div id="phased-report-body" style="text-align:left; font-size:13px; padding:10px; background:#f8f9fa; border-radius:8px; border:1px solid #ddd">
+             <div id="p-step-1">⏳ Cargando datos de la App...</div>
+             <div id="p-step-2" style="margin-top:8px; display:none"></div>
+             <div id="p-step-3" style="margin-top:8px; display:none"></div>
+           </div>`,
+    showConfirmButton: false,
+    allowOutsideClick: false,
+    didOpen: async () => {
+      const step1 = document.getElementById('p-step-1');
+      const step2 = document.getElementById('p-step-2');
+      const step3 = document.getElementById('p-step-3');
+
+      try {
+        // Step 1: Fetch App Screens
+        const classId = S.activeClass?.id;
+        const curr = await api('GET', `/api/classes/${classId}/screens`);
+        
+        step1.innerHTML = `✅ Datos de la App cargados.`;
+        step2.style.display = 'block';
+        step2.innerHTML = `📊 <strong>Conteo de Pantallas:</strong><br>
+                           • Archivo Externo: ${ext.length}<br>
+                           • App Actual: ${curr.length}`;
+
+        if (ext.length !== curr.length) {
+          step2.innerHTML += `<br><span style="color:#d32f2f">⚠️ ¡Discrepancia en la cantidad!</span>`;
+        }
+
+        // Step 2: Detailed Check
+        step3.style.display = 'block';
+        step3.innerHTML = `⏳ Comparando contenidos...`;
+        
+        const diffs = compareSchemes(ext, curr);
+        
+        if (diffs.length === 0 && ext.length === curr.length) {
+          step3.innerHTML = `<div style="color:#2e7d32; font-weight:bold; margin-top:10px">✨ ¡Sincronización Perfecta! Todas las pantallas coinciden.</div>`;
+        } else {
+          let diffHtml = `<div style="margin-top:10px; max-height:200px; overflow-y:auto; border-top:1px solid #ccc; padding-top:10px">`;
+          if (diffs.length === 0) {
+            diffHtml += `<div style="color:#f57c00">Los contenidos coinciden, pero falta/sobra alguna pantalla al final.</div>`;
+          } else {
+            diffHtml += `<div style="font-weight:bold; color:#d32f2f; margin-bottom:5px">Discrepancias encontradas:</div>`;
+            diffs.forEach(d => {
+              diffHtml += `<div style="margin-bottom:4px; font-size:12px">• ${d}</div>`;
+            });
+          }
+          diffHtml += `</div>`;
+          step3.innerHTML = diffHtml;
+        }
+        
+        // Show close button
+        Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
+
+      } catch (err) {
+        step1.innerHTML = `<span style="color:red">❌ Error: ${err.message}</span>`;
+        Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
+      }
+    }
+  });
 }
 
 function parseExternalMd(text) {
