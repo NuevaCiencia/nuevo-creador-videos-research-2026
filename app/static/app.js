@@ -1315,7 +1315,8 @@ async function renderVisuales(area) {
 function _buildVisualesUI(area, guion, visual, extra = null) {
   const guionOk      = guion?.status === 'done';
   const visualRunning = visual?.status === 'running';
-  const visualDone    = visual?.status === 'done';
+  const visualDone    = visual?.status === 'done' || visual?.status === 'stale';
+  const visualStale   = visual?.status === 'stale';
   const recursos      = visual?.recursos_json ? JSON.parse(visual.recursos_json) : null;
 
   const _cnt = (tipo) => recursos?.recursos?.filter(r => r.tipo === tipo).length || 0;
@@ -1360,16 +1361,43 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
     <div class="audio-card">
       <div class="audio-card-head">
         <span class="audio-card-title">🧠 Arquitectura Visual</span>
-        ${visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
+        ${visualStale ? `<span class="audio-done-badge" style="background:#f59e0b22;color:#f59e0b;border-color:#f59e0b44">⚠️ Desactualizado</span>` : visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
       </div>
       <div class="audio-card-body">
         ${!guionOk ? `
           <div class="vis-prereq">
             <span class="vis-prereq-icon">${guion?.status === 'stale' ? '⚠️' : '🔒'}</span>
             <div>
-              <div style="font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px">${guion?.status === 'stale' ? 'Pantallas regeneradas — re-ejecuta la Alineación' : 'Requiere Alineación completada'}</div>
-              <div style="font-size:12px;color:var(--tx3)">${guion?.status === 'stale' ? 'Las pantallas cambiaron desde la última alineación. Ve a la fase Audio → Alineación y vuelve a ejecutarla.' : 'Completa Whisper → Corrección → Alineación en la fase Audio.'}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px">${guion?.status === 'stale' ? 'Pantallas/Alineación fuera de fecha' : 'Requiere Alineación completada'}</div>
+              <div style="font-size:12px;color:var(--tx3)">${guion?.status === 'stale' ? 'La estructura cambió. Ve a la fase Audio → Alineación, ejecútala y vuelve aquí.' : 'Completa Whisper → Corrección → Alineación en la fase Audio.'}</div>
             </div>
+          </div>
+          ${visualDone ? `<div style="margin-top:15px;padding-top:15px;border-top:1px solid var(--border2);opacity:0.6">
+            <div style="font-size:11px;color:var(--tx2);margin-bottom:8px">Resultados previos (pueden no coincidir):</div>
+            <div class="tx-summary-row">
+              <div class="tx-summary-stat"><span class="tx-stat-val">${splits + fulls + videos + remotion}</span><span class="tx-stat-lbl">assets</span></div>
+            </div>
+          </div>` : ''}
+        ` : visualStale ? `
+          <div class="vis-prereq" style="background:#f59e0b0a; border-color:#f59e0b22">
+            <span class="vis-prereq-icon" style="color:#f59e0b">⚠️</span>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:2px">Arquitectura Visual desactualizada</div>
+              <div style="font-size:12px;color:#b45309">Se detectaron cambios en la locución alineada. Los recursos actuales podrían estar desplazados o faltar nuevas pantallas.</div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="startVisualOrchestration()" style="background:#f59e0b;border:0;height:32px">Cargar Cambios</button>
+          </div>
+          <div class="tx-summary-row" style="margin-top:15px">
+            <div class="tx-summary-stat"><span class="tx-stat-val">${1 + splits + fulls + videos + remotion}</span><span class="tx-stat-lbl">total</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${splits}</span><span class="tx-stat-lbl">split</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${fulls}</span><span class="tx-stat-lbl">full</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${videos}</span><span class="tx-stat-lbl">video</span></div>
+            <div class="tx-summary-stat"><span class="tx-stat-val">${remotion}</span><span class="tx-stat-lbl">remotion</span></div>
+          </div>
+          <div class="audio-exports">
+            <button class="seg-action-btn" onclick="exportGuionConsolidado()">⬇ guion_consolidado.txt</button>
+            <button class="seg-action-btn" onclick="exportRecursos()">⬇ recursos_visuales.json</button>
+            <button class="seg-action-btn" onclick="viewGuionConsolidado()">👁 Ver guion</button>
           </div>
         ` : visualDone ? `
           <div class="tx-summary-row">

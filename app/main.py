@@ -897,6 +897,13 @@ def run_alignment(class_id: int, db: Session = Depends(get_db)):
         db.add(row)
     db.commit()
     db.refresh(row)
+
+    # Invalidate visuals if they exist
+    vc = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
+    if vc:
+        vc.status = "stale"
+        db.commit()
+
     return ser_guion_base(row)
 
 
@@ -970,7 +977,7 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
     ).first()
     if row:
         row.status = "running"; row.progress = 0; row.phase = "⏳ Iniciando…"
-        row.error  = None; row.content = None; row.recursos_json = None
+        row.error  = None; row.content = None; # Don't wipe recursos_json here, let the agent overwrite it later
     else:
         row = models.ClassGuionConsolidado(class_id=class_id, status="running",
                                            progress=0, phase="⏳ Iniciando…")
