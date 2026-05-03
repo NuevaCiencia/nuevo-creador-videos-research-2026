@@ -1929,65 +1929,79 @@ window.handleExternalSchemeFile = async function(input) {
 };
 
 async function showPhasedIntegrityModal(ext) {
-  Swal.fire({
-    title: '🔍 Analizador de Integridad',
-    html: `<div id="phased-report-body" style="text-align:left; font-size:13px; padding:10px; background:#f8f9fa; border-radius:8px; border:1px solid #ddd">
-             <div id="p-step-1">⏳ Cargando datos de la App...</div>
-             <div id="p-step-2" style="margin-top:8px; display:none"></div>
-             <div id="p-step-3" style="margin-top:8px; display:none"></div>
-           </div>`,
-    showConfirmButton: false,
-    allowOutsideClick: false,
-    didOpen: () => {
-      setTimeout(async () => {
-        const step1 = document.getElementById('p-step-1');
-        const step2 = document.getElementById('p-step-2');
-        const step3 = document.getElementById('p-step-3');
-
-        try {
-          const classId = S.activeClass?.id;
-          const curr = await api('GET', `/api/classes/${classId}/screens`);
-          
-          step1.innerHTML = `✅ Datos de la App cargados.`;
-          step2.style.display = 'block';
-          step2.innerHTML = `📊 <strong>Conteo de Pantallas:</strong><br>
-                             • Archivo Externo: ${ext.length}<br>
-                             • App Actual: ${curr.length}`;
-
-          if (ext.length !== curr.length) {
-            step2.innerHTML += `<br><span style="color:#d32f2f">⚠️ ¡Discrepancia en la cantidad!</span>`;
-          }
-
-          step3.style.display = 'block';
-          step3.innerHTML = `⏳ Comparando contenidos...`;
-          
-          const diffs = compareSchemes(ext, curr);
-          
-          if (diffs.length === 0 && ext.length === curr.length) {
-            step3.innerHTML = `<div style="color:#2e7d32; font-weight:bold; margin-top:10px">✨ ¡Sincronización Perfecta! Todas las pantallas coinciden.</div>`;
-          } else {
-            let diffHtml = `<div style="margin-top:10px; max-height:200px; overflow-y:auto; border-top:1px solid #ccc; padding-top:10px">`;
-            if (diffs.length === 0) {
-              diffHtml += `<div style="color:#f57c00">Los contenidos coinciden, pero falta/sobra alguna pantalla al final.</div>`;
-            } else {
-              diffHtml += `<div style="font-weight:bold; color:#d32f2f; margin-bottom:5px">Discrepancias encontradas:</div>`;
-              diffs.forEach(d => {
-                diffHtml += `<div style="margin-bottom:4px; font-size:12px">• ${d}</div>`;
-              });
-            }
-            diffHtml += `</div>`;
-            step3.innerHTML = diffHtml;
-          }
-          
-          Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
-
-        } catch (err) {
-          step1.innerHTML = `<span style="color:red">❌ Error: ${err.message}</span>`;
-          Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
-        }
-      }, 100);
-    }
+  // Use the app's native openModal instead of Swal for maximum compatibility
+  openModal({
+    wide: true,
+    html: `
+      <div class="modal-title">🔍 Analizador de Integridad</div>
+      <div class="modal-body">
+        <div id="phased-report-body" style="text-align:left; font-size:13px; padding:15px; background:var(--bg2); border-radius:8px; border:1px solid var(--border1); color:var(--tx1)">
+          <div id="p-step-1">⏳ Cargando datos de la App...</div>
+          <div id="p-step-2" style="margin-top:10px; display:none"></div>
+          <div id="p-step-3" style="margin-top:10px; display:none"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-primary" id="p-close-btn" style="display:none" onclick="closeModal()">Cerrar</button>
+      </div>
+    `
   });
+
+  // Start the process after a small delay to ensure DOM is ready
+  setTimeout(async () => {
+    const step1 = document.getElementById('p-step-1');
+    const step2 = document.getElementById('p-step-2');
+    const step3 = document.getElementById('p-step-3');
+    const closeBtn = document.getElementById('p-close-btn');
+
+    if (!step1) return; // Modal was closed early
+
+    try {
+      const classId = S.activeClass?.id;
+      if (!classId) throw new Error("No hay clase activa.");
+      
+      const curr = await api('GET', `/api/classes/${classId}/screens`);
+      
+      step1.innerHTML = `✅ Datos de la App cargados.`;
+      step2.style.display = 'block';
+      step2.innerHTML = `<div style="font-weight:bold; margin-bottom:5px">📊 Conteo de Pantallas:</div>
+                         • Archivo Externo: ${ext.length}<br>
+                         • App Actual: ${curr.length}`;
+
+      if (ext.length !== curr.length) {
+        step2.innerHTML += `<br><span style="color:#ef4444; font-weight:bold">⚠️ ¡Discrepancia en la cantidad!</span>`;
+      }
+
+      step3.style.display = 'block';
+      step3.innerHTML = `<div style="margin-top:10px; border-top:1px solid var(--border1); padding-top:10px">⏳ Comparando contenidos...</div>`;
+      
+      const diffs = compareSchemes(ext, curr);
+      
+      if (diffs.length === 0 && ext.length === curr.length) {
+        step3.innerHTML = `<div style="color:#22c55e; font-weight:bold; margin-top:10px">✨ ¡Sincronización Perfecta! Todas las pantallas coinciden.</div>`;
+      } else {
+        let diffHtml = `<div style="margin-top:10px; border-top:1px solid var(--border1); padding-top:10px">`;
+        if (diffs.length === 0) {
+          diffHtml += `<div style="color:#f59e0b">Los contenidos coinciden, pero falta/sobra alguna pantalla al final.</div>`;
+        } else {
+          diffHtml += `<div style="font-weight:bold; color:#ef4444; margin-bottom:8px">Discrepancias encontradas:</div>
+                       <div style="max-height:250px; overflow-y:auto; padding-right:5px">`;
+          diffs.forEach(d => {
+            diffHtml += `<div style="margin-bottom:6px; font-size:12px; border-bottom:1px solid var(--border2); padding-bottom:4px">• ${d}</div>`;
+          });
+          diffHtml += `</div>`;
+        }
+        diffHtml += `</div>`;
+        step3.innerHTML = diffHtml;
+      }
+      
+      if (closeBtn) closeBtn.style.display = 'inline-block';
+
+    } catch (err) {
+      if (step1) step1.innerHTML = `<span style="color:#ef4444">❌ Error: ${err.message}</span>`;
+      if (closeBtn) closeBtn.style.display = 'inline-block';
+    }
+  }, 300);
 }
 
 function parseExternalMd(text) {
