@@ -1061,14 +1061,19 @@ async function uploadAudio(file) {
   setStatus(undefined, '✓ Listo', 'sb-saved');
 }
 
-async function deleteAudio() {
-  if (!confirm('¿Eliminar el audio y la transcripción?')) return;
-  try {
-    await api('DELETE', `/api/classes/${S.activeClass.id}/audio`);
-    toast('Audio eliminado');
-    _clearAudioPoll();
-    _buildAudioUI(document.getElementById('contentArea'), null);
-  } catch(e) { toast(e.message, false); }
+function deleteAudio() {
+  openConfirm({
+    title: '⚠️ Quitar archivo de audio',
+    msg: '¿Estás seguro? Se eliminará el archivo de audio subido y se borrará cualquier transcripción o progreso asociado a esta clase. Esta acción no se puede deshacer.',
+    onConfirm: async () => {
+      try {
+        await api('DELETE', `/api/classes/${S.activeClass.id}/audio`);
+        toast('Audio eliminado');
+        _clearAudioPoll();
+        _buildAudioUI(document.getElementById('contentArea'), null);
+      } catch(e) { toast(e.message, false); }
+    }
+  });
 }
 
 async function startWhisperATT() {
