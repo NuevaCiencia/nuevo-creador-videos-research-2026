@@ -1960,7 +1960,8 @@ async function showPhasedIntegrityModal(ext) {
       const classId = S.activeClass?.id;
       if (!classId) throw new Error("No hay clase activa.");
       
-      const curr = await api('GET', `/api/classes/${classId}/screens`);
+      // Corrected endpoint from /screens to /segments
+      const curr = await api('GET', `/api/classes/${classId}/segments`);
       
       step1.innerHTML = `✅ Datos de la App cargados.`;
       step2.style.display = 'block';
