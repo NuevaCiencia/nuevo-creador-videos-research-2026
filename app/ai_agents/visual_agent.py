@@ -296,7 +296,7 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
                 dur_s       = float(seg.get('TIME', 0.0))
                 m, s        = int(dur_s // 60), int(dur_s % 60)
                 rem_counter += 1
-                out_file    = f"REM{rem_counter:02d}.mp4"
+                out_file    = f"REM{rem_counter:03d}.mp4"
                 payload_remotion.append({
                     'id': idx, 'template': template,
                     'speech': seg.get('SPEECH', ''),
