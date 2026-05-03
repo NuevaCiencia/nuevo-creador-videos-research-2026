@@ -1905,20 +1905,37 @@ function _buildVizUI(area) {
 }
 
 async function handleExternalSchemeFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  
-  const text = await file.text();
-  const externalSegments = parseExternalMd(text);
-  
-  const classId = S.activeClass?.id;
-  const currentSegments = await api('GET', `/api/classes/${classId}/screens`);
-  
-  const report = compareSchemes(externalSegments, currentSegments);
-  showComparisonReport(report, externalSegments.length, currentSegments.length);
-  
-  // Reset input value to allow selecting same file again
-  input.value = '';
+  try {
+    const file = input.files[0];
+    if (!file) return;
+    
+    toast("Leyendo archivo...");
+    const text = await file.text();
+    console.log("Contenido del archivo leído:", text.substring(0, 100) + "...");
+    
+    const externalSegments = parseExternalMd(text);
+    console.log("Segmentos externos parseados:", externalSegments);
+    
+    if (externalSegments.length === 0) {
+      return Swal.fire("Archivo Vacío", "No se encontraron etiquetas <!-- type:TIPO --> en el archivo.", "error");
+    }
+    
+    toast(`Comparando ${externalSegments.length} pantallas...`);
+    
+    const classId = S.activeClass?.id;
+    if (!classId) throw new Error("No hay una clase activa seleccionada.");
+    
+    const currentSegments = await api('GET', `/api/classes/${classId}/screens`);
+    
+    const report = compareSchemes(externalSegments, currentSegments);
+    showComparisonReport(report, externalSegments.length, currentSegments.length);
+    
+  } catch (err) {
+    console.error("Error cargando esquema:", err);
+    Swal.fire("Error", "No se pudo procesar el archivo: " + err.message, "error");
+  } finally {
+    input.value = '';
+  }
 }
 
 function parseExternalMd(text) {
