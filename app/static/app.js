@@ -1894,7 +1894,7 @@ function _buildVizUI(area) {
         <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="document.getElementById('extSchInp').click()">
           📁 Cargar Esquema Externo
         </button>
-        <input type="file" id="extSchInp" style="display:none" onchange="handleExternalSchemeFile(this)">
+        <input type="file" id="extSchInp" style="display:none" onchange="window.handleExternalSchemeFile(this)">
       </div>
       <div style="font-size:11px;color:var(--tx3)">Cambiar tipo invalida Alineación y Visuales</div>
     </div>
@@ -1904,10 +1904,12 @@ function _buildVizUI(area) {
   segments.forEach((_, i) => vizRenderPreview(i));
 }
 
-async function handleExternalSchemeFile(input) {
+window.handleExternalSchemeFile = async function(input) {
   try {
     const file = input.files[0];
     if (!file) return;
+    
+    toast("🔍 Procesando archivo...");
     
     const text = await file.text();
     const externalSegments = parseExternalMd(text);
@@ -1924,7 +1926,7 @@ async function handleExternalSchemeFile(input) {
   } finally {
     input.value = '';
   }
-}
+};
 
 async function showPhasedIntegrityModal(ext) {
   Swal.fire({
