@@ -1906,8 +1906,7 @@ function _buildVizUI(area) {
 async function cargarEsquemaExterno() {
   const input = document.createElement('input');
   input.type = 'file';
-  // Use broader accept for better macOS/browser compatibility
-  input.accept = '.md,.txt,text/markdown,text/plain';
+  // Remove accept restriction to allow any file selection on macOS
   input.style.display = 'none';
   document.body.appendChild(input);
   
