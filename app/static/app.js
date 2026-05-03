@@ -429,7 +429,7 @@ function renderGuion(area) {
         </div>
 
         <div id="screensSection" class="${tab === 'screens' ? '' : 'hidden'}">
-          <div class="rp-tab-toolbar" style="display:flex;gap:4px">
+          <div class="rp-tab-toolbar" style="display:flex;gap:4px" id="screensToolbar">
             <button class="btn btn-sm btn-primary" style="flex:1" onclick="runSegmentation()">✦ Segmentar con IA</button>
             <button class="btn btn-sm btn-ghost" style="padding:0 12px;font-size:16px" onclick="showScreenStats()" title="Estadísticas de Pantallas">📊</button>
           </div>
@@ -567,6 +567,33 @@ async function renderSegmentCards(providedSegs = null) {
   if (!segs) {
     try { segs = await api('GET', `/api/classes/${S.activeClass.id}/segments`); }
     catch(e) { segs = []; }
+  }
+
+  let gb = null;
+  try { gb = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`); } catch(e) {}
+  
+  const tb = document.getElementById('screensToolbar');
+  if (tb) {
+    if (gb && gb.status === 'done') {
+      tb.innerHTML = `
+        <div style="flex:1; font-size:12px; color:var(--tx2); padding:6px; background:var(--bg3); border-radius:6px; border:1px solid var(--border2); text-align:center;">
+          🔒 Alineación completada. Segmentación bloqueada.
+        </div>
+        <button class="btn btn-sm btn-ghost" style="padding:0 12px;font-size:16px" onclick="showScreenStats()" title="Estadísticas">📊</button>
+      `;
+    } else if (gb && gb.status === 'stale') {
+      tb.innerHTML = `
+        <div style="flex:1; font-size:12px; color:#f59e0b; padding:6px; background:#f59e0b11; border-radius:6px; border:1px dashed #f59e0b44; text-align:center;">
+          🔒 Estructura manual. Re-segmentación bloqueada.
+        </div>
+        <button class="btn btn-sm btn-ghost" style="padding:0 12px;font-size:16px" onclick="showScreenStats()" title="Estadísticas">📊</button>
+      `;
+    } else {
+      tb.innerHTML = `
+        <button class="btn btn-sm btn-primary" style="flex:1" onclick="runSegmentation()">✦ Segmentar con IA</button>
+        <button class="btn btn-sm btn-ghost" style="padding:0 12px;font-size:16px" onclick="showScreenStats()" title="Estadísticas">📊</button>
+      `;
+    }
   }
 
   if (!segs || segs.length === 0) {
