@@ -414,7 +414,7 @@ function renderGuion(area) {
           <button class="rp-tab ${tab === 'research' ? 'active' : ''}" onclick="switchGuionTab('research')">
             🔍 Investigación${!locked ? '<span class="rp-tab-dot" title="Puede necesitar re-verificación"></span>' : ''}
           </button>
-          <button id="rpTabScreens" class="rp-tab ${tab === 'screens' ? 'active' : ''}" onclick="switchGuionTab('screens')">
+          <button class="rp-tab ${tab === 'screens' ? 'active' : ''}" onclick="switchGuionTab('screens')">
             🎬 Pantallas${!locked ? '<span class="rp-tab-dot" title="Puede necesitar re-segmentación"></span>' : ''}
           </button>
         </div>
@@ -443,22 +443,6 @@ function renderGuion(area) {
   _updateGuionStats(cls.raw_narration || '');
   if (tab === 'research') renderResearchItems();
   else renderSegmentCards();
-
-  api('GET', `/api/classes/${cls.id}/guion-base`).then(gb => {
-    if (gb && (gb.status === 'done' || gb.status === 'stale')) {
-      const tabBtn = document.getElementById('rpTabScreens');
-      if (tabBtn) {
-        tabBtn.style.opacity = '0.5';
-        tabBtn.style.cursor = 'not-allowed';
-        tabBtn.removeAttribute('onclick');
-        tabBtn.innerHTML = '🔒 Pantallas';
-        tabBtn.addEventListener('click', () => toast('Bloqueado: Estructura modificada o Alineación completada.', false));
-      }
-      if (S.guionRightTab === 'screens') {
-        switchGuionTab('research');
-      }
-    }
-  }).catch(e => {});
 }
 
 function unlockGuion() {
@@ -468,14 +452,7 @@ function unlockGuion() {
   setTimeout(() => document.getElementById('guionTA')?.focus(), 50);
 }
 
-async function switchGuionTab(tab) {
-  if (tab === 'screens') {
-    let gb = null;
-    try { gb = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`); } catch(e) {}
-    if (gb && (gb.status === 'done' || gb.status === 'stale')) {
-      return toast('🔒 Pestaña bloqueada por cambios manuales o alineación.', false);
-    }
-  }
+function switchGuionTab(tab) {
   S.guionRightTab = tab;
   document.querySelectorAll('.rp-tab').forEach(b => b.classList.toggle('active', b.textContent.includes(tab === 'research' ? 'Investigación' : 'Pantallas')));
   const rs = document.getElementById('researchSection');
