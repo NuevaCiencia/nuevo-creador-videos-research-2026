@@ -468,7 +468,14 @@ function unlockGuion() {
   setTimeout(() => document.getElementById('guionTA')?.focus(), 50);
 }
 
-function switchGuionTab(tab) {
+async function switchGuionTab(tab) {
+  if (tab === 'screens') {
+    let gb = null;
+    try { gb = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`); } catch(e) {}
+    if (gb && (gb.status === 'done' || gb.status === 'stale')) {
+      return toast('🔒 Pestaña bloqueada por cambios manuales o alineación.', false);
+    }
+  }
   S.guionRightTab = tab;
   document.querySelectorAll('.rp-tab').forEach(b => b.classList.toggle('active', b.textContent.includes(tab === 'research' ? 'Investigación' : 'Pantallas')));
   const rs = document.getElementById('researchSection');
