@@ -1308,10 +1308,10 @@ async function renderVisuales(area) {
 
   let guion = null, visual = null, assetsStatus = null, renderStatus = null, remotionStatus = null;
   try { guion  = await api('GET', `/api/classes/${S.activeClass.id}/guion-base`);  } catch(e) {}
-  if (guion?.status === 'done') {
+  if (guion) {
     try { visual = await api('GET', `/api/classes/${S.activeClass.id}/visual`); } catch(e) {}
   }
-  if (visual?.status === 'done') {
+  if (visual) {
     try { renderStatus   = await api('GET', `/api/classes/${S.activeClass.id}/render/status`); } catch(e) {}
     try { assetsStatus   = await api('GET', `/api/classes/${S.activeClass.id}/render/assets-status`); } catch(e) {}
     try { remotionStatus = await api('GET', `/api/classes/${S.activeClass.id}/render/remotion/status`); } catch(e) {}
