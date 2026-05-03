@@ -969,8 +969,47 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
     guion = db.query(models.ClassGuionBase).filter(
         models.ClassGuionBase.class_id == class_id
     ).first()
-    if not guion or guion.status != "done" or not guion.content:
-        raise HTTPException(400, "Primero completa la alineación (Guion Base)")
+    
+    # We allow running if 'done' or 'stale'
+    if not guion or (guion.status not in ("done", "stale")):
+        raise HTTPException(400, "Primero completa la fase de Audio (Alineación)")
+
+    # If it's stale, or content is missing, we try to reconstruct a basic version
+    # so the Visual Agent at least sees the new screens/segments
+    if guion.status == "stale" or not guion.content:
+        screen_segs = db.query(models.ScreenSegment).filter(
+            models.ScreenSegment.class_id == class_id
+        ).order_by(models.ScreenSegment.order).all()
+        
+        if not screen_segs:
+             raise HTTPException(400, "No hay pantallas definidas en la fase Guion")
+             
+        # Create a "skeleton" content if we don't have real alignment yet
+        aligned_data = []
+        prev_segments = json.loads(guion.segments_json) if guion.segments_json else []
+        
+        curr_time = 0.0
+        for i, s in enumerate(screen_segs):
+            # Try to find matching old segment for timing
+            match = prev_segments[i] if i < len(prev_segments) else None
+            dur = match.get("duracion", 5.0) if match else 5.0
+            
+            aligned_data.append({
+                "tipo": s.screen_type,
+                "params": [p.strip() for p in s.params.split("//")] if s.params else [],
+                "inicio": curr_time,
+                "duracion": dur,
+                "fin": curr_time + dur,
+                "texto": s.narration
+            })
+            curr_time += dur
+        
+        from ai_agents.aligner_agent import GuionFormatter
+        guion.content = GuionFormatter().to_text(aligned_data)
+        db.commit()
+        db.refresh(guion)
+
+    final_content = guion.content
 
     # Get course config
     cls     = db.query(models.Class).filter(models.Class.id == class_id).first()
@@ -1007,7 +1046,7 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
 
     _whisper_pool.submit(
         visual_agent.run_visual_orchestration,
-        class_id, guion.content, course_cfg, audio_filename
+        class_id, final_content, course_cfg, audio_filename
     )
     return {"status": "started"}
 
