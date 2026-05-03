@@ -414,7 +414,7 @@ function renderGuion(area) {
           <button class="rp-tab ${tab === 'research' ? 'active' : ''}" onclick="switchGuionTab('research')">
             🔍 Investigación${!locked ? '<span class="rp-tab-dot" title="Puede necesitar re-verificación"></span>' : ''}
           </button>
-          <button class="rp-tab ${tab === 'screens' ? 'active' : ''}" onclick="switchGuionTab('screens')">
+          <button id="rpTabScreens" class="rp-tab ${tab === 'screens' ? 'active' : ''}" onclick="switchGuionTab('screens')">
             🎬 Pantallas${!locked ? '<span class="rp-tab-dot" title="Puede necesitar re-segmentación"></span>' : ''}
           </button>
         </div>
@@ -446,7 +446,7 @@ function renderGuion(area) {
 
   api('GET', `/api/classes/${cls.id}/guion-base`).then(gb => {
     if (gb && (gb.status === 'done' || gb.status === 'stale')) {
-      const tabBtn = document.querySelector(`.rp-tab[onclick="switchGuionTab('screens')"]`);
+      const tabBtn = document.getElementById('rpTabScreens');
       if (tabBtn) {
         tabBtn.style.opacity = '0.5';
         tabBtn.style.cursor = 'not-allowed';
@@ -563,6 +563,13 @@ async function runSegmentation() {
   if (!(cls.raw_narration || '').trim() && !document.getElementById('guionTA')?.value.trim()) {
     return toast('Pega un guion primero', false);
   }
+
+  let gb = null;
+  try { gb = await api('GET', `/api/classes/${cls.id}/guion-base`); } catch(e) {}
+  if (gb && (gb.status === 'done' || gb.status === 'stale')) {
+    return toast('Acción bloqueada: La estructura fue modificada manualmente o ya está alineada al audio.', false);
+  }
+
   AIModal.show('✦ Segmentando en Pantallas', 'La IA divide el guion y elige el tipo de pantalla más adecuado para cada fragmento…');
   AIModal.update('Enviando guion al modelo…');
   try {
