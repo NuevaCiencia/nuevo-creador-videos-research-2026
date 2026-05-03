@@ -1906,9 +1906,14 @@ function _buildVizUI(area) {
 async function cargarEsquemaExterno() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.md';
+  // Use broader accept for better macOS/browser compatibility
+  input.accept = '.md,.txt,text/markdown,text/plain';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  
   input.onchange = async (e) => {
     const file = e.target.files[0];
+    document.body.removeChild(input);
     if (!file) return;
     
     const text = await file.text();
