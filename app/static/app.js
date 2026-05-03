@@ -1891,9 +1891,10 @@ function _buildVizUI(area) {
           ? `· <span style="color:#22c55e">con timing ✓</span>`
           : `· <span style="color:var(--tx3)">sin guion consolidado aún</span>`}
         
-        <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="cargarEsquemaExterno()">
+        <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="document.getElementById('externalSchemeInput').click()">
           📁 Cargar Esquema Externo
         </button>
+        <input type="file" id="externalSchemeInput" style="display:none" onchange="handleExternalSchemeFile(this)">
       </div>
       <div style="font-size:11px;color:var(--tx3)">Cambiar tipo invalida Alineación y Visuales</div>
     </div>
@@ -1903,30 +1904,21 @@ function _buildVizUI(area) {
   segments.forEach((_, i) => vizRenderPreview(i));
 }
 
-async function cargarEsquemaExterno() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  // Remove accept restriction to allow any file selection on macOS
-  input.style.display = 'none';
-  document.body.appendChild(input);
+async function handleExternalSchemeFile(input) {
+  const file = input.files[0];
+  if (!file) return;
   
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    document.body.removeChild(input);
-    if (!file) return;
-    
-    const text = await file.text();
-    const externalSegments = parseExternalMd(text);
-    
-    // Get current segments from the state (assuming they are in S.activeClassSegments or similar)
-    // We fetch them if not available
-    const classId = S.activeClass?.id;
-    const currentSegments = await api('GET', `/api/classes/${classId}/screens`);
-    
-    const report = compareSchemes(externalSegments, currentSegments);
-    showComparisonReport(report, externalSegments.length, currentSegments.length);
-  };
-  input.click();
+  const text = await file.text();
+  const externalSegments = parseExternalMd(text);
+  
+  const classId = S.activeClass?.id;
+  const currentSegments = await api('GET', `/api/classes/${classId}/screens`);
+  
+  const report = compareSchemes(externalSegments, currentSegments);
+  showComparisonReport(report, externalSegments.length, currentSegments.length);
+  
+  // Reset input value to allow selecting same file again
+  input.value = '';
 }
 
 function parseExternalMd(text) {
