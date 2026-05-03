@@ -1905,19 +1905,12 @@ function _buildVizUI(area) {
 }
 
 async function handleExternalSchemeFile(input) {
-  alert("🟢 Función iniciada. Archivo detectado.");
   try {
     const file = input.files[0];
-    if (!file) {
-      alert("❌ No se detectó ningún archivo.");
-      return;
-    }
+    if (!file) return;
     
     const text = await file.text();
-    alert("📖 Texto leído. Longitud: " + text.length);
-    
     const externalSegments = parseExternalMd(text);
-    alert("🔍 Pantallas encontradas en archivo: " + externalSegments.length);
     
     if (externalSegments.length === 0) {
       return Swal.fire("Archivo Vacío", "No se encontraron etiquetas <!-- type:TIPO -->.", "error");
@@ -1926,16 +1919,14 @@ async function handleExternalSchemeFile(input) {
     showPhasedIntegrityModal(externalSegments);
     
   } catch (err) {
-    alert("💥 ERROR CRÍTICO: " + err.message);
     console.error("Error:", err);
+    Swal.fire("Error", "No se pudo leer el archivo: " + err.message, "error");
   } finally {
     input.value = '';
   }
 }
 
 async function showPhasedIntegrityModal(ext) {
-  alert("💎 Iniciando Swal.fire...");
-  
   Swal.fire({
     title: '🔍 Analizador de Integridad',
     html: `<div id="phased-report-body" style="text-align:left; font-size:13px; padding:10px; background:#f8f9fa; border-radius:8px; border:1px solid #ddd">
@@ -1946,10 +1937,7 @@ async function showPhasedIntegrityModal(ext) {
     showConfirmButton: false,
     allowOutsideClick: false,
     didOpen: () => {
-      alert("🔓 didOpen disparado. Iniciando timeout...");
-      
       setTimeout(async () => {
-        alert("⚡ Ejecutando comparación asíncrona...");
         const step1 = document.getElementById('p-step-1');
         const step2 = document.getElementById('p-step-2');
         const step3 = document.getElementById('p-step-3');
@@ -1957,47 +1945,45 @@ async function showPhasedIntegrityModal(ext) {
         try {
           const classId = S.activeClass?.id;
           const curr = await api('GET', `/api/classes/${classId}/screens`);
-        console.log("Screens fetched:", curr);
-        
-        step1.innerHTML = `✅ Datos de la App cargados.`;
-        step2.style.display = 'block';
-        step2.innerHTML = `📊 <strong>Conteo de Pantallas:</strong><br>
-                           • Archivo Externo: ${ext.length}<br>
-                           • App Actual: ${curr.length}`;
+          
+          step1.innerHTML = `✅ Datos de la App cargados.`;
+          step2.style.display = 'block';
+          step2.innerHTML = `📊 <strong>Conteo de Pantallas:</strong><br>
+                             • Archivo Externo: ${ext.length}<br>
+                             • App Actual: ${curr.length}`;
 
-        if (ext.length !== curr.length) {
-          step2.innerHTML += `<br><span style="color:#d32f2f">⚠️ ¡Discrepancia en la cantidad!</span>`;
-        }
-
-        // Step 2: Detailed Check
-        step3.style.display = 'block';
-        step3.innerHTML = `⏳ Comparando contenidos...`;
-        
-        const diffs = compareSchemes(ext, curr);
-        
-        if (diffs.length === 0 && ext.length === curr.length) {
-          step3.innerHTML = `<div style="color:#2e7d32; font-weight:bold; margin-top:10px">✨ ¡Sincronización Perfecta! Todas las pantallas coinciden.</div>`;
-        } else {
-          let diffHtml = `<div style="margin-top:10px; max-height:200px; overflow-y:auto; border-top:1px solid #ccc; padding-top:10px">`;
-          if (diffs.length === 0) {
-            diffHtml += `<div style="color:#f57c00">Los contenidos coinciden, pero falta/sobra alguna pantalla al final.</div>`;
-          } else {
-            diffHtml += `<div style="font-weight:bold; color:#d32f2f; margin-bottom:5px">Discrepancias encontradas:</div>`;
-            diffs.forEach(d => {
-              diffHtml += `<div style="margin-bottom:4px; font-size:12px">• ${d}</div>`;
-            });
+          if (ext.length !== curr.length) {
+            step2.innerHTML += `<br><span style="color:#d32f2f">⚠️ ¡Discrepancia en la cantidad!</span>`;
           }
-          diffHtml += `</div>`;
-          step3.innerHTML = diffHtml;
-        }
-        
-        // Show close button
-        Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
 
-      } catch (err) {
-        step1.innerHTML = `<span style="color:red">❌ Error: ${err.message}</span>`;
-        Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
-      }
+          step3.style.display = 'block';
+          step3.innerHTML = `⏳ Comparando contenidos...`;
+          
+          const diffs = compareSchemes(ext, curr);
+          
+          if (diffs.length === 0 && ext.length === curr.length) {
+            step3.innerHTML = `<div style="color:#2e7d32; font-weight:bold; margin-top:10px">✨ ¡Sincronización Perfecta! Todas las pantallas coinciden.</div>`;
+          } else {
+            let diffHtml = `<div style="margin-top:10px; max-height:200px; overflow-y:auto; border-top:1px solid #ccc; padding-top:10px">`;
+            if (diffs.length === 0) {
+              diffHtml += `<div style="color:#f57c00">Los contenidos coinciden, pero falta/sobra alguna pantalla al final.</div>`;
+            } else {
+              diffHtml += `<div style="font-weight:bold; color:#d32f2f; margin-bottom:5px">Discrepancias encontradas:</div>`;
+              diffs.forEach(d => {
+                diffHtml += `<div style="margin-bottom:4px; font-size:12px">• ${d}</div>`;
+              });
+            }
+            diffHtml += `</div>`;
+            step3.innerHTML = diffHtml;
+          }
+          
+          Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
+
+        } catch (err) {
+          step1.innerHTML = `<span style="color:red">❌ Error: ${err.message}</span>`;
+          Swal.update({ showConfirmButton: true, confirmButtonText: 'Cerrar' });
+        }
+      }, 100);
     }
   });
 }
