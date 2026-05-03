@@ -1996,11 +1996,13 @@ def get_assets_status(class_id: int, force_sync: bool = False, db: Session = Dep
         segs = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id==class_id).order_by(models.ScreenSegment.order).all()
         new_recursos = []
         for i, s in enumerate(segs, 1):
+            if s.screen_type == 'TEXT':
+                continue # Text screens don't need external assets
+                
             prefix = "S"; ext = "png"; tipo_label = "split"
             if s.screen_type == 'FULL_IMAGE': prefix="F"; tipo_label="full"
             elif s.screen_type == 'VIDEO': prefix="V"; ext="mp4"; tipo_label="video"
             elif s.screen_type == 'REMOTION': prefix="REM"; ext="mp4"; tipo_label="remotion"
-            elif s.screen_type == 'TEXT': prefix="T"; tipo_label="imagen" # Text screens might need a placeholder or be skipped
             
             fname = f"{prefix}{i:03d}.{ext}"
             new_recursos.append({
