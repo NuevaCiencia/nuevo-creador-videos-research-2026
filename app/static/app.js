@@ -2063,12 +2063,17 @@ function compareSchemes(ext, curr) {
     const normP = (p) => (p || '').replace(/\s+/g, ' ').trim();
     if (normP(e.params) !== normP(c.params)) errors.push(`Params distintos`);
     
-    const normN = (n) => (n || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    // Improved normalization for narration: remove '=', '*', and extra whitespace
+    const normN = (n) => (n || '')
+      .replace(/[=\*_]/g, '') // Remove formatting chars: =, *, _
+      .replace(/\s+/g, ' ')   // Normalize whitespace
+      .trim()
+      .toLowerCase();
+      
     const extN = normN(e.narration);
     const currN = normN(c.narration);
     
     if (extN !== currN) {
-       // Only show first 30 chars of diff to avoid huge alerts
        errors.push(`Texto distinto`);
     }
     
