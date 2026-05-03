@@ -611,6 +611,58 @@ async function renderSegmentCards(providedSegs = null) {
     ${cards}`;
 }
 
+function showScreenStats() {
+  const segs = window._currentSegs;
+  if (!segs || !segs.length) {
+    return toast('No hay pantallas para analizar. Segmenta el guion primero.', false);
+  }
+
+  const counts = {};
+  segs.forEach(s => {
+    counts[s.screen_type] = (counts[s.screen_type] || 0) + 1;
+  });
+
+  const total = segs.length;
+  const sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+  const rows = sortedCounts.map(([type, count]) => {
+    const pct = Math.round((count / total) * 100);
+    const st = GM.screenTypes.find(t => t.name === type) || {};
+    const color = st.color || '#666';
+    const icon = st.icon || '▪';
+    return `
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
+        <div style="display:flex; align-items:center;">
+          <span style="background:${color}22; color:${color}; padding:2px 8px; border-radius:4px; font-size:11px; border:1px solid ${color}44;">
+            ${icon} ${esc(type)}
+          </span>
+        </div>
+        <div style="color:var(--tx2); font-size:13px;">
+          <strong>${count}</strong> <span style="opacity:0.6;font-size:11px">(${pct}%)</span>
+        </div>
+      </div>
+      <div style="width:100%; height:4px; background:var(--bg3); border-radius:2px; margin-bottom:14px; overflow:hidden;">
+        <div style="width:${pct}%; height:100%; background:${color}; border-radius:2px;"></div>
+      </div>
+    `;
+  }).join('');
+
+  openModal({
+    html: `
+      <div class="modal-title">📊 Estadísticas de Pantallas</div>
+      <div class="modal-body" style="padding:20px; max-height:60vh; overflow-y:auto;">
+        <div style="font-size:28px; font-weight:600; color:var(--tx1); margin-bottom:20px; text-align:center;">
+          ${total} <span style="font-size:14px; color:var(--tx3); font-weight:normal;">pantallas en total</span>
+        </div>
+        ${rows}
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-primary" onclick="closeModal()">Cerrar</button>
+      </div>
+    `
+  });
+}
+
 function buildTaggedScript(segs) {
   return segs.map(seg => {
     const tag = seg.params

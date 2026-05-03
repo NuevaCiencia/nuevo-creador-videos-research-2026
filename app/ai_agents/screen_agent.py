@@ -35,11 +35,11 @@ comparaciones o jerarquías que se benefician de animación.
 8. Usa FULL_IMAGE para síntesis visuales de alto impacto o cierre con imagen.
 9. Respeta los límites de cada tipo (max_items, max_words si se indican).
 
-REGLAS DE PARÁMETROS:
+REGLAS DE PARÁMETROS Y TEMPLATES:
 - LIST → params: "@ Título de la Lista // Ítem 1 // Ítem 2 // ..."  (respeta max_items)
 - CONCEPT → params: "Nombre del Concepto // Descripción en una sola línea"
-- REMOTION → params: "$NombreTemplate"  (nombre exacto del template elegido)
-- TEXT, SPLIT_LEFT, SPLIT_RIGHT, FULL_IMAGE, VIDEO → params: ""
+- REMOTION → DEBES llenar el campo "remotion_template" con el nombre EXACTO del template elegido (ej. "TypeWriter", "MindMap", etc.). Deja "params" vacío o úsalo solo si el template lo exige.
+- TEXT, SPLIT_LEFT, SPLIT_RIGHT, FULL_IMAGE, VIDEO → params: "" y remotion_template: null
 
 REGLA CRÍTICA: El sistema ya ha separado el texto programáticamente en bloques (párrafos). \
 Recibirás un JSON con un array de bloques, cada uno con un "id" y un "text". \
@@ -53,7 +53,7 @@ Responde ÚNICAMENTE en JSON válido, sin texto adicional:
       "id": 0,
       "screen_type": "TEXT",
       "params": "",
-      "remotion_template": null,
+      "remotion_template": null, 
       "notes": "Razón breve de la elección de tipo"
     }}
   ]
