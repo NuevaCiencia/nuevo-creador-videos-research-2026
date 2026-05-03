@@ -4319,7 +4319,7 @@ function _buildCrUI(area) {
       : `<span class="cr-card-status cr-card-miss">✗</span>`;
 
     return `<div class="cr-card" id="cr_card_${i}">
-      <div class="cr-card-preview">
+      <div class="cr-card-preview" ondblclick="openLocalFile('${(item.full_path || '').replace(/\\/g, '/')}')" title="Doble click para abrir">
         ${previewHtml}
         ${statusBadge}
         <div class="cr-card-formatting" id="cr_status_${i}" style="display:none">
@@ -4328,9 +4328,14 @@ function _buildCrUI(area) {
       </div>
       <div class="cr-card-foot">
         <div class="cr-card-name">${esc(item.nombre)}</div>
-        <span class="imp-type-pill cr-card-pill" style="background:${col}22;color:${col};border:1px solid ${col}55">${esc(item.tipo)}</span>
-        <label class="cr-upload-btn cr-card-upload" id="cr_lbl_${i}">
-          📂 Subir
+        <div style="display:flex;gap:4px;align-items:center;margin-top:6px">
+          <span class="imp-type-pill cr-card-pill" style="background:${col}22;color:${col};border:1px solid ${col}55;margin:0;flex:1">${esc(item.tipo)}</span>
+          ${exists ? `
+            <button class="btn btn-xs btn-ghost" onclick="openLocalFile('${(item.full_path || '').replace(/\\/g, '/')}')" style="padding:2px 8px" title="Abrir archivo local">📂 Abrir</button>
+          ` : ''}
+        </div>
+        <label class="cr-upload-btn cr-card-upload" id="cr_lbl_${i}" style="margin-top:8px">
+          📤 Subir
           <input type="file" accept="${accept}" style="display:none"
             onchange="crUpload(${i}, this, '${esc(item.ubicacion || '')}')">
         </label>
