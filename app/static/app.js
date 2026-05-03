@@ -1371,7 +1371,7 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
       <div class="audio-card-head">
         <span class="audio-card-title">🧠 Arquitectura Visual</span>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-xs btn-ghost" onclick="renderVisuales(document.getElementById('contentArea'))" title="Recargar datos del servidor y disco">↻ Recargar</button>
+          <button class="btn btn-xs btn-primary" onclick="startVisualOrchestration()" title="Sincronizar pantallas y regenerar arquitectura visual">⚡ Cargar y Sincronizar Cambios</button>
           ${visualStale ? `<span class="audio-done-badge" style="background:#f59e0b22;color:#f59e0b;border-color:#f59e0b44">⚠️ Desactualizado</span>` : visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
         </div>
       </div>
