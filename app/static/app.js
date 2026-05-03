@@ -4245,12 +4245,13 @@ async function toggleRemotionTemplate(id, enabled) {
 let _crData = null;
 let _crPendingBatch = [];
 
-async function renderCargaRecursos(area) {
+async function renderCargaRecursos(area, forceSync = false) {
   area.innerHTML = `<div class="cr-phase"><div class="rp-loading" style="padding:60px">Cargando assets…</div></div>`;
   const classId = S.activeClass?.id;
   if (!classId) return;
   try {
-    _crData = await api('GET', `/api/classes/${classId}/render/assets-status`);
+    const url = `/api/classes/${classId}/render/assets-status${forceSync ? '?force_sync=true' : ''}`;
+    _crData = await api('GET', url);
     _buildCrUI(area);
   } catch(e) {
     area.innerHTML = `<div class="cr-phase">
@@ -4346,7 +4347,7 @@ function _buildCrUI(area) {
           <input type="file" multiple accept="image/*,video/mp4" style="display:none"
             onchange="crBatchSelect(this)">
         </label>
-        <button class="btn btn-ghost" style="font-size:12px;padding:5px 14px" onclick="renderCargaRecursos(document.getElementById('contentArea'))">↺ Recargar</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:5px 14px" onclick="renderCargaRecursos(document.getElementById('contentArea'), true)">↺ Recargar</button>
       </div>
     </div>
     <div class="cr-progress-wrap">

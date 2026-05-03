@@ -1976,7 +1976,7 @@ async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
 # ── VIDEO: Assets status + Dummy builder + Final Render ───────────────────────
 
 @app.get("/api/classes/{class_id}/render/assets-status")
-def get_assets_status(class_id: int, db: Session = Depends(get_db)):
+def get_assets_status(class_id: int, force_sync: bool = False, db: Session = Depends(get_db)):
     """Returns exists/missing status for every asset in the guion consolidado."""
     cls = db.query(models.Class).filter(models.Class.id == class_id).first()
     if not cls:
@@ -1991,8 +1991,8 @@ def get_assets_status(class_id: int, db: Session = Depends(get_db)):
         models.ClassGuionConsolidado.class_id == class_id
     ).first()
 
-    # If base is stale, we force a sync of the structure so CARGA RECURSOS matches Screens
-    if guion_base and guion_base.status == 'stale':
+    # If base is stale OR we are forcing sync, we force a sync of the structure
+    if force_sync or (guion_base and guion_base.status == 'stale'):
         segs = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id==class_id).order_by(models.ScreenSegment.order).all()
         new_recursos = []
         for i, s in enumerate(segs, 1):
