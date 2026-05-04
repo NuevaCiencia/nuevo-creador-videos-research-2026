@@ -7,6 +7,17 @@ from core.utils import normalizar_ruta_ffmpeg
 
 # ── Font resolution ────────────────────────────────────────────────────────────
 
+def _escape_ff_path(path: str) -> str:
+    """
+    Escapes a path for use inside an FFmpeg filter script (fontfile, etc).
+    On Windows, the drive letter colon (C:) must be escaped as C\\:
+    so FFmpeg's filter parser doesn't treat it as an option separator.
+    """
+    path = path.replace('\\', '/')
+    # Escape Windows drive letter colon: C:/ -> C\:/
+    return re.sub(r'^([A-Za-z]):', r'\1\\:', path)
+
+
 def _resolve_font(fonts_dir: str, variant: str) -> str:
     """Find a font file in fonts_dir. variant: 'bold' or 'regular'"""
     candidates = {
@@ -16,12 +27,12 @@ def _resolve_font(fonts_dir: str, variant: str) -> str:
     for name in candidates.get(variant, []):
         p = os.path.join(fonts_dir, name)
         if os.path.exists(p):
-            return normalizar_ruta_ffmpeg(p)
+            return _escape_ff_path(p)
     # Fallback: first .ttf found in fonts_dir
     if os.path.isdir(fonts_dir):
         for f in sorted(os.listdir(fonts_dir)):
             if f.lower().endswith(('.ttf', '.otf')):
-                return normalizar_ruta_ffmpeg(os.path.join(fonts_dir, f))
+                return _escape_ff_path(os.path.join(fonts_dir, f))
     return ""
 
 
@@ -49,7 +60,7 @@ def _find_keyword_abs_time(bloques, search_start, end_time, keyword, max_delay=N
     Busca el keyword construyendo una línea de tiempo continua de caracteres.
     Ignora matches anteriores a search_start para evitar colisiones entre ítems.
     """
-    keyword_clean = re.sub(r'[^\w\s]', '', keyword).lower().strip()
+    keyword_clean = clean(keyword)
     if not keyword_clean:
         return search_start + 0.5
 
@@ -58,7 +69,7 @@ def _find_keyword_abs_time(bloques, search_start, end_time, keyword, max_delay=N
 
     for b in sorted(bloques, key=lambda x: x["start"]):
         if b["end"] >= max(0.0, search_start - 2.0) and b["start"] <= end_time + 1.0:
-            t_clean = re.sub(r'[^\w\s]', '', b["text"]).lower()
+            t_clean = clean(b["text"])
             t_clean = re.sub(r'\s+', ' ', t_clean).strip()
             if t_clean:
                 if combined_text and not combined_text.endswith(" "):
@@ -107,12 +118,29 @@ def _find_keyword_abs_time(bloques, search_start, end_time, keyword, max_delay=N
 
 # ── FFmpeg text escaping ───────────────────────────────────────────────────────
 
+import unicodedata as _ud
+
+def _ascii_safe(text: str) -> str:
+    """Strip accents → pure ASCII so the filter script is safe on any OS encoding."""
+    return _ud.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+
+def clean(t):
+    # Normalize to ASCII and lowercase
+    t = _ud.normalize('NFKD', t).encode('ascii', 'ignore').decode('ascii').lower()
+    # Strip all non-alphanumeric characters (bullets, colons, etc.) for better matching
+    return re.sub(r'[^\w\s]', '', t).strip()
+
 def escape_ff_text(text):
+    text = _ascii_safe(text)
     return (text.replace("\\", "\\\\")
                 .replace("'", "'\\\\''")
                 .replace(":", "\\:")
                 .replace("[", "\\[")
                 .replace("]", "\\]"))
+
+def _alpha(trigger: float, duration: float = 0.3) -> str:
+    """Single-quoted alpha — single quotes protect commas from the graph chain splitter."""
+    return f"alpha='if(lt(t,{trigger}),0,min(1,(t-{trigger})/{duration}))'"
 
 
 # ── Main generator ─────────────────────────────────────────────────────────────
@@ -159,7 +187,7 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
         f_term = (
             f"drawtext=fontfile='{font_main}':text='{t_text}':"
             f"fontcolor=0x{txt_color}:fontsize={int(H*0.11)}:x=(w-text_w)/2:y={y_title}:"
-            f"alpha='if(lt(t,{trigger_termino}),0,min(1,(t-{trigger_termino})/0.3))'"
+            f"{_alpha(trigger_termino)}"
         )
         filters.append(f_term)
 
@@ -182,7 +210,7 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
                 f_line = (
                     f"drawtext=fontfile='{font_reg}':text='{l_text}':"
                     f"fontcolor=0x{sec_color}:fontsize={int(H*0.052)}:x=(w-text_w)/2:y={y_pos}:"
-                    f"alpha='if(lt(t,{trigger_definicion}),0,min(1,(t-{trigger_definicion})/0.4))'"
+                    f"{_alpha(trigger_definicion, 0.4)}"
                 )
                 filters.append(f_line)
 
@@ -234,7 +262,7 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
             if m2:
                 element = m2.group(1).strip()
                 subtext = m2.group(2).strip()
-            wrapped = textwrap.wrap(f"• {element}", width=max_chars) or [f"• {element}"]
+            wrapped = textwrap.wrap(f"- {element}", width=max_chars) or [f"- {element}"]
             processed.append((element, subtext, wrapped))
 
         line_h   = int(bullet_fs * 1.18)
@@ -269,7 +297,7 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
                 f_bullet = (
                     f"drawtext=fontfile='{font_main}':text='{lt}':"
                     f"fontcolor=0x{list_bullet_color}:fontsize={bullet_fs}:x={x_line}:y={y_line}:"
-                    f"alpha='if(lt(t,{trigger_time}),0,min(1,(t-{trigger_time})/0.3))'"
+                    f"{_alpha(trigger_time)}"
                 )
                 filters.append(f_bullet)
 
@@ -279,7 +307,7 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
                 f_sub  = (
                     f"drawtext=fontfile='{font_reg}':text='{st_txt}':"
                     f"fontcolor=0x{list_sub_color}:fontsize={sub_fs}:x={int(W * 0.08)}:y={sub_y}:"
-                    f"alpha='if(lt(t,{trigger_time + 0.2}),0,min(1,(t-({trigger_time + 0.2}))/0.3))'"
+                    f"{_alpha(round(trigger_time + 0.2, 4))}"
                 )
                 filters.append(f_sub)
 
@@ -296,14 +324,21 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
     if not filters:
         filters.append("null")
 
-    filter_txt_path = os.path.join(tmp_dir, f"dynamic_{segment['tiempo_inicio']}.txt")
-    with open(filter_txt_path, "w", encoding="utf-8") as f:
-        f.write(",\n".join(filters))
+    # Build filter graph with explicit input/output labels for -filter_complex_script.
+    # Writing to a file avoids Windows CreateProcess command-line length limits.
+    # ASCII encoding + \, escaping avoids cp1252 / quoting issues on any OS.
+    vf_chain = ",".join(filters)
+    script_content = f"[0:v]{vf_chain}[vout]"
+
+    script_path = os.path.join(tmp_dir, f"vf_{os.path.splitext(os.path.basename(out_path))[0]}.txt")
+    with open(script_path, "w", encoding="utf-8", errors="replace") as f:
+        f.write(script_content)
 
     cmd = [
         "ffmpeg", "-y", "-v", "warning",
         "-f", "lavfi", "-i", color_src,
-        "-filter_complex_script", normalizar_ruta_ffmpeg(filter_txt_path),
+        "-filter_complex_script", normalizar_ruta_ffmpeg(script_path),
+        "-map", "[vout]",
         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
         normalizar_ruta_ffmpeg(out_path)
     ]

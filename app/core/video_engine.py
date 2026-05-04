@@ -117,7 +117,8 @@ def crear_video_mixto(audio_path, ass_path, segments, cfg, out_path, sample_rate
             "ruta_ffmpeg":normalizar_ruta_ffmpeg(asset),
             "tipo":       "video" if (tipo_seg in ("VIDEO", "CONCEPT", "LIST") or asset.endswith('.mp4')) else "img",
             "pos":        ("COMPLETA"  if tipo_seg in ("FULL_IMAGE", "COVER", "CONCEPT", "LIST")
-                           else "IZQUIERDA" if tipo_seg == "SPLIT_LEFT"
+                           else "IZQUIERDA" if any(x in tipo_seg for x in ("LEFT", "IZQUIERDA"))
+                           else "DERECHA" if any(x in tipo_seg for x in ("RIGHT", "DERECHA", "SPLIT"))
                            else "DERECHA"),
         })
 

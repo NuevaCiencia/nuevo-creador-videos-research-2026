@@ -5,6 +5,25 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.18 — Fix: Renderizado Windows y Sincronización Split/Audio · `(pending)`
+
+### Fix — Renderizado FFmpeg en Windows
+- **Escapado de Rutas**: Corregido error crítico de "Invalid argument" al usar filtros `drawtext` en Windows. Ahora el sistema escapa correctamente los dos puntos de la unidad de disco (`C\:/`) de forma multiplataforma.
+- **Codificación UTF-8**: Asegurada la escritura de scripts de filtros FFmpeg en UTF-8 para evitar fallos con caracteres especiales en los scripts temporales.
+
+### Fix — Visuales Split Screen
+- **Dummies de tamaño correcto**: Corregida discrepancia que causaba que las imágenes split (prefijo `S`) se generaran como full-screen (1920x1080). Ahora se crean correctamente en 960x1080.
+- **Posicionamiento Robusto**: Mejorada la lógica de detección de posición en el motor de video. Ahora identifica tipos como `SPLIT_LEFT`, `SPLIT_RIGHT` o variantes buscando palabras clave (`LEFT`, `RIGHT`) en lugar de coincidencias exactas.
+
+### Fix — Sincronización de Animaciones (Audio-Visual)
+- **Normalización de Tildes**: Corregido el "descuadre" en segmentos `CONCEPT` y `LIST`. El motor de sincronización ahora ignora tildes y caracteres especiales al buscar palabras en la transcripción, permitiendo que los ítems aparezcan exactamente cuando se pronuncian.
+- **Alineación Original**: Revertidos cambios en el alineador de guion para preservar la lógica original de cierre de huecos solicitada por el usuario.
+
+> [!IMPORTANT]
+> **Nota**: Falta probar lo fixeado en un render real para confirmar la sincronización exacta.
+
+---
+
 ## v1.17 — Seguridad: Backup Manual y Limpieza de Assets
 - **Botón de Backup**: Añadido botón 📦 **Backup y Reiniciar Assets** en la pestaña Pantallas. Permite mover todos los recursos actuales (imágenes y videos) a una carpeta de respaldo con timestamp y limpiar las carpetas de trabajo.
 - **Endpoint Seguro**: Implementada ruta en el servidor para ejecución bajo demanda del proceso de archivado.

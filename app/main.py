@@ -2039,7 +2039,7 @@ def get_assets_status(class_id: int, force_sync: bool = False, db: Session = Dep
             if s.screen_type in ('TEXT', 'CONCEPT', 'LIST'):
                 continue # These are text-only types, no external assets needed
                 
-            prefix = "S"; ext = "png"; tipo_label = "split"
+            prefix = "S"; ext = "png"; tipo_label = "imagen_split"
             if s.screen_type == 'FULL_IMAGE': prefix="F"; tipo_label="full"
             elif s.screen_type == 'VIDEO': prefix="V"; ext="mp4"; tipo_label="video"
             elif s.screen_type == 'REMOTION': prefix="REM"; ext="mp4"; tipo_label="remotion"

@@ -105,7 +105,7 @@ function openModal(opts) {
   if (first) setTimeout(() => { first.focus(); if(first.select) first.select(); }, 40);
 }
 
-function openConfirm({ title, msg, onConfirm, requirePin = false }) {
+function openConfirm({ title, msg, onConfirm, requirePin = false, confirmLabel = '🗑 Eliminar' }) {
   const box = document.getElementById('modalBox');
   box.innerHTML = `
     <div class="modal-title" style="color:var(--red)">${esc(title)}</div>
@@ -120,7 +120,7 @@ function openConfirm({ title, msg, onConfirm, requirePin = false }) {
     </div>` : ''}
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-danger" id="mdOk">🗑 Eliminar</button>
+      <button class="btn btn-danger" id="mdOk">${esc(confirmLabel)}</button>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
   if (requirePin) setTimeout(() => document.getElementById('mdPin')?.focus(), 80);
@@ -1826,6 +1826,12 @@ function _buildVizUI(area) {
         <div class="viz-screen-badge">${esc(typeLabel)}</div>
         <div class="viz-screen-num" style="${escA(numStyle)}">${i + 1}</div>
 
+        ${seg.screen_type === 'SPLIT_LEFT' || seg.screen_type === 'SPLIT_RIGHT' ? `
+        <div style="display:flex;gap:2px;height:18px;border-radius:3px;overflow:hidden;margin:2px 0 4px;opacity:.85">
+          <div style="flex:1;background:${seg.screen_type === 'SPLIT_LEFT' ? color : 'rgba(255,255,255,0.2)'};border-radius:2px 0 0 2px"></div>
+          <div style="flex:1;background:${seg.screen_type === 'SPLIT_RIGHT' ? color : 'rgba(255,255,255,0.2)'};border-radius:0 2px 2px 0"></div>
+        </div>` : ''}
+
         <div class="viz-timing">
           ${seg.timestamp
             ? `<span class="viz-ts">⏱ ${esc(seg.timestamp)}</span>
@@ -1907,28 +1913,22 @@ function _buildVizUI(area) {
   segments.forEach((_, i) => vizRenderPreview(i));
 }
 
-window.confirmBackupReset = async function() {
-  const { isConfirmed } = await Swal.fire({
-    title: '¿Hacer Backup y Reiniciar Assets?',
-    text: "Se moverán todas las imágenes y videos actuales a una carpeta de backup y se vaciarán las carpetas activas. Esto es ideal tras un cambio de estructura.",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#ef4444',
-    confirmButtonText: 'Sí, Backup y Limpiar',
-    cancelButtonText: 'Cancelar'
-  });
-
-  if (isConfirmed) {
-    try {
-      const classId = S.activeClass?.id;
-      await api('POST', `/api/classes/${classId}/assets/backup-reset`);
-      toast("✅ Backup realizado y carpetas limpias.");
-      // If we are in visuals tab, refresh
-      if (S.activeTab === 'visual') renderVisualizadorVisuales();
-    } catch (err) {
-      Swal.fire("Error", err.message, "error");
+window.confirmBackupReset = function() {
+  openConfirm({
+    title: '📦 Backup y Reiniciar Assets',
+    msg: 'Se moverán todas las imágenes y videos actuales a una carpeta de backup con timestamp y se vaciarán las carpetas activas.<br><br>Esto es ideal tras un cambio de estructura.',
+    confirmLabel: '📦 Sí, Backup y Limpiar',
+    onConfirm: async () => {
+      try {
+        const classId = S.activeClass?.id;
+        await api('POST', `/api/classes/${classId}/assets/backup-reset`);
+        toast("✅ Backup realizado y carpetas limpias.");
+        if (S.activePhase === 'viz') renderViz(document.getElementById('content'));
+      } catch (err) {
+        toast("❌ " + err.message, false);
+      }
     }
-  }
+  });
 };
 
 window.handleExternalSchemeFile = async function(input) {
@@ -1942,14 +1942,15 @@ window.handleExternalSchemeFile = async function(input) {
     const externalSegments = parseExternalMd(text);
     
     if (externalSegments.length === 0) {
-      return Swal.fire("Archivo Vacío", "No se encontraron etiquetas <!-- type:TIPO -->.", "error");
+      toast("❌ No se encontraron etiquetas <!-- type:TIPO --> en el archivo.", false);
+      return;
     }
 
     showPhasedIntegrityModal(externalSegments);
-    
+
   } catch (err) {
     console.error("Error:", err);
-    Swal.fire("Error", "No se pudo leer el archivo: " + err.message, "error");
+    toast("❌ No se pudo leer el archivo: " + err.message, false);
   } finally {
     input.value = '';
   }

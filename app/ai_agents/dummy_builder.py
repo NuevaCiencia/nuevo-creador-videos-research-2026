@@ -58,11 +58,14 @@ def _build_one(recurso: dict, assets_base: Path) -> dict:
     stem = Path(ubicacion).stem.upper()
     is_video = stem.startswith(("V", "REM")) or Path(ubicacion).suffix.lower() == ".mp4"
 
+    # Robust detection of split images: either type label or filename starting with S
+    is_split = (tipo in ("split", "imagen_split")) or stem.startswith("S")
+
     try:
         if is_video:
             label = f"REMOTION  {nombre}" if nombre.upper().startswith("REM") else f"VIDEO  {nombre}"
             _crear_video_dummy(1920, 1080, label, duracion, dest)
-        elif tipo == "imagen_split":
+        elif is_split:
             _crear_imagen_dummy(960, 1080, nombre, dest)
         else:
             _crear_imagen_dummy(1920, 1080, nombre, dest)
