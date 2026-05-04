@@ -5,7 +5,19 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.15 — Auditoría: Analizador de Integridad por Fases (Nativo) · `(pending)`
+## v1.17 — Seguridad: Backup Manual y Limpieza de Assets
+- **Botón de Backup**: Añadido botón 📦 **Backup y Reiniciar Assets** en la pestaña Pantallas. Permite mover todos los recursos actuales (imágenes y videos) a una carpeta de respaldo con timestamp y limpiar las carpetas de trabajo.
+- **Endpoint Seguro**: Implementada ruta en el servidor para ejecución bajo demanda del proceso de archivado.
+
+---
+
+## v1.16 — Auditoría: Robustez en Comparación de Texto
+- **Normalización Avanzada**: El comparador de integridad ahora ignora símbolos de formato Markdown (`==`, `*`, `_`) al contrastar el guion externo con la base de datos.
+- **Detección de Cambios**: Optimización de la lógica de discrepancias para evitar falsos positivos por espacios o mayúsculas.
+
+---
+
+## v1.15 — Auditoría: Analizador de Integridad por Fases (Nativo)
 
 ### Feat — Analizador de Integridad por Fases (Nativo)
 - **Motor de Auditoría**: Implementación final del sistema de validación de esquemas externos usando el componente de modal nativo de la App. Esto garantiza que la interfaz de auditoría sea consistente en macOS y Windows sin depender de librerías externas de UI.
