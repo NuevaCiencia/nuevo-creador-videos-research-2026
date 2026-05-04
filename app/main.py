@@ -3,6 +3,7 @@ import json
 import subprocess
 import platform
 from concurrent.futures import ThreadPoolExecutor
+import shutil
 from datetime import datetime
 from typing import Optional
 
@@ -32,6 +33,37 @@ os.makedirs(FONTS_DIR,  exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 app.mount("/fonts",  StaticFiles(directory=FONTS_DIR),  name="fonts")
+
+def backup_and_clear_assets(class_id: int):
+    """Backs up images/videos to a timestamped folder and clears the originals."""
+    base_path = os.path.join(ASSETS_DIR, str(class_id))
+    if not os.path.exists(base_path):
+        return
+    
+    # Check if there's anything to backup (excluding previous backups)
+    has_files = False
+    for folder in ["images", "videos"]:
+        folder_path = os.path.join(base_path, folder)
+        if os.path.exists(folder_path) and os.listdir(folder_path):
+            has_files = True
+            break
+            
+    if not has_files:
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_root = os.path.join(base_path, "backups")
+    backup_dir = os.path.join(backup_root, f"backup_{timestamp}")
+    os.makedirs(backup_dir, exist_ok=True)
+    
+    print(f"DEBUG: Structural change detected. Backing up assets for class {class_id} to {backup_dir}")
+    
+    for folder in ["images", "videos"]:
+        src = os.path.join(base_path, folder)
+        if os.path.exists(src) and os.listdir(src):
+            dst = os.path.join(backup_dir, folder)
+            shutil.move(src, dst)
+            os.makedirs(src, exist_ok=True) # Recreate empty folder
 
 
 def get_audio_duration(file_path: str) -> float:
@@ -1236,6 +1268,9 @@ def save_estructura(class_id: int, payload: dict, db: Session = Depends(get_db))
     if not tags:
         raise HTTPException(400, "Se necesita al menos un tag")
 
+    # Structural change detected: perform backup before deleting segments
+    backup_and_clear_assets(class_id)
+
     # Delete existing segments
     db.query(models.ScreenSegment).filter(
         models.ScreenSegment.class_id == class_id
@@ -1292,6 +1327,7 @@ def update_segment_type(segment_id: int, payload: dict, db: Session = Depends(ge
 
     if "screen_type" in payload:
         seg.screen_type = payload["screen_type"]
+        
     if "params" in payload:
         seg.params = payload["params"]
 
@@ -2157,7 +2193,6 @@ async def upload_asset_split(
         models.ClassGuionConsolidado.class_id == class_id
     ).first()
     if guion and guion.recursos_json:
-        import json
         try:
             data = json.loads(guion.recursos_json)
             for r in data.get("recursos", []):
@@ -2204,6 +2239,13 @@ async def upload_asset_split(
         f.write(right_bytes_final)
         
     return {"ok": True, "saved": [left_ubicacion, right_ubicacion]}
+
+@app.post("/api/classes/{class_id}/assets/backup-reset")
+def manual_backup_reset(class_id: int):
+    """Manually trigger asset backup and folder cleanup."""
+    backup_and_clear_assets(class_id)
+    return {"ok": True}
+
 
 
 

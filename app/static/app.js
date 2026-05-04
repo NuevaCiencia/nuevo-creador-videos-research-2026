@@ -1894,6 +1894,9 @@ function _buildVizUI(area) {
         <button class="btn btn-xs btn-outline" style="margin-left:12px; border-color:var(--border1); color:var(--tx2)" onclick="document.getElementById('extSchInp').click()">
           📁 Cargar Esquema Externo
         </button>
+        <button class="btn btn-xs btn-error btn-outline" style="margin-left:12px" onclick="window.confirmBackupReset()">
+          📦 Backup y Reiniciar Assets
+        </button>
         <input type="file" id="extSchInp" style="display:none" onchange="window.handleExternalSchemeFile(this)">
       </div>
       <div style="font-size:11px;color:var(--tx3)">Cambiar tipo invalida Alineación y Visuales</div>
@@ -1903,6 +1906,30 @@ function _buildVizUI(area) {
 
   segments.forEach((_, i) => vizRenderPreview(i));
 }
+
+window.confirmBackupReset = async function() {
+  const { isConfirmed } = await Swal.fire({
+    title: '¿Hacer Backup y Reiniciar Assets?',
+    text: "Se moverán todas las imágenes y videos actuales a una carpeta de backup y se vaciarán las carpetas activas. Esto es ideal tras un cambio de estructura.",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Sí, Backup y Limpiar',
+    cancelButtonText: 'Cancelar'
+  });
+
+  if (isConfirmed) {
+    try {
+      const classId = S.activeClass?.id;
+      await api('POST', `/api/classes/${classId}/assets/backup-reset`);
+      toast("✅ Backup realizado y carpetas limpias.");
+      // If we are in visuals tab, refresh
+      if (S.activeTab === 'visual') renderVisualizadorVisuales();
+    } catch (err) {
+      Swal.fire("Error", err.message, "error");
+    }
+  }
+};
 
 window.handleExternalSchemeFile = async function(input) {
   try {
@@ -1933,7 +1960,7 @@ async function showPhasedIntegrityModal(ext) {
   openModal({
     wide: true,
     html: `
-      <div class="modal-title">🔍 Analizador de Integridad</div>
+      <div class="modal-title">🔍 Auditoría de Integridad Completa</div>
       <div class="modal-body">
         <div id="phased-report-body" style="text-align:left; font-size:13px; padding:15px; background:var(--bg2); border-radius:8px; border:1px solid var(--border1); color:var(--tx1)">
           <div id="p-step-1">⏳ Cargando datos de la App...</div>
@@ -1942,7 +1969,7 @@ async function showPhasedIntegrityModal(ext) {
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-primary" id="p-close-btn" style="display:none" onclick="closeModal()">Cerrar</button>
+        <button class="btn btn-primary" id="p-close-btn" style="display:none" onclick="closeModal()">Cerrar Auditoría</button>
       </div>
     `
   });
@@ -1960,41 +1987,36 @@ async function showPhasedIntegrityModal(ext) {
       const classId = S.activeClass?.id;
       if (!classId) throw new Error("No hay clase activa.");
       
-      // Corrected endpoint from /screens to /segments
       const curr = await api('GET', `/api/classes/${classId}/segments`);
       
-      step1.innerHTML = `✅ Datos de la App cargados.`;
+      step1.innerHTML = `✅ Datos de la App cargados correctamente.`;
       step2.style.display = 'block';
-      step2.innerHTML = `<div style="font-weight:bold; margin-bottom:5px">📊 Conteo de Pantallas:</div>
-                         • Archivo Externo: ${ext.length}<br>
-                         • App Actual: ${curr.length}`;
+      
+      const results = compareSchemes(ext, curr);
+      const errorsCount = results.filter(r => r.status !== 'ok').length;
 
-      if (ext.length !== curr.length) {
-        step2.innerHTML += `<br><span style="color:#ef4444; font-weight:bold">⚠️ ¡Discrepancia en la cantidad!</span>`;
-      }
+      step2.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border1)">
+                           <div><strong>Resumen:</strong> Archivo (${ext.length}) vs App (${curr.length})</div>
+                           <div style="font-weight:bold; color:${errorsCount > 0 ? '#ef4444' : '#22c55e'}">
+                             ${errorsCount > 0 ? `⚠️ ${errorsCount} discrepancias` : '✨ Integridad Total'}
+                           </div>
+                         </div>`;
 
       step3.style.display = 'block';
-      step3.innerHTML = `<div style="margin-top:10px; border-top:1px solid var(--border1); padding-top:10px">⏳ Comparando contenidos...</div>`;
+      let listHtml = `<div style="max-height:300px; overflow-y:auto; font-family:monospace; font-size:11px">`;
       
-      const diffs = compareSchemes(ext, curr);
+      results.forEach(r => {
+        const icon = r.status === 'ok' ? '<span style="color:#22c55e">✅</span>' : '<span style="color:#ef4444">⚠️</span>';
+        const style = r.status === 'ok' ? 'opacity:0.8' : 'background:rgba(239, 68, 68, 0.1); font-weight:bold';
+        listHtml += `<div style="display:flex; padding:4px 8px; border-bottom:1px solid var(--border2); ${style}">
+                       <div style="width:30px">${icon}</div>
+                       <div style="width:80px">Pant. ${String(r.index).padStart(3, '0')}</div>
+                       <div style="flex:1">${r.msg}</div>
+                     </div>`;
+      });
       
-      if (diffs.length === 0 && ext.length === curr.length) {
-        step3.innerHTML = `<div style="color:#22c55e; font-weight:bold; margin-top:10px">✨ ¡Sincronización Perfecta! Todas las pantallas coinciden.</div>`;
-      } else {
-        let diffHtml = `<div style="margin-top:10px; border-top:1px solid var(--border1); padding-top:10px">`;
-        if (diffs.length === 0) {
-          diffHtml += `<div style="color:#f59e0b">Los contenidos coinciden, pero falta/sobra alguna pantalla al final.</div>`;
-        } else {
-          diffHtml += `<div style="font-weight:bold; color:#ef4444; margin-bottom:8px">Discrepancias encontradas:</div>
-                       <div style="max-height:250px; overflow-y:auto; padding-right:5px">`;
-          diffs.forEach(d => {
-            diffHtml += `<div style="margin-bottom:6px; font-size:12px; border-bottom:1px solid var(--border2); padding-bottom:4px">• ${d}</div>`;
-          });
-          diffHtml += `</div>`;
-        }
-        diffHtml += `</div>`;
-        step3.innerHTML = diffHtml;
-      }
+      listHtml += `</div>`;
+      step3.innerHTML = listHtml;
       
       if (closeBtn) closeBtn.style.display = 'inline-block';
 
@@ -2035,11 +2057,10 @@ function parseExternalMd(text) {
 }
 
 function compareSchemes(ext, curr) {
-  console.log("Iniciando comparación...", { ext_len: ext.length, curr_len: curr ? curr.length : 'null' });
-  const diffs = [];
+  console.log("Iniciando comparación total...", { ext_len: ext.length, curr_len: curr ? curr.length : 'null' });
+  const results = [];
   if (!Array.isArray(curr)) {
-    diffs.push("Error: No se pudieron obtener las pantallas de la App correctamente.");
-    return diffs;
+    return [{ status: 'error', msg: "No se pudieron obtener las pantallas de la App." }];
   }
   
   const max = Math.max(ext.length, curr.length);
@@ -2049,73 +2070,40 @@ function compareSchemes(ext, curr) {
     const c = curr[i];
     
     if (!e) {
-      diffs.push(`Pantalla ${i+1}: Sobra en la App (no está en el archivo).`);
+      results.push({ index: i + 1, status: 'error', msg: `Sobra en la App (no está en archivo)` });
       continue;
     }
     if (!c) {
-      diffs.push(`Pantalla ${i+1}: Falta en la App (está en el archivo).`);
+      results.push({ index: i + 1, status: 'error', msg: `Falta en la App (está en archivo)` });
       continue;
     }
     
     const errors = [];
-    if (e.type !== c.screen_type) errors.push(`Tipo: ${c.screen_type} -> ${e.type}`);
+    if (e.type !== c.screen_type) errors.push(`Tipo: ${c.screen_type}->${e.type}`);
     
     const normP = (p) => (p || '').replace(/\s+/g, ' ').trim();
-    if (normP(e.params) !== normP(c.params)) errors.push(`Params distintos`);
+    if (normP(e.params) !== normP(c.params)) errors.push(`Params`);
     
-    // Improved normalization for narration: remove '=', '*', and extra whitespace
     const normN = (n) => (n || '')
-      .replace(/[=\*_]/g, '') // Remove formatting chars: =, *, _
-      .replace(/\s+/g, ' ')   // Normalize whitespace
+      .replace(/[=\*_]/g, '')
+      .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
       
-    const extN = normN(e.narration);
-    const currN = normN(c.narration);
-    
-    if (extN !== currN) {
-       errors.push(`Texto distinto`);
+    if (normN(e.narration) !== normN(c.narration)) {
+       errors.push(`Texto`);
     }
     
     if (errors.length > 0) {
-      diffs.push(`Pantalla ${i+1}: ${errors.join(' | ')}`);
-    }
-  }
-  return diffs;
-}
-
-function showComparisonReport(diffs, extCount, currCount) {
-  console.log("Mostrando reporte...", { diffs_count: diffs.length, extCount, currCount });
-  
-  if (diffs.length === 0 && extCount === currCount && extCount > 0) {
-    Swal.fire({
-      icon: 'success',
-      title: '¡Sincronización Perfecta!',
-      text: `Las ${extCount} pantallas coinciden exactamente.`,
-      confirmButtonColor: 'var(--p1)'
-    });
-  } else {
-    let html = `<div style="text-align:left; font-size:12px; max-height:300px; overflow-y:auto; padding:10px; background:#fff; color:#333; border:1px solid #ccc">`;
-    html += `<div style="font-weight:bold; margin-bottom:10px">Resumen: Archivo (${extCount}) vs App (${currCount})</div>`;
-    
-    if (diffs.length === 0) {
-      html += `<div style="color:blue">Los contenidos coinciden, pero la cantidad de pantallas es distinta.</div>`;
+      results.push({ index: i + 1, status: 'warning', msg: errors.join(' | ') });
     } else {
-      diffs.forEach(d => {
-        html += `<div style="margin-bottom:4px; border-bottom:1px solid #eee; padding-bottom:2px; color:#c00">● ${d}</div>`;
-      });
+      results.push({ index: i + 1, status: 'ok', msg: 'OK' });
     }
-    html += `</div>`;
-
-    Swal.fire({
-      title: 'Resultado de Integridad',
-      html: html,
-      icon: diffs.length === 0 ? 'info' : 'warning',
-      width: '550px',
-      confirmButtonText: 'Entendido'
-    });
   }
+  return results;
 }
+
+
 
 function _vizParamsForm(seg, i) {
   const parts = (seg.params||'').split('//').map(p => p.trim());
