@@ -1268,54 +1268,59 @@ def save_estructura(class_id: int, payload: dict, db: Session = Depends(get_db))
     if not tags:
         raise HTTPException(400, "Se necesita al menos un tag")
 
-    # Structural change detected: perform backup before deleting segments
-    backup_and_clear_assets(class_id)
+    try:
+        # Structural change detected: perform backup before deleting segments
+        backup_and_clear_assets(class_id)
 
-    # Delete existing segments
-    db.query(models.ScreenSegment).filter(
-        models.ScreenSegment.class_id == class_id
-    ).delete()
+        # Delete existing segments
+        db.query(models.ScreenSegment).filter(
+            models.ScreenSegment.class_id == class_id
+        ).delete()
 
-    # Create new segments — each segment gets paragraphs from its para_idx to next tag
-    for order, tag in enumerate(tags):
-        start = tag["para_idx"]
-        end   = tags[order + 1]["para_idx"] if order + 1 < len(tags) else len(paragraphs)
-        narration = "\n\n".join(
-            p["text"] for p in paragraphs[start:end] if p["text"].strip()
-        )
-        
-        st_val = tag["screen_type"]
-        remotion_tpl = None
-        if st_val.startswith("REMOTION__"):
-            parts = st_val.split("__")
-            st_val = parts[0]
-            if len(parts) > 1:
-                remotion_tpl = parts[1]
+        # Create new segments — each segment gets paragraphs from its para_idx to next tag
+        for order, tag in enumerate(tags):
+            start = tag["para_idx"]
+            end   = tags[order + 1]["para_idx"] if order + 1 < len(tags) else len(paragraphs)
+            narration = "\n\n".join(
+                p["text"] for p in paragraphs[start:end] if p["text"].strip()
+            )
+            
+            st_val = tag["screen_type"]
+            remotion_tpl = None
+            if st_val.startswith("REMOTION__"):
+                parts = st_val.split("__")
+                st_val = parts[0]
+                if len(parts) > 1:
+                    remotion_tpl = parts[1]
 
-        db.add(models.ScreenSegment(
-            class_id          = class_id,
-            order             = order,
-            screen_type       = st_val,
-            params            = tag.get("params", ""),
-            remotion_template = remotion_tpl,
-            narration         = narration,
-            notes             = "",
-        ))
+            db.add(models.ScreenSegment(
+                class_id          = class_id,
+                order             = order,
+                screen_type       = st_val,
+                params            = tag.get("params", ""),
+                remotion_template = remotion_tpl,
+                narration         = narration,
+                notes             = "",
+            ))
 
-    # Cascade invalidation
-    guion_base = db.query(models.ClassGuionBase).filter(models.ClassGuionBase.class_id == class_id).first()
-    if guion_base:
-        guion_base.status = "stale"
-    else:
-        guion_base = models.ClassGuionBase(class_id=class_id, status="stale", content="")
-        db.add(guion_base)
+        # Cascade invalidation
+        guion_base = db.query(models.ClassGuionBase).filter(models.ClassGuionBase.class_id == class_id).first()
+        if guion_base:
+            guion_base.status = "stale"
+        else:
+            guion_base = models.ClassGuionBase(class_id=class_id, status="stale", content="")
+            db.add(guion_base)
 
-    guion_consolidado = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
-    if guion_consolidado:
-        guion_consolidado.status = "stale"
+        guion_consolidado = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
+        if guion_consolidado:
+            guion_consolidado.status = "stale"
 
-    db.commit()
-    return {"saved": len(tags)}
+        db.commit()
+        return {"saved": len(tags)}
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR en save_estructura: {str(e)}")
+        raise HTTPException(500, detail=str(e))
 
 
 @app.put("/api/segments/{segment_id}/type")
