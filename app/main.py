@@ -1018,17 +1018,28 @@ async def start_visual(class_id: int, db: Session = Depends(get_db)):
     aligned_data = []
     prev_segments = json.loads(guion.segments_json) if guion.segments_json else []
     
-    curr_time = 0.0
+    last_fin = 0.0
     for i, s in enumerate(screen_segs):
         match = prev_segments[i] if i < len(prev_segments) else None
-        dur = match.get("duracion", 5.0) if match else 5.0
+        if match:
+            # Preserve absolute timestamps from aligner
+            inicio = match.get("inicio", last_fin)
+            fin = match.get("fin", inicio + 5.0)
+            dur = match.get("duracion", fin - inicio)
+        else:
+            inicio = last_fin
+            dur = 5.0
+            fin = inicio + dur
+
         aligned_data.append({
             "tipo": s.screen_type,
             "params": [p.strip() for p in s.params.split("//")] if s.params else [],
-            "inicio": curr_time, "duracion": dur, "fin": curr_time + dur,
+            "inicio": inicio, 
+            "duracion": dur, 
+            "fin": fin,
             "texto": s.narration
         })
-        curr_time += dur
+        last_fin = fin
     
     final_content = GuionFormatter().to_text(aligned_data)
     guion.content = final_content

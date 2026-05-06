@@ -293,7 +293,7 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
             if tipo == 'REMOTION':
                 params_str  = seg.get('PARAMS', '')
                 template    = params_str.split('//')[0].replace('$', '').strip() or 'TypeWriter'
-                dur_s       = float(seg.get('TIME', 0.0))
+                dur_s       = float(seg.get('TIME', 0.0)) + 2.0
                 m, s        = int(dur_s // 60), int(dur_s % 60)
                 rem_counter += 1
                 out_file    = f"REM{rem_counter:03d}.mp4"

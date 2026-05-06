@@ -152,7 +152,7 @@ def generate_dynamic_video(segment, cfg, out_path, subtitulos_path, tmp_dir):
     """
     W, H   = map(int, cfg["RESOLUTION"].split('x'))
     fps    = int(cfg.get("FPS", 30))
-    dur    = float(segment.get("TIME", "5"))
+    dur    = float(segment.get("TIME", "5")) + 2.0
     tipo   = segment.get("TYPE", "")
     params_str = segment.get("PARAMS", "")
     params = params_str.split('//') if params_str else []
