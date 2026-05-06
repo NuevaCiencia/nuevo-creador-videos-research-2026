@@ -159,6 +159,8 @@ class GuionFormatter:
                 prev           = corregidos[i - 1]
                 gap            = seg["inicio"] - prev["fin"]
                 nuevo_inicio   = prev["fin"]
+                # Restaurando la lógica exacta de 0_referencia: si hay gap negativo (solapamiento), 
+                # NO se reduce la duración. Solo se suma si el gap es positivo.
                 nueva_duracion = seg["duracion"] + gap if gap > 0.001 else seg["duracion"]
                 seg["inicio"]  = nuevo_inicio
                 seg["duracion"]= nueva_duracion

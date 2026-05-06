@@ -22,6 +22,11 @@ de trabajo coherente sobre la app web (`app/`).
 > [!IMPORTANT]
 > **Nota**: Falta probar lo fixeado en un render real para confirmar la sincronización exacta.
 
+## v1.18 — Core: Sincronización y Renderización (Pendiente Revisión Exhaustiva)
+- **Corrección de Descuadre**: Se ha restaurado el algoritmo original de compensación de gaps en `aligner_agent.py`. Esto soluciona el efecto acumulativo que desincronizaba el video del audio (drift) en metrajes largos.
+- **Sincronización de Listas**: Al corregir la línea de tiempo base, el algoritmo de detección de palabras clave en `dynamic_animator.py` vuelve a funcionar con precisión, permitiendo que las listas animadas se disparen en el momento exacto.
+- *Nota*: Aunque las pruebas preliminares son exitosas, queda pendiente una revisión exhaustiva del metraje renderizado para confirmar la estabilidad total.
+
 ---
 
 ## v1.17 — Seguridad: Backup Manual y Limpieza de Assets
