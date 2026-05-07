@@ -1947,6 +1947,97 @@ def delete_meta_prompt_version(version_id: int, db: Session = Depends(get_db)):
         db.commit()
 
 
+# ── Visual Prompts (Master Orchestration) ──────────────────────────────────────
+
+def _load_visual_prompt(override: str = None, db: Session = None) -> str:
+    """Return override if given, else active row from DB."""
+    if override:
+        return override.strip()
+    if db is None:
+        from database import SessionLocal
+        db = SessionLocal()
+        close = True
+    else:
+        close = False
+    try:
+        row = db.query(models.VisualPrompt).filter(models.VisualPrompt.is_active == True).first()
+        return row.text.strip() if row else None
+    finally:
+        if close:
+            db.close()
+
+
+def _vp_full_response(db: Session) -> dict:
+    rows = db.query(models.VisualPrompt).order_by(models.VisualPrompt.created_at.desc()).all()
+    orig = next((r for r in rows if r.is_original), None)
+    versions = [
+        {"id": r.id, "note": r.note, "text": r.text,
+         "timestamp": r.created_at.isoformat(), "active": r.is_active}
+        for r in rows if not r.is_original
+    ]
+    active_row = next((r for r in rows if r.is_active), None)
+    return {
+        "active_text":     active_row.text if active_row else "",
+        "original_active": orig.is_active if orig else False,
+        "original_text":   orig.text if orig else "",
+        "versions":        versions,
+    }
+
+
+@app.get("/api/visual-prompts/master")
+def get_visual_prompt(db: Session = Depends(get_db)):
+    r = _vp_full_response(db)
+    if not r["active_text"]:
+        raise HTTPException(500, "No hay prompt visual activo en la DB")
+    return r
+
+
+@app.post("/api/visual-prompts/master/version")
+async def add_visual_prompt_version(payload: dict, db: Session = Depends(get_db)):
+    text = payload.get("text", "").strip()
+    note = payload.get("note", "").strip()
+    if not text:
+        raise HTTPException(400, "text requerido")
+    db.add(models.VisualPrompt(text=text, note=note, is_active=False, is_original=False))
+    db.commit()
+    return _vp_full_response(db)
+
+
+@app.post("/api/visual-prompts/master/activate")
+async def activate_visual_prompt_version(payload: dict, db: Session = Depends(get_db)):
+    version_id = payload.get("id")   # int or None/"original"
+    is_original = not version_id or version_id == "original"
+
+    target = None
+    if is_original:
+        target = db.query(models.VisualPrompt).filter(models.VisualPrompt.is_original == True).first()
+    else:
+        target = db.query(models.VisualPrompt).filter(models.VisualPrompt.id == int(version_id)).first()
+
+    if not target:
+        raise HTTPException(404, "Versión no encontrada")
+
+    db.query(models.VisualPrompt).update({models.VisualPrompt.is_active: False})
+    target.is_active = True
+    db.commit()
+    return _vp_full_response(db)
+
+
+@app.delete("/api/visual-prompts/master/version/{version_id}", status_code=204)
+def delete_visual_prompt_version(version_id: int, db: Session = Depends(get_db)):
+    row = db.query(models.VisualPrompt).filter(
+        models.VisualPrompt.id == version_id,
+        models.VisualPrompt.is_original == False,
+    ).first()
+    if row:
+        if row.is_active:
+            # activate original before deleting
+            orig = db.query(models.VisualPrompt).filter(models.VisualPrompt.is_original == True).first()
+            if orig:
+                orig.is_active = True
+        db.delete(row)
+        db.commit()
+
 @app.post("/api/classes/{class_id}/img-prompts/{asset_name}/fix")
 async def fix_img_prompt(class_id: int, asset_name: str, payload: dict,
                           db: Session = Depends(get_db)):

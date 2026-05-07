@@ -1382,6 +1382,7 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
       <div class="audio-card-head">
         <span class="audio-card-title">🧠 Arquitectura Visual</span>
         <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-xs btn-ghost" onclick="visOpenMasterPrompt()" title="Configurar prompt de orquestación visual">⚙️ PROMPT MAESTRO</button>
           <button class="btn btn-xs btn-primary" onclick="startVisualOrchestration()" title="Sincronizar pantallas y regenerar arquitectura visual">⚡ Cargar y Sincronizar Cambios</button>
           ${visualStale ? `<span class="audio-done-badge" style="background:#f59e0b22;color:#f59e0b;border-color:#f59e0b44">⚠️ Desactualizado</span>` : visualDone ? `<span class="audio-done-badge">✓ Completado</span>` : ''}
         </div>
@@ -4779,4 +4780,173 @@ async function crBatchSplitSelect(input) {
 
   AIModal.done(`✅ ${successes} imágenes divididas (${successes * 2} assets)`);
   _buildCrUI(document.getElementById('contentArea'));
+}
+
+// ── Visual Master Prompt modal ────────────────────────────────────────────────
+
+let _visVersions     = [];
+let _visOriginalText = '';
+let _visOriginalActive = true;
+let _visExpandedIdx  = null;
+let _visAddingNew    = false;
+
+async function visOpenMasterPrompt() {
+  try {
+    const r = await api('GET', '/api/visual-prompts/master');
+    _visVersions       = r.versions || [];
+    _visOriginalText   = r.original_text || '';
+    _visOriginalActive = r.original_active;
+    _visExpandedIdx    = null;
+    _visAddingNew      = false;
+    _visRenderMetaModal(r.active_text, 'activo');
+  } catch(e) { toast('No se pudo cargar el prompt maestro', false); }
+}
+
+function _visRenderMetaModal(activeText, tab = 'activo') {
+  const totalV = _visVersions.length;
+
+  // Reusing the same CSS classes as imp-mp-ta for continuity
+  const activoHtml = `<div class="imp-mp-ta-wrap"><textarea class="imp-mp-ta" id="visMpActiveTa" readonly spellcheck="false">${esc(activeText)}</textarea><button class="imp-mp-copy-btn" onclick="impCopyTA('visMpActiveTa',this)">📋</button></div>`;
+
+  const addFormHtml = _visAddingNew ? `
+    <div class="imp-mp-add-form">
+      <input id="visNewNote" type="text" class="imp-mp-note-input"
+        placeholder="Nombre de esta versión…" style="margin-bottom:8px">
+      <div class="imp-mp-ta-wrap"><textarea class="imp-mp-ta" id="visNewText" style="min-height:180px"
+        spellcheck="false">${esc(activeText)}</textarea><button class="imp-mp-copy-btn" onclick="impCopyTA('visNewText',this)">📋</button></div>
+      <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="visCancelNewVersion()">Cancelar</button>
+        <button class="btn btn-primary" style="font-size:12px" onclick="visConfirmNewVersion()">Agregar versión</button>
+      </div>
+    </div>` : `<button class="imp-mp-add-btn" onclick="visShowAddForm()">+ Nueva versión</button>`;
+
+  const verCards = _visVersions.map((v, i) => {
+    const isAct = !!v.active;
+    const isExp = _visExpandedIdx === i;
+    const dt    = new Date(v.timestamp);
+    const label = dt.toLocaleString('es', {dateStyle:'short', timeStyle:'short'});
+    return `<div class="imp-mp-ver2-card ${isAct ? 'imp-mp-ver2-active' : ''}">
+      <div class="imp-mp-ver2-head" onclick="visToggleHistCard(${i})">
+        <span class="imp-mp-hist-chevron">${isExp ? '▾' : '▸'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="imp-mp-ver2-name">${v.note ? esc(v.note) : '<em style="opacity:.4;font-style:normal">sin nombre</em>'}</span>
+            ${isAct ? `<span class="imp-mp-ver2-badge">● ACTIVO</span>` : ''}
+          </div>
+          <div class="imp-mp-hist-date">📅 ${esc(label)}</div>
+          ${!isExp ? `<div class="imp-mp-hist-preview">${esc((v.text||'').replace(/\n/g,' ').substring(0,100))}…</div>` : ''}
+        </div>
+        <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
+          ${!isAct ? `<button class="imp-mp-hist-btn imp-mp-hist-activate" onclick="visActivateVersion(${i})">✓ Activar</button>` : ''}
+          <button class="imp-mp-hist-btn imp-mp-hist-del" onclick="visDeleteVersion(${i})" title="Eliminar">🗑</button>
+        </div>
+      </div>
+      ${isExp ? `<pre class="imp-mp-hist-full">${esc(v.text)}</pre>` : ''}
+    </div>`;
+  }).join('');
+
+  const origIsAct = _visOriginalActive;
+  const origExp   = _visExpandedIdx === 'orig';
+  const origCard  = `
+    <div class="imp-mp-ver2-card ${origIsAct ? 'imp-mp-ver2-active' : 'imp-mp-ver2-orig'}">
+      <div class="imp-mp-ver2-head" onclick="visToggleOrigCard()">
+        <span class="imp-mp-hist-chevron">${origExp ? '▾' : '▸'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="imp-mp-ver2-name">Original</span>
+            ${origIsAct ? `<span class="imp-mp-ver2-badge">● ACTIVO</span>` : `<span class="imp-mp-ver2-orig-label">ORIGINAL</span>`}
+          </div>
+          ${!origExp ? `<div class="imp-mp-hist-preview">${esc((_visOriginalText||'').replace(/\n/g,' ').substring(0,100))}…</div>` : ''}
+        </div>
+        <div class="imp-mp-hist-actions" onclick="event.stopPropagation()">
+          ${!origIsAct ? `<button class="imp-mp-hist-btn imp-mp-hist-activate" onclick="visActivateOriginal()">✓ Activar</button>` : ''}
+        </div>
+      </div>
+      ${origExp ? `<pre class="imp-mp-hist-full">${esc(_visOriginalText)}</pre>` : ''}
+    </div>`;
+
+  const versionesHtml = addFormHtml + verCards + origCard;
+
+  openModal({ wide: true, noBackdropClose: true, html: `
+    <div class="modal-title">⚙️ Prompt Maestro (Orquestación Visual)</div>
+    <div class="imp-mp-tabs">
+      <button class="imp-mp-tab ${tab==='activo'?'active':''}" onclick="visSwitchMetaTab('activo')">🔵 Activo</button>
+      <button class="imp-mp-tab ${tab==='versiones'?'active':''}" onclick="visSwitchMetaTab('versiones')">📋 Versiones${totalV ? ` (${totalV})` : ''}</button>
+    </div>
+    <div class="modal-body imp-mp-body">
+      ${tab === 'activo' ? activoHtml : versionesHtml}
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cerrar</button></div>` });
+
+  window._visActiveText = activeText;
+}
+
+function visSwitchMetaTab(tab) {
+  _visRenderMetaModal(window._visActiveText || '', tab);
+}
+
+function visToggleHistCard(i) {
+  _visExpandedIdx = _visExpandedIdx === i ? null : i;
+  _visRenderMetaModal(window._visActiveText || '', 'versiones');
+}
+
+function visToggleOrigCard() {
+  _visExpandedIdx = _visExpandedIdx === 'orig' ? null : 'orig';
+  _visRenderMetaModal(window._visActiveText || '', 'versiones');
+}
+
+function visShowAddForm() {
+  _visAddingNew = true;
+  _visRenderMetaModal(window._visActiveText || '', 'versiones');
+}
+
+function visCancelNewVersion() {
+  _visAddingNew = false;
+  _visRenderMetaModal(window._visActiveText || '', 'versiones');
+}
+
+async function visConfirmNewVersion() {
+  const note = document.getElementById('visNewNote')?.value.trim() || '';
+  const text = document.getElementById('visNewText')?.value.trim() || '';
+  if (!text) { toast('Escribe el texto de la versión', false); return; }
+  try {
+    const r = await api('POST', '/api/visual-prompts/master/version', { note, text });
+    _visVersions = r.versions || []; _visOriginalActive = r.original_active;
+    _visAddingNew = false; _visExpandedIdx = null;
+    _visRenderMetaModal(r.active_text, 'versiones');
+    toast('Versión agregada ✓');
+  } catch(e) { toast(`Error: ${e.message}`, false); }
+}
+
+async function visActivateVersion(i) {
+  const v = _visVersions[i];
+  if (!v) return;
+  try {
+    const r = await api('POST', '/api/visual-prompts/master/activate', { id: v.id });
+    _visVersions = r.versions || []; _visOriginalActive = r.original_active;
+    _visRenderMetaModal(r.active_text, 'versiones');
+    toast(`"${v.note || 'versión'}" activado ✓`);
+  } catch(e) { toast(`Error: ${e.message}`, false); }
+}
+
+async function visActivateOriginal() {
+  try {
+    const r = await api('POST', '/api/visual-prompts/master/activate', { id: 'original' });
+    _visVersions = r.versions || []; _visOriginalActive = r.original_active;
+    _visRenderMetaModal(r.active_text, 'versiones');
+    toast('Original activado ✓');
+  } catch(e) { toast(`Error: ${e.message}`, false); }
+}
+
+async function visDeleteVersion(i) {
+  const v = _visVersions[i];
+  if (!v) return;
+  if (!confirm(`¿Eliminar versión "${v.note}"?`)) return;
+  try {
+    await api('DELETE', `/api/visual-prompts/master/version/${v.id}`);
+    const r = await api('GET', '/api/visual-prompts/master');
+    _visVersions = r.versions || []; _visOriginalActive = r.original_active;
+    _visRenderMetaModal(r.active_text, 'versiones');
+    toast('Versión eliminada');
+  } catch(e) { toast(`Error: ${e.message}`, false); }
 }

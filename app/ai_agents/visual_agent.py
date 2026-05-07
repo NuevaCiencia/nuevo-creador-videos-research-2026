@@ -15,52 +15,6 @@ VISUAL_TEMPERATURE  = 0.3
 REMOTION_MODEL      = "gpt-5.4-mini"
 REMOTION_TEMPERATURE = 0.1
 
-# ── System prompt: VisualAssistant ────────────────────────────────────────────
-VISUAL_SYSTEM_PROMPT = """\
-Eres un experto en diseño instruccional y dirección de arte visual para videos educativos.
-Recibirás una lista de segmentos con su respectivo 'speech' (texto hablado) y 'tipo' de pantalla.
-
-Tu tarea es tomar decisiones exclusivas de ARTE y devolver un JSON con la actualización de los segmentos.
-
-REGLAS ESTRICTAS DE ASIGNACIÓN:
-1. TEXT (El texto que aparecerá en pantalla):
-   - Para tipos SPLIT_LEFT, SPLIT_RIGHT, TEXT: Analiza el 'speech' para identificar si el segmento desarrolla una categoría, nivel, propiedad, arquitectura o concepto específico con nombre propio.
-     * Si SÍ lo tiene (ej: "Nivel 1", "Autonomía", "Arquitectura BDI"): El TEXT DEBE comenzar con ese nombre, seguido de dos puntos y una frase de apoyo corta. Ejemplo: "Nivel 1: Reacción inmediata", "Autonomía: Sin intervención humana".
-     * Si NO hay categoría específica (es un segmento de introducción o cierre general): Extrae la frase más gancho de 1 sola línea (5-8 palabras máx) según el speech.
-   - Para tipos VIDEO, FULL_IMAGE: DEBE SER EXACTAMENTE "".
-
-2. TEXT_STYLE (Los estilos tipográficos):
-   - Elige entre "TITLE", "HIGHLIGHT", "CODE".
-   - Para tipos VIDEO, FULL_IMAGE: DEBE SER EXACTAMENTE "".
-
-3. ASSET_FILENAME: Devuelve siempre "" — el sistema asigna los nombres de archivo automáticamente.
-
-4. ASSET_TIPO:
-   - "imagen_split" para (S), "imagen_completa" para (F), "video" para (V).
-   - "" para tipo TEXT.
-
-5. ASSET_TIPO_CONTENIDO:
-   - "conceptual", "stock", "manim", "captura" o "especifica".
-   - "" para tipo TEXT.
-
-6. ASSET_DESCRIPCION:
-   - REGLA CERO: Si es tipo TEXT, DEBE SER EXACTAMENTE "".
-   - SI ES IMAGEN (SPLIT_LEFT, SPLIT_RIGHT, FULL_IMAGE) -> APLICA LA ESTRUCTURA "SCIENTIFIC AMERICAN" (EN INGLÉS):
-     * El prompt resultante DEBE ESTAR COMPLETAMENTE EN INGLÉS.
-     * Capa 1 (Base/Estilo): Inicia SIEMPRE con: "A premium educational infographic, Scientific American style, horizontal 16:9, white background."
-     * Capa 2 (Estructura de la Composición): Describe la división espacial usando relaciones de ubicación claras ("left side", "top center", "evenly spaced"), SIN USAR números ni porcentajes.
-     * Capa 3 (Objetos y Texturas Fotorealistas): Detalla físicamente cada bloque. Usa metáforas claras con texturas palpables (lámparas, placas de cristal, cableado, sensores).
-     * Capa 4 (Color Funcional y Tipografía): Define paleta con HEX (ej. "electric blue #1E88E5"). Textos precisos, elegantes y no agolpados.
-     * Capa 5 (Conexiones Orgánicas): Describe cómo fluye la información con flechas y conectores orgánicos.
-     * OBLIGATORIO: Finaliza SIEMPRE con: "Ultra-detailed, studio lighting, 8K resolution, didactic and visually authoritative."
-   - SI ES VIDEO -> APLICA DIRECCIÓN DE CINE EN UN PÁRRAFO:
-     * NO uses las 5 Capas. NO incluyas textos estáticos. NO uses Fondo Blanco.
-     * Si "manim": Describe la animación fluida de conceptos matemáticos transformándose.
-     * Si "stock": Describe exactamente qué video de archivo real de 30s se debe descargar.
-
-IMPORTANTE: El JSON debe contener un arreglo llamado "actualizaciones" respondiendo uno a uno a los IDs enviados.
-LAS LLAVES DEL JSON DEBEN SER EN MINÚSCULAS: "text", "text_style", "asset_filename", "asset_tipo", "asset_tipo_contenido", "asset_descripcion"."""
-
 # ── System prompt base: RemotionAssistant ─────────────────────────────────────
 REMOTION_SYSTEM_BASE = """\
 Eres un experto en motion graphics y diseño instruccional que genera configuraciones JSON para videos dinámicos (Remotion).
@@ -146,6 +100,20 @@ def _load_remotion_templates() -> str:
         db.close()
 
 
+def _load_visual_prompt() -> str:
+    from database import SessionLocal
+    import models
+    db = SessionLocal()
+    try:
+        row = db.query(models.VisualPrompt).filter(models.VisualPrompt.is_active == True).first()
+        return row.text.strip() if row else ""
+    except Exception as e:
+        print(f"[visual_agent] Error loading visual prompt: {e}")
+        return ""
+    finally:
+        db.close()
+
+
 # ── Parsing ───────────────────────────────────────────────────────────────────
 
 def _parse_guion_base(content: str) -> list:
@@ -164,14 +132,14 @@ def _parse_guion_base(content: str) -> list:
 
 # ── VisualAssistant ───────────────────────────────────────────────────────────
 
-def _enriquecer_visuales(client, payload: list) -> list:
+def _enriquecer_visuales(client, payload: list, system_prompt: str) -> list:
     if not payload:
         return []
     resp = client.chat.completions.create(
         model=VISUAL_MODEL,
         response_format={'type': 'json_object'},
         messages=[
-            {'role': 'system', 'content': VISUAL_SYSTEM_PROMPT},
+            {'role': 'system', 'content': system_prompt},
             {'role': 'user',   'content': json.dumps(payload, ensure_ascii=False)},
         ],
         temperature=VISUAL_TEMPERATURE,
@@ -262,6 +230,11 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
 
         client = OpenAI(api_key=api_key)
 
+        visual_system_prompt = _load_visual_prompt()
+        if not visual_system_prompt:
+            phase('error', 0, '❌ Prompt maestro no encontrado', error='No hay prompt visual activo en la base de datos')
+            return
+
         phase('running', 5, '📖 Parseando guion base…')
         segments = _parse_guion_base(guion_base_content)
         if not segments:
@@ -313,7 +286,7 @@ def run_visual_orchestration(class_id: int, guion_base_content: str,
         mapa_visual = {}
         if payload_visual:
             phase('running', 15, '🧠 Diseñando arquitectura visual con IA…')
-            actualizaciones = _enriquecer_visuales(client, payload_visual)
+            actualizaciones = _enriquecer_visuales(client, payload_visual, visual_system_prompt)
             if len(actualizaciones) != len(payload_visual):
                 print(f"⚠️ IA devolvió {len(actualizaciones)} pero se enviaron {len(payload_visual)}")
             for p, sub in zip(payload_visual, actualizaciones):

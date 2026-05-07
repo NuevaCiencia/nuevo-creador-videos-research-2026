@@ -5,6 +5,13 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.19 — Feature: Prompt Maestro Visual en Base de Datos
+
+### Feat — Control UI del Visual System Prompt
+- **Migración a BD**: El prompt de orquestación visual (`VISUAL_SYSTEM_PROMPT`), que antes estaba hardcodeado, ha sido migrado a un nuevo modelo en la base de datos (`VisualPrompt`).
+- **Versiones e Interfaz**: Se implementó una interfaz completa (modal) en la pestaña **Visuales** (botón "⚙️ PROMPT MAESTRO") que permite visualizar, crear nuevas versiones, copiarlas y alternar entre ellas, manteniendo el prompt original inmutable.
+- **Continuidad de Diseño**: El flujo de versiones reutiliza la estética y solidez del Meta-Prompt de imágenes, delegando ahora también la configuración creativa general (estilo, idioma, capas mágicas) a la gestión dinámica sin modificar el código fuente.
+
 ## v1.18 — Fix: Renderizado Windows y Sincronización Split/Audio · `(pending)`
 
 ### Fix — Renderizado FFmpeg en Windows

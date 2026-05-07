@@ -306,6 +306,21 @@ class MetaPrompt(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
 
 
+# ── GLOBAL: Visual Prompts (for VisualOrchestrator base logic) ────────────────
+# Stores all versions of the system prompt used by the Visual Orchestrator.
+# Operates identically to MetaPrompt.
+
+class VisualPrompt(Base):
+    __tablename__ = "visual_prompts"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    text        = Column(Text, nullable=False)
+    note        = Column(String(255), default="")
+    is_active   = Column(Boolean, default=False)
+    is_original = Column(Boolean, default=False)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
 # ── Per-class: Image Prompts ───────────────────────────────────────────────────
 # Stores user-edited or AI-fixed prompts for each image asset (S***.png, F***.png).
 # One row per (class_id, asset_name). Overrides the auto-generated ASSET_DESCRIPCION
