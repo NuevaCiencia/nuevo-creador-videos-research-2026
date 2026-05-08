@@ -2571,70 +2571,80 @@ async function estImportBase(input) {
     }
   }
 
-  // Now match against actual paragraphs (exact text match)
+  // Match by text lookup: build a map of text → db para_idx (ignores count)
   const actualParas = _estData.paragraphs;
+  const textToDbIdx = {};
+  actualParas.forEach((p, i) => {
+    const key = p.text.trim();
+    if (!(key in textToDbIdx)) textToDbIdx[key] = i; // first occurrence wins
+  });
 
-  if (parsed.length !== actualParas.length) {
-    return toast(
-      `❌ Número de párrafos no coincide: el archivo tiene ${parsed.length}, la clase tiene ${actualParas.length}.`,
-      false
-    );
-  }
+  // For each parsed item check if its text exists in the DB
+  const unmatched  = []; // paragraphs the DB doesn't recognize
+  const newTags    = [];
 
-  const mismatches = [];
-  parsed.forEach((item, i) => {
-    const actual = actualParas[i].text.trim();
-    if (item.text !== actual) {
-      mismatches.push({ idx: i + 1, fromFile: item.text, fromDb: actual });
+  parsed.forEach((item, fileIdx) => {
+    const dbIdx = textToDbIdx[item.text];
+    if (dbIdx === undefined) {
+      unmatched.push({ fileIdx: fileIdx + 1, text: item.text, hasTag: !!item.tag_name });
+    } else if (item.tag_name) {
+      newTags.push({ para_idx: dbIdx, screen_type: item.tag_name, params: {} });
     }
   });
 
-  if (mismatches.length > 0) {
-    const rows = mismatches.slice(0, 5).map(m => {
-      const snipFile = m.fromFile.length > 120 ? m.fromFile.slice(0, 120) + '…' : m.fromFile;
-      const snipDb   = m.fromDb.length   > 120 ? m.fromDb.slice(0, 120)   + '…' : m.fromDb;
+  if (unmatched.length > 0) {
+    const criticals = unmatched.filter(u => u.hasTag);
+    const warnings  = unmatched.filter(u => !u.hasTag);
+
+    const makeRow = (u, isCrit) => {
+      const snip = u.text.length > 140 ? u.text.slice(0, 140) + '…' : u.text;
+      const borderColor = isCrit ? 'var(--err)' : 'var(--border2)';
+      const badge = isCrit
+        ? `<span style="font-size:9px;font-weight:700;background:var(--err);color:#fff;border-radius:4px;padding:1px 5px;margin-left:6px">⚠ TIENE ETIQUETA</span>`
+        : `<span style="font-size:9px;font-weight:600;color:var(--tx3);margin-left:6px">sin etiqueta</span>`;
       return `
-      <div style="margin-bottom:14px;padding:10px;background:var(--bg2);border-radius:8px;border:1px solid var(--border2)">
-        <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:6px">
-          Párrafo #${m.idx}
+      <div style="margin-bottom:10px;padding:10px;background:var(--bg2);border-radius:8px;border:1px solid ${borderColor}">
+        <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:5px">
+          Párrafo del archivo #${u.fileIdx}${badge}
         </div>
-        <div style="margin-bottom:6px">
-          <span style="font-size:10px;color:var(--err);font-weight:700">📄 En el archivo:</span>
-          <div style="font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.5;font-family:monospace;word-break:break-all">${esc(snipFile)}</div>
-        </div>
-        <div>
-          <span style="font-size:10px;color:var(--acc);font-weight:700">🗄 En la base de datos:</span>
-          <div style="font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.5;font-family:monospace;word-break:break-all">${esc(snipDb)}</div>
-        </div>
+        <div style="font-size:11px;color:var(--tx2);line-height:1.5;font-family:monospace;word-break:break-all">${esc(snip)}</div>
       </div>`;
-    }).join('');
-    const extra = mismatches.length > 5
-      ? `<div style="font-size:11px;color:var(--tx3);text-align:center;margin-top:8px">… y ${mismatches.length - 5} párrafo${mismatches.length - 5 > 1 ? 's' : ''} más con diferencias.</div>`
+    };
+
+    const rowsHtml = [
+      ...criticals.slice(0, 4).map(u => makeRow(u, true)),
+      ...warnings.slice(0, 3).map(u => makeRow(u, false)),
+    ].join('');
+
+    const extraCount = unmatched.length - (Math.min(criticals.length, 4) + Math.min(warnings.length, 3));
+    const extraHtml  = extraCount > 0
+      ? `<div style="font-size:11px;color:var(--tx3);text-align:center;margin-top:8px">… y ${extraCount} párrafo${extraCount > 1 ? 's' : ''} más sin reconocer.</div>`
       : '';
+
+    const subtitle = criticals.length > 0
+      ? `<strong style="color:var(--err)">${criticals.length} párrafo${criticals.length > 1 ? 's' : ''} con etiqueta no reconocido${criticals.length > 1 ? 's' : ''}</strong> — la importación no puede continuar hasta resolverlo.`
+      : `${warnings.length} párrafo${warnings.length > 1 ? 's' : ''} sin etiqueta no reconocido${warnings.length > 1 ? 's' : ''} (no afectan las etiquetas). Puedes continuar si lo deseas.`;
+
+    const confirmBtnHtml = criticals.length === 0 && newTags.length > 0
+      ? `<button class="btn btn-primary" onclick="closeModal();_doApplyImport(${JSON.stringify(newTags).replace(/"/g,'&quot;')})">Importar igualmente (${newTags.length} etiquetas válidas)</button>`
+      : '';
+
     return openModal({
       wide: true,
       html: `
-      <div class="modal-title" style="color:var(--err)">❌ No se puede importar — ${mismatches.length} diferencia${mismatches.length > 1 ? 's' : ''} encontrada${mismatches.length > 1 ? 's' : ''}</div>
+      <div class="modal-title" style="color:var(--err)">❌ ${unmatched.length} párrafo${unmatched.length > 1 ? 's' : ''} no reconocido${unmatched.length > 1 ? 's' : ''}</div>
       <p style="font-size:12px;color:var(--tx3);margin:0 0 14px;line-height:1.6">
-        El texto del archivo <strong>no coincide exactamente</strong> con el texto almacenado en la base de datos.<br>
-        <strong>No modifiques el texto de los párrafos</strong>, solo las etiquetas <code>&lt;TAG&gt;</code>.
+        ${subtitle}<br><br>
+        El sistema busca cada párrafo del archivo <strong>exactamente</strong> en la base de datos.<br>
+        Si el texto fue modificado, el párrafo no podrá ubicarse.
       </p>
-      <div style="max-height:55vh;overflow-y:auto;padding-right:4px">
-        ${rows}${extra}
-      </div>
+      <div style="max-height:50vh;overflow-y:auto;padding-right:4px">${rowsHtml}${extraHtml}</div>
       <div class="modal-foot" style="margin-top:14px">
-        <button class="btn btn-ghost" onclick="closeModal()">Entendido</button>
+        ${confirmBtnHtml}
+        <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
       </div>`
     });
   }
-
-  // All texts match — build new tags array
-  const newTags = [];
-  parsed.forEach((item, i) => {
-    if (item.tag_name) {
-      newTags.push({ para_idx: i, screen_type: item.tag_name, params: {} });
-    }
-  });
 
   if (newTags.length === 0) {
     return toast('❌ No se encontraron etiquetas válidas en el archivo.', false);
@@ -2645,18 +2655,20 @@ async function estImportBase(input) {
     title: '⬆ Importar estructura',
     msg: `Se detectaron <strong>${newTags.length}</strong> etiqueta${newTags.length !== 1 ? 's' : ''} válida${newTags.length !== 1 ? 's' : ''} con texto 100% verificado.<br><br>Esto reemplazará la estructura actual. ¿Deseas continuar?`,
     confirmLabel: '✅ Aplicar y guardar',
-    onConfirm: async () => {
-      _estTags = newTags;
-      _estUnlocked = true; // allow save even if locked
-      _estDirty  = true;
-      try {
-        await saveEstructura();
-        toast(`✅ Estructura importada: ${newTags.length} pantalla${newTags.length !== 1 ? 's' : ''} cargadas.`);
-      } catch(e) {
-        toast('❌ Error al guardar: ' + e.message, false);
-      }
-    }
+    onConfirm: () => _doApplyImport(newTags),
   });
+}
+
+async function _doApplyImport(newTags) {
+  _estTags      = newTags;
+  _estUnlocked  = true; // allow save even if locked
+  _estDirty     = true;
+  try {
+    await saveEstructura();
+    toast(`✅ Estructura importada: ${newTags.length} pantalla${newTags.length !== 1 ? 's' : ''} cargadas.`);
+  } catch(e) {
+    toast('❌ Error al guardar: ' + e.message, false);
+  }
 }
 
 /* ─── SHOW TAGS REFERENCE MODAL ────────────────────────────── */
