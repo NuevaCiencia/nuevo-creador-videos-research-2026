@@ -5,6 +5,20 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.21 — Refactor: Separación de Motor y Datos + Exportación ZIP
+
+### Arch — Desacoplamiento del Sistema
+- **Estructura data/**: Se ha separado el motor de la aplicación (`app/`) de sus insumos y resultados. Ahora todo el estado (DB, assets, fuentes, renders y exports) reside en una carpeta `data/` en la raíz del proyecto.
+- **Portabilidad**: Esta arquitectura permite backups instantáneos (copiar la carpeta `data/`) y mantiene el motor libre de archivos pesados autogenerados.
+- **Git Hygiene**: Actualizado `.gitignore` para ignorar contenidos pesados en `data/` pero permitiendo el rastreo de carpetas clave como `fonts/` y `exports/` para consistencia del repositorio.
+
+### Feat — Backups y Exportación ZIP
+- **Formato ZIP**: La exportación e importación de clases ahora utiliza archivos comprimidos `.zip` en lugar de JSON puro. Esto mejora la portabilidad y prepara el sistema para incluir assets binarios en el futuro.
+- **Auto-Backup Local**: Cada vez que se exporta una clase, el sistema guarda automáticamente una copia de seguridad en `data/exports/` con el formato `{Proyecto}_{Clase}_{Fecha}.zip`.
+- **Importación Dual**: El sistema de importación ahora acepta tanto archivos `.zip` como `.json` (legacy).
+
+---
+
 ## v1.20 — Feature: Exportar e Importar Guion Completo
 
 ### Feat — Portabilidad de Clases
