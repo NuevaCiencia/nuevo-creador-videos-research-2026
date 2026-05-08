@@ -2571,80 +2571,79 @@ async function estImportBase(input) {
     }
   }
 
-  // Match by text lookup: build a map of text → db para_idx (ignores count)
-  const actualParas = _estData.paragraphs;
-  const textToDbIdx = {};
-  actualParas.forEach((p, i) => {
-    const key = p.text.trim();
-    if (!(key in textToDbIdx)) textToDbIdx[key] = i; // first occurrence wins
-  });
+  // ── FULL-TEXT VALIDATION ──────────────────────────────────────────────────
+  // Ignore paragraph boundaries completely. Compare the total text content.
+  const norm = s => s.replace(/\s+/g, ' ').trim();
 
-  // For each parsed item check if its text exists in the DB
-  const unmatched  = []; // paragraphs the DB doesn't recognize
-  const newTags    = [];
+  const actualParas  = _estData.paragraphs;
+  const dbFullText   = norm(actualParas.map(p => p.text.trim()).join(' '));
+  const fileFullText = norm(parsed.map(p => p.text).join(' '));
 
-  parsed.forEach((item, fileIdx) => {
-    const dbIdx = textToDbIdx[item.text];
-    if (dbIdx === undefined) {
-      unmatched.push({ fileIdx: fileIdx + 1, text: item.text, hasTag: !!item.tag_name });
-    } else if (item.tag_name) {
-      newTags.push({ para_idx: dbIdx, screen_type: item.tag_name, params: {} });
-    }
-  });
+  if (fileFullText !== dbFullText) {
+    // Find the first character position where they diverge
+    let diffAt = 0;
+    const minLen = Math.min(fileFullText.length, dbFullText.length);
+    while (diffAt < minLen && fileFullText[diffAt] === dbFullText[diffAt]) diffAt++;
 
-  if (unmatched.length > 0) {
-    const criticals = unmatched.filter(u => u.hasTag);
-    const warnings  = unmatched.filter(u => !u.hasTag);
-
-    const makeRow = (u, isCrit) => {
-      const snip = u.text.length > 140 ? u.text.slice(0, 140) + '…' : u.text;
-      const borderColor = isCrit ? 'var(--err)' : 'var(--border2)';
-      const badge = isCrit
-        ? `<span style="font-size:9px;font-weight:700;background:var(--err);color:#fff;border-radius:4px;padding:1px 5px;margin-left:6px">⚠ TIENE ETIQUETA</span>`
-        : `<span style="font-size:9px;font-weight:600;color:var(--tx3);margin-left:6px">sin etiqueta</span>`;
-      return `
-      <div style="margin-bottom:10px;padding:10px;background:var(--bg2);border-radius:8px;border:1px solid ${borderColor}">
-        <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:5px">
-          Párrafo del archivo #${u.fileIdx}${badge}
-        </div>
-        <div style="font-size:11px;color:var(--tx2);line-height:1.5;font-family:monospace;word-break:break-all">${esc(snip)}</div>
-      </div>`;
-    };
-
-    const rowsHtml = [
-      ...criticals.slice(0, 4).map(u => makeRow(u, true)),
-      ...warnings.slice(0, 3).map(u => makeRow(u, false)),
-    ].join('');
-
-    const extraCount = unmatched.length - (Math.min(criticals.length, 4) + Math.min(warnings.length, 3));
-    const extraHtml  = extraCount > 0
-      ? `<div style="font-size:11px;color:var(--tx3);text-align:center;margin-top:8px">… y ${extraCount} párrafo${extraCount > 1 ? 's' : ''} más sin reconocer.</div>`
-      : '';
-
-    const subtitle = criticals.length > 0
-      ? `<strong style="color:var(--err)">${criticals.length} párrafo${criticals.length > 1 ? 's' : ''} con etiqueta no reconocido${criticals.length > 1 ? 's' : ''}</strong> — la importación no puede continuar hasta resolverlo.`
-      : `${warnings.length} párrafo${warnings.length > 1 ? 's' : ''} sin etiqueta no reconocido${warnings.length > 1 ? 's' : ''} (no afectan las etiquetas). Puedes continuar si lo deseas.`;
-
-    const confirmBtnHtml = criticals.length === 0 && newTags.length > 0
-      ? `<button class="btn btn-primary" onclick="closeModal();_doApplyImport(${JSON.stringify(newTags).replace(/"/g,'&quot;')})">Importar igualmente (${newTags.length} etiquetas válidas)</button>`
-      : '';
+    const snippetFile = fileFullText.slice(Math.max(0, diffAt - 30), diffAt + 80);
+    const snippetDb   = dbFullText.slice(Math.max(0, diffAt - 30), diffAt + 80);
+    const charDiff    = fileFullText.length - dbFullText.length;
+    const diffMsg     = charDiff === 0
+      ? `El texto tiene la misma longitud pero difiere a partir del carácter ${diffAt}.`
+      : charDiff > 0
+        ? `El archivo tiene <strong>${charDiff} caracteres de más</strong> que la clase.`
+        : `El archivo tiene <strong>${Math.abs(charDiff)} caracteres de menos</strong> que la clase.`;
 
     return openModal({
       wide: true,
       html: `
-      <div class="modal-title" style="color:var(--err)">❌ ${unmatched.length} párrafo${unmatched.length > 1 ? 's' : ''} no reconocido${unmatched.length > 1 ? 's' : ''}</div>
+      <div class="modal-title" style="color:var(--err)">❌ El texto del archivo no coincide</div>
       <p style="font-size:12px;color:var(--tx3);margin:0 0 14px;line-height:1.6">
-        ${subtitle}<br><br>
-        El sistema busca cada párrafo del archivo <strong>exactamente</strong> en la base de datos.<br>
-        Si el texto fue modificado, el párrafo no podrá ubicarse.
+        ${diffMsg}<br>
+        Solo deben modificarse las <strong>etiquetas &lt;TAG&gt;</strong>, no el texto de la narración.
       </p>
-      <div style="max-height:50vh;overflow-y:auto;padding-right:4px">${rowsHtml}${extraHtml}</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--err);margin-bottom:4px">📄 En el archivo (desde carácter ${diffAt}):</div>
+        <div style="font-size:11px;color:var(--tx2);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px;font-family:monospace;word-break:break-all;line-height:1.6">…${esc(snippetFile)}…</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--acc);margin-bottom:4px">🗄 En la base de datos (desde carácter ${diffAt}):</div>
+        <div style="font-size:11px;color:var(--tx2);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px;font-family:monospace;word-break:break-all;line-height:1.6">…${esc(snippetDb)}…</div>
+      </div>
       <div class="modal-foot" style="margin-top:14px">
-        ${confirmBtnHtml}
-        <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Entendido</button>
       </div>`
     });
   }
+
+  // ── CHAR-OFFSET TAG MAPPING ──────────────────────────────────────────────
+  // Full texts match. Build a character-offset map for each DB paragraph so
+  // we know which para_idx corresponds to each position in the combined text.
+  const dbCharMap = []; // [{start, end, idx}]
+  let offset = 0;
+  actualParas.forEach((p, i) => {
+    const txt = norm(p.text.trim());
+    dbCharMap.push({ start: offset, end: offset + txt.length, idx: i });
+    offset += txt.length + 1; // +1 for the joining space
+  });
+
+  // Walk through file blocks in order, tracking character position
+  const newTags = [];
+  let fileOffset = 0;
+  parsed.forEach(item => {
+    const txt = norm(item.text);
+    if (item.tag_name) {
+      // Find the DB paragraph that owns the character at fileOffset
+      const dbPara = dbCharMap.find(m => fileOffset <= m.end);
+      if (dbPara) {
+        // Avoid duplicate tags on the same para_idx
+        if (!newTags.find(t => t.para_idx === dbPara.idx)) {
+          newTags.push({ para_idx: dbPara.idx, screen_type: item.tag_name, params: {} });
+        }
+      }
+    }
+    fileOffset += txt.length + 1;
+  });
 
   if (newTags.length === 0) {
     return toast('❌ No se encontraron etiquetas válidas en el archivo.', false);
@@ -2653,7 +2652,7 @@ async function estImportBase(input) {
   // Confirm and apply
   openConfirm({
     title: '⬆ Importar estructura',
-    msg: `Se detectaron <strong>${newTags.length}</strong> etiqueta${newTags.length !== 1 ? 's' : ''} válida${newTags.length !== 1 ? 's' : ''} con texto 100% verificado.<br><br>Esto reemplazará la estructura actual. ¿Deseas continuar?`,
+    msg: `Texto verificado al 100%. Se detectaron <strong>${newTags.length}</strong> etiqueta${newTags.length !== 1 ? 's' : ''} válida${newTags.length !== 1 ? 's' : ''}.<br><br>Esto reemplazará la estructura actual. ¿Deseas continuar?`,
     confirmLabel: '✅ Aplicar y guardar',
     onConfirm: () => _doApplyImport(newTags),
   });
@@ -2661,7 +2660,7 @@ async function estImportBase(input) {
 
 async function _doApplyImport(newTags) {
   _estTags      = newTags;
-  _estUnlocked  = true; // allow save even if locked
+  _estUnlocked  = true;
   _estDirty     = true;
   try {
     await saveEstructura();
