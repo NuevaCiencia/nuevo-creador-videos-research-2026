@@ -30,8 +30,10 @@ DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 ASSETS_DIR = os.path.join(DATA_DIR, "assets")
 FONTS_DIR  = os.path.join(DATA_DIR, "fonts")
+EXPORTS_DIR = os.path.join(DATA_DIR, "exports")
 os.makedirs(ASSETS_DIR, exist_ok=True)
 os.makedirs(FONTS_DIR,  exist_ok=True)
+os.makedirs(EXPORTS_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
@@ -1689,6 +1691,7 @@ def export_class_data(class_id: int, db: Session = Depends(get_db)):
     ]
 
     import json
+    import re
     export_payload = {
         "version": "1.0",
         "export_date": datetime.utcnow().isoformat(),
@@ -1702,9 +1705,22 @@ def export_class_data(class_id: int, db: Session = Depends(get_db)):
         "image_prompts": prompts_data
     }
 
+    # Clean titles for filename
+    safe_project = re.sub(r'[^a-zA-Z0-9_\-]', '_', cls.section.course.title) if cls.section and cls.section.course else f"project_{class_id}"
+    safe_class = re.sub(r'[^a-zA-Z0-9_\-]', '_', cls.title) if cls.title else f"class_{class_id}"
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    filename = f"{safe_project}_{safe_class}_{date_str}.json"
+    json_str = json.dumps(export_payload, ensure_ascii=False, indent=2)
+    
+    # Save as backup in data/exports/
+    export_path = os.path.join(EXPORTS_DIR, filename)
+    with open(export_path, "w", encoding="utf-8") as f:
+        f.write(json_str)
+
     from fastapi.responses import Response
-    response = Response(content=json.dumps(export_payload, ensure_ascii=False, indent=2), media_type="application/json")
-    response.headers["Content-Disposition"] = f"attachment; filename=class_{class_id}_export.json"
+    response = Response(content=json_str, media_type="application/json")
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
 
 

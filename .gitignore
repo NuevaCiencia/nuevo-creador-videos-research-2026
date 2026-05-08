@@ -79,6 +79,10 @@ data/database/*
 data/renders/*
 !data/renders/notas.md
 
+!data/exports/
+data/exports/*
+!data/exports/notas.md
+
 # La carpeta fonts se incluye completamente
 !data/fonts/
 .claude/
