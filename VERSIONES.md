@@ -16,6 +16,7 @@ de trabajo coherente sobre la app web (`app/`).
 - **Formato ZIP**: La exportación e importación de clases ahora utiliza archivos comprimidos `.zip` en lugar de JSON puro. Esto mejora la portabilidad y prepara el sistema para incluir assets binarios en el futuro.
 - **Auto-Backup Local**: Cada vez que se exporta una clase, el sistema guarda automáticamente una copia de seguridad en `data/exports/` con el formato `{Proyecto}_{Clase}_{Fecha}.zip`.
 - **Importación Dual**: El sistema de importación ahora acepta tanto archivos `.zip` como `.json` (legacy).
+- **Limpieza de Backups**: Añadido botón en Configuración para borrar masivamente todas las carpetas `backups/` temporales de todos los proyectos (requiere clave "1234").
 
 ---
 

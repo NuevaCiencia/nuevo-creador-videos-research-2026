@@ -2788,3 +2788,25 @@ def delete_font(filename: str):
     if not os.path.exists(dest):
         raise HTTPException(404, "Fuente no encontrada")
     os.remove(dest)
+
+
+# ── ADMIN ──────────────────────────────────────────────────────────────────────
+
+@app.delete("/api/admin/clear-backups")
+def clear_all_backups(password: str = Query(...)):
+    """Deletes all 'backups' folders inside data/assets/ across all classes."""
+    if password != "1234":
+        raise HTTPException(401, "Clave de administración incorrecta")
+    
+    deleted_count = 0
+    if os.path.exists(ASSETS_DIR):
+        for class_id_dir in os.listdir(ASSETS_DIR):
+            class_path = os.path.join(ASSETS_DIR, class_id_dir)
+            if os.path.isdir(class_path):
+                backup_path = os.path.join(class_path, "backups")
+                if os.path.exists(backup_path) and os.path.isdir(backup_path):
+                    import shutil
+                    shutil.rmtree(backup_path)
+                    deleted_count += 1
+    
+    return {"ok": True, "deleted_folders": deleted_count}

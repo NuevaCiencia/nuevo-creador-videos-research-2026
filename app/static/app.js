@@ -66,6 +66,26 @@ function applyTheme(t) {
   document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.t === t));
 }
 
+async function adminClearBackups() {
+  openConfirm({
+    title: '🗑 Borrar todos los backups temporales',
+    msg: 'Esto eliminará permanentemente todas las carpetas "backups" de todos los proyectos en el sistema (imágenes y videos antiguos). Esta acción no se puede deshacer.',
+    requirePin: true,
+    confirmLabel: 'Borrar todo',
+    onConfirm: async () => {
+      try {
+        const res = await api('DELETE', `/api/admin/clear-backups?password=1234`);
+        if (res.ok) {
+          toast(`✅ Éxito: Se eliminaron ${res.deleted_folders} carpetas de backup.`);
+          closeSettings();
+        }
+      } catch (e) {
+        toast(`❌ Error: ${e.message}`, false);
+      }
+    }
+  });
+}
+
 /* ─── MODAL ───────────────────────────────────────────── */
 let _modalNoBackdrop = false;
 function openModal(opts) {
