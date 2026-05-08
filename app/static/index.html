@@ -18,6 +18,13 @@
     </div>
     <div class="tb-breadcrumb" id="breadcrumb"></div>
     <div class="tb-right">
+      <button class="tb-btn" onclick="exportClass()" title="Exportar Guion Completo" id="exportBtn" style="display:none; font-size: 14px;">
+        ⬇️
+      </button>
+      <label class="tb-btn" title="Importar Guion Completo" id="importBtn" style="display:none; cursor:pointer; font-size: 14px;">
+        ⬆️
+        <input type="file" accept=".json" style="display:none" onchange="importClass(this)">
+      </label>
       <button class="tb-btn" onclick="openStats()" title="Estadísticas del proyecto" id="statsBtn">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       </button>

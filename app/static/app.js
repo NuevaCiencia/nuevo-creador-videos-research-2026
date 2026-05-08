@@ -310,6 +310,11 @@ function updateBreadcrumb() {
   if (S.activeCourse) parts.push(`<span class="bc-item">${esc(S.activeCourse.title)}</span>`);
   if (S.activeClass)  parts.push(`<span class="bc-sep">›</span><span class="bc-item active">${esc(S.activeClass.title)}</span>`);
   bc.innerHTML = parts.join('');
+  
+  const expBtn = document.getElementById('exportBtn');
+  const impBtn = document.getElementById('importBtn');
+  if (expBtn) expBtn.style.display = S.activeClass ? 'inline-flex' : 'none';
+  if (impBtn) impBtn.style.display = S.activeClass ? 'inline-flex' : 'none';
 }
 
 /* ─── STATUS BAR ──────────────────────────────────────── */
@@ -3733,6 +3738,45 @@ function deleteSection(id) {
 }
 
 /* ─── CLASSES ─────────────────────────────────────────── */
+async function exportClass() {
+  if (!S.activeClass) return;
+  const url = `/api/classes/${S.activeClass.id}/export`;
+  window.open(url, '_blank');
+}
+
+async function importClass(input) {
+  if (!S.activeClass || !input.files.length) return;
+  const file = input.files[0];
+  
+  if (!confirm(`¿Estás seguro de que quieres sobrescribir esta clase con los datos de "${file.name}"? Esta acción no se puede deshacer.`)) {
+    input.value = '';
+    return;
+  }
+  
+  AIModal.show('⬆️ Importando Guion', `Leyendo archivo...`);
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    
+    const res = await fetch(`/api/classes/${S.activeClass.id}/import`, { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Error al importar');
+    }
+    
+    AIModal.done('✅ Guion importado correctamente');
+    
+    // Refresh the class
+    await selectClass(S.activeClass.id);
+  } catch(e) {
+    console.error(e);
+    AIModal.done('❌ Error en la importación');
+    toast(e.message, false);
+  } finally {
+    input.value = '';
+  }
+}
+
 function createClass(sectionId) {
   openModal({
     title: 'Nueva Clase',

@@ -5,7 +5,14 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
-## v1.19 — Feature: Prompt Maestro Visual en Base de Datos
+## v1.20 — Feature: Exportar e Importar Guion Completo
+
+### Feat — Portabilidad de Clases
+- **Exportación JSON**: Implementados endpoints y botones UI (⬇️ y ⬆️ en el topbar) para descargar el estado completo de una clase en un archivo `.json`. Esto incluye: narrativa original, estado del audio/transcripción, configuración visual de pantallas, texto consolidado y prompts de imágenes.
+- **Importación Inteligente**: Sistema que permite cargar el archivo JSON en cualquier otra clase, sobreescribiendo toda la estructura para replicar el guion exacto sin tener que reprocesar todo el pipeline. 
+- **Limpieza**: Eliminadas las carpetas residuales (`app/images/` y `app/videos/`) de versiones anteriores. El sistema ahora opera de forma completamente limpia dentro de `app/assets/{class_id}/`.
+
+---
 
 ### Feat — Control UI del Visual System Prompt
 - **Migración a BD**: El prompt de orquestación visual (`VISUAL_SYSTEM_PROMPT`), que antes estaba hardcodeado, ha sido migrado a un nuevo modelo en la base de datos (`VisualPrompt`).

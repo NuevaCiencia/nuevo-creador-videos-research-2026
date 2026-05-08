@@ -1611,6 +1611,193 @@ def delete_class(class_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+@app.get("/api/classes/{class_id}/export")
+def export_class_data(class_id: int, db: Session = Depends(get_db)):
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    # Audio
+    audio = db.query(models.ClassAudio).filter(models.ClassAudio.class_id == class_id).first()
+    audio_data = None
+    if audio:
+        audio_data = {
+            "filename": audio.filename,
+            "duration": audio.duration,
+            "tx_status": audio.tx_status,
+            "tx_raw_text": audio.tx_raw_text,
+            "tx_srt": audio.tx_srt,
+            "tx_segments": audio.tx_segments,
+        }
+
+    # Spell Correction
+    spell = db.query(models.ClassSpellCorrection).filter(models.ClassSpellCorrection.class_id == class_id).first()
+    spell_data = None
+    if spell:
+        spell_data = {
+            "status": spell.status,
+            "segments_json": spell.segments_json,
+            "raw_text": spell.raw_text,
+        }
+
+    # Segments
+    segments = db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id == class_id).order_by(models.ScreenSegment.order).all()
+    segments_data = [
+        {
+            "order": s.order,
+            "screen_type": s.screen_type,
+            "narration": s.narration,
+            "params": s.params,
+            "remotion_template": s.remotion_template,
+            "notes": s.notes
+        }
+        for s in segments
+    ]
+
+    # Guion Base
+    gb = db.query(models.ClassGuionBase).filter(models.ClassGuionBase.class_id == class_id).first()
+    gb_data = None
+    if gb:
+        gb_data = {
+            "status": gb.status,
+            "segments_json": gb.segments_json,
+            "content": gb.content
+        }
+
+    # Guion Consolidado
+    gc = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
+    gc_data = None
+    if gc:
+        gc_data = {
+            "status": gc.status,
+            "content": gc.content,
+            "recursos_json": gc.recursos_json
+        }
+
+    # Image Prompts
+    prompts = db.query(models.ClassImgPrompt).filter(models.ClassImgPrompt.class_id == class_id).all()
+    prompts_data = [
+        {
+            "asset_name": p.asset_name,
+            "prompt": p.prompt,
+            "fixed_by": p.fixed_by
+        }
+        for p in prompts
+    ]
+
+    import json
+    export_payload = {
+        "version": "1.0",
+        "export_date": datetime.utcnow().isoformat(),
+        "class_title": cls.title,
+        "raw_narration": cls.raw_narration,
+        "audio": audio_data,
+        "spell_correction": spell_data,
+        "screen_segments": segments_data,
+        "guion_base": gb_data,
+        "guion_consolidado": gc_data,
+        "image_prompts": prompts_data
+    }
+
+    from fastapi.responses import Response
+    response = Response(content=json.dumps(export_payload, ensure_ascii=False, indent=2), media_type="application/json")
+    response.headers["Content-Disposition"] = f"attachment; filename=class_{class_id}_export.json"
+    return response
+
+
+@app.post("/api/classes/{class_id}/import")
+async def import_class_data(class_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(404, "Clase no encontrada")
+
+    content = await file.read()
+    import json
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "Archivo JSON inválido")
+
+    # Update raw narration
+    if "raw_narration" in data and data["raw_narration"] is not None:
+        cls.raw_narration = data["raw_narration"]
+        db.add(cls)
+
+    # Audio
+    if "audio" in data and data["audio"]:
+        audio_data = data["audio"]
+        audio = db.query(models.ClassAudio).filter(models.ClassAudio.class_id == class_id).first()
+        if not audio:
+            audio = models.ClassAudio(class_id=class_id, filename=audio_data.get("filename", "imported.mp3"), file_path="imported")
+            db.add(audio)
+        audio.duration = audio_data.get("duration")
+        audio.tx_status = audio_data.get("tx_status", "done")
+        audio.tx_raw_text = audio_data.get("tx_raw_text")
+        audio.tx_srt = audio_data.get("tx_srt")
+        audio.tx_segments = audio_data.get("tx_segments")
+
+    # Spell Correction
+    if "spell_correction" in data and data["spell_correction"]:
+        spell_data = data["spell_correction"]
+        spell = db.query(models.ClassSpellCorrection).filter(models.ClassSpellCorrection.class_id == class_id).first()
+        if not spell:
+            spell = models.ClassSpellCorrection(class_id=class_id)
+            db.add(spell)
+        spell.status = spell_data.get("status", "done")
+        spell.segments_json = spell_data.get("segments_json")
+        spell.raw_text = spell_data.get("raw_text")
+
+    # Segments
+    if "screen_segments" in data:
+        db.query(models.ScreenSegment).filter(models.ScreenSegment.class_id == class_id).delete()
+        for s_data in data["screen_segments"]:
+            db.add(models.ScreenSegment(
+                class_id=class_id,
+                order=s_data.get("order", 0),
+                screen_type=s_data.get("screen_type"),
+                narration=s_data.get("narration", ""),
+                params=s_data.get("params", ""),
+                remotion_template=s_data.get("remotion_template"),
+                notes=s_data.get("notes", "")
+            ))
+
+    # Guion Base
+    if "guion_base" in data and data["guion_base"]:
+        gb_data = data["guion_base"]
+        gb = db.query(models.ClassGuionBase).filter(models.ClassGuionBase.class_id == class_id).first()
+        if not gb:
+            gb = models.ClassGuionBase(class_id=class_id)
+            db.add(gb)
+        gb.status = gb_data.get("status", "done")
+        gb.segments_json = gb_data.get("segments_json")
+        gb.content = gb_data.get("content")
+
+    # Guion Consolidado
+    if "guion_consolidado" in data and data["guion_consolidado"]:
+        gc_data = data["guion_consolidado"]
+        gc = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
+        if not gc:
+            gc = models.ClassGuionConsolidado(class_id=class_id)
+            db.add(gc)
+        gc.status = gc_data.get("status", "done")
+        gc.content = gc_data.get("content")
+        gc.recursos_json = gc_data.get("recursos_json")
+
+    # Image Prompts
+    if "image_prompts" in data:
+        db.query(models.ClassImgPrompt).filter(models.ClassImgPrompt.class_id == class_id).delete()
+        for p_data in data["image_prompts"]:
+            db.add(models.ClassImgPrompt(
+                class_id=class_id,
+                asset_name=p_data.get("asset_name"),
+                prompt=p_data.get("prompt", ""),
+                fixed_by=p_data.get("fixed_by", "user")
+            ))
+
+    db.commit()
+    return {"ok": True, "message": "Datos importados correctamente"}
+
+
 # ── Global: Screen Types ────────────────────────────────────────────────────────────────────────────────
 
 def ser_screen_type(st: models.ScreenType):
