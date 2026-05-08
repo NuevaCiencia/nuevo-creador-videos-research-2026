@@ -2585,17 +2585,47 @@ async function estImportBase(input) {
   parsed.forEach((item, i) => {
     const actual = actualParas[i].text.trim();
     if (item.text !== actual) {
-      mismatches.push(i + 1);
+      mismatches.push({ idx: i + 1, fromFile: item.text, fromDb: actual });
     }
   });
 
   if (mismatches.length > 0) {
-    const preview = mismatches.slice(0, 3).join(', ');
-    const more = mismatches.length > 3 ? ` y ${mismatches.length - 3} más` : '';
-    return toast(
-      `❌ El texto no coincide en párrafo${mismatches.length > 1 ? 's' : ''} ${preview}${more}. No se puede importar.`,
-      false
-    );
+    const rows = mismatches.slice(0, 5).map(m => {
+      const snipFile = m.fromFile.length > 120 ? m.fromFile.slice(0, 120) + '…' : m.fromFile;
+      const snipDb   = m.fromDb.length   > 120 ? m.fromDb.slice(0, 120)   + '…' : m.fromDb;
+      return `
+      <div style="margin-bottom:14px;padding:10px;background:var(--bg2);border-radius:8px;border:1px solid var(--border2)">
+        <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:6px">
+          Párrafo #${m.idx}
+        </div>
+        <div style="margin-bottom:6px">
+          <span style="font-size:10px;color:var(--err);font-weight:700">📄 En el archivo:</span>
+          <div style="font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.5;font-family:monospace;word-break:break-all">${esc(snipFile)}</div>
+        </div>
+        <div>
+          <span style="font-size:10px;color:var(--acc);font-weight:700">🗄 En la base de datos:</span>
+          <div style="font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.5;font-family:monospace;word-break:break-all">${esc(snipDb)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    const extra = mismatches.length > 5
+      ? `<div style="font-size:11px;color:var(--tx3);text-align:center;margin-top:8px">… y ${mismatches.length - 5} párrafo${mismatches.length - 5 > 1 ? 's' : ''} más con diferencias.</div>`
+      : '';
+    return openModal({
+      wide: true,
+      html: `
+      <div class="modal-title" style="color:var(--err)">❌ No se puede importar — ${mismatches.length} diferencia${mismatches.length > 1 ? 's' : ''} encontrada${mismatches.length > 1 ? 's' : ''}</div>
+      <p style="font-size:12px;color:var(--tx3);margin:0 0 14px;line-height:1.6">
+        El texto del archivo <strong>no coincide exactamente</strong> con el texto almacenado en la base de datos.<br>
+        <strong>No modifiques el texto de los párrafos</strong>, solo las etiquetas <code>&lt;TAG&gt;</code>.
+      </p>
+      <div style="max-height:55vh;overflow-y:auto;padding-right:4px">
+        ${rows}${extra}
+      </div>
+      <div class="modal-foot" style="margin-top:14px">
+        <button class="btn btn-ghost" onclick="closeModal()">Entendido</button>
+      </div>`
+    });
   }
 
   // All texts match — build new tags array
