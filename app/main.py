@@ -1690,8 +1690,7 @@ def export_class_data(class_id: int, db: Session = Depends(get_db)):
         for p in prompts
     ]
 
-    import json
-    import re
+    import json, re, zipfile, io
     export_payload = {
         "version": "1.0",
         "export_date": datetime.utcnow().isoformat(),
@@ -1707,20 +1706,27 @@ def export_class_data(class_id: int, db: Session = Depends(get_db)):
 
     # Clean titles for filename
     safe_project = re.sub(r'[^a-zA-Z0-9_\-]', '_', cls.section.course.title) if cls.section and cls.section.course else f"project_{class_id}"
-    safe_class = re.sub(r'[^a-zA-Z0-9_\-]', '_', cls.title) if cls.title else f"class_{class_id}"
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    
-    filename = f"{safe_project}_{safe_class}_{date_str}.json"
-    json_str = json.dumps(export_payload, ensure_ascii=False, indent=2)
-    
-    # Save as backup in data/exports/
-    export_path = os.path.join(EXPORTS_DIR, filename)
-    with open(export_path, "w", encoding="utf-8") as f:
-        f.write(json_str)
+    safe_class   = re.sub(r'[^a-zA-Z0-9_\-]', '_', cls.title) if cls.title else f"class_{class_id}"
+    date_str     = datetime.now().strftime("%Y-%m-%d")
+    base_name    = f"{safe_project}_{safe_class}_{date_str}"
+    json_name    = f"{base_name}.json"
+    zip_name     = f"{base_name}.zip"
+    json_str     = json.dumps(export_payload, ensure_ascii=False, indent=2)
+
+    # Build ZIP in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(json_name, json_str)
+    zip_bytes = zip_buffer.getvalue()
+
+    # Save ZIP as backup in data/exports/
+    zip_path = os.path.join(EXPORTS_DIR, zip_name)
+    with open(zip_path, "wb") as f:
+        f.write(zip_bytes)
 
     from fastapi.responses import Response
-    response = Response(content=json_str, media_type="application/json")
-    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response = Response(content=zip_bytes, media_type="application/zip")
+    response.headers["Content-Disposition"] = f"attachment; filename={zip_name}"
     return response
 
 
@@ -1731,11 +1737,20 @@ async def import_class_data(class_id: int, file: UploadFile = File(...), db: Ses
         raise HTTPException(404, "Clase no encontrada")
 
     content = await file.read()
-    import json
+    import json, zipfile, io
+    fname = (file.filename or "").lower()
     try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Archivo JSON inválido")
+        if fname.endswith(".zip"):
+            # Extract the first JSON file from the ZIP
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                json_names = [n for n in zf.namelist() if n.endswith(".json")]
+                if not json_names:
+                    raise HTTPException(400, "El ZIP no contiene ningún archivo JSON")
+                data = json.loads(zf.read(json_names[0]))
+        else:
+            data = json.loads(content)
+    except (json.JSONDecodeError, zipfile.BadZipFile):
+        raise HTTPException(400, "Archivo inválido — se espera un .zip o .json")
 
     # Update raw narration
     if "raw_narration" in data and data["raw_narration"] is not None:
