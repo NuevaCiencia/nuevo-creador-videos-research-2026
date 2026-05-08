@@ -63,8 +63,22 @@ app/storage/
 *.bin
 models/
 .cache/
-app/assets/
-app/renders/
-app/images/
-app/videos/
+# Project State & Media
+data/*
+
+# Excepciones para mantener la estructura de directorios en el repositorio
+!data/assets/
+data/assets/*
+!data/assets/notas.md
+
+!data/database/
+data/database/*
+!data/database/notas.md
+
+!data/renders/
+data/renders/*
+!data/renders/notas.md
+
+# La carpeta fonts se incluye completamente
+!data/fonts/
 .claude/

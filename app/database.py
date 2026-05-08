@@ -3,7 +3,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'video_creator.db')}"
+DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
+DB_DIR = os.path.join(DATA_DIR, "database")
+os.makedirs(DB_DIR, exist_ok=True)
+DATABASE_URL = f"sqlite:///{os.path.join(DB_DIR, 'video_creator.db')}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -23,8 +26,8 @@ def _backup_db():
     Overwrites the previous backup so there's always one clean copy
     from the last time the server started."""
     import shutil
-    db_path  = os.path.join(BASE_DIR, "video_creator.db")
-    bak_path = os.path.join(BASE_DIR, "video_creator.db.bak")
+    db_path  = os.path.join(DB_DIR, "video_creator.db")
+    bak_path = os.path.join(DB_DIR, "video_creator.db.bak")
     if os.path.exists(db_path):
         shutil.copy2(db_path, bak_path)
         print(f"✅ DB backup → video_creator.db.bak")

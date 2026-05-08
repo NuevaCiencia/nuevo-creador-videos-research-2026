@@ -171,8 +171,9 @@ def run_render(class_id: int):
 
         # Resolve absolute paths
         app_dir       = Path(__file__).parent.parent                    # app/
-        assets_dir    = str(app_dir / "assets" / str(class_id))        # app/assets/{class_id}/
-        fonts_dir_str = str(app_dir / "fonts") if (app_dir / "fonts").exists() else ""
+        data_dir      = app_dir.parent / "data"
+        assets_dir    = str(data_dir / "assets" / str(class_id))        # data/assets/{class_id}/
+        fonts_dir_str = str(data_dir / "fonts") if (data_dir / "fonts").exists() else ""
 
         cfg["FILES_FOLDER"] = assets_dir
 
@@ -204,7 +205,7 @@ def run_render(class_id: int):
         _update_render(class_id, "rendering", 15, "📝 Generando subtítulos ASS…")
 
         # ── Prepare output dirs ──────────────────────────────────────────────
-        renders_dir = app_dir / "renders"
+        renders_dir = data_dir / "renders"
         renders_dir.mkdir(exist_ok=True)
 
         tmp_dir = tempfile.mkdtemp(prefix=f"render_{class_id}_")

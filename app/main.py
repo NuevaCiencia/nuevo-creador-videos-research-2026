@@ -24,9 +24,12 @@ init_db()
 
 app = FastAPI(title="Video Creator")
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
-FONTS_DIR  = os.path.join(os.path.dirname(__file__), "fonts")
+BASE_DIR = os.path.dirname(__file__)
+DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data"))
+
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+ASSETS_DIR = os.path.join(DATA_DIR, "assets")
+FONTS_DIR  = os.path.join(DATA_DIR, "fonts")
 os.makedirs(ASSETS_DIR, exist_ok=True)
 os.makedirs(FONTS_DIR,  exist_ok=True)
 
