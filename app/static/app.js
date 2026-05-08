@@ -2426,7 +2426,11 @@ function _buildEstUI(area) {
 
   const utilBtns = `
     <button class="est-btn-discard" style="color:var(--acc)" onclick="estShowTags()" title="Ver guía de etiquetas disponibles">🏷 Etiquetas</button>
-    <button class="est-btn-discard" onclick="estExportBase()">⬇ Exportar estructura base</button>`;
+    <button class="est-btn-discard" onclick="estExportBase()">⬇ Exportar estructura</button>
+    <label class="est-btn-discard" title="Importar estructura desde archivo .txt" style="cursor:pointer">
+      ⬆ Importar estructura
+      <input type="file" accept=".txt" style="display:none" onchange="estImportBase(this)">
+    </label>`;
 
   const toolbar = !locked ? `
     <div class="est-toolbar">
@@ -2477,21 +2481,19 @@ function estExportBase() {
   const tagAtPara = {};
   _estTags.forEach(t => { tagAtPara[t.para_idx] = t; });
 
-  let lines = [];
+  const lines = [];
   const className = S.activeClass?.title || 'clase';
   lines.push(`# ESTRUCTURA BASE — ${className}`);
   lines.push(`# Exportado: ${new Date().toLocaleString('es-MX')}`);
-  lines.push('');
+  lines.push(`# IMPORTANTE: No modifiques el texto de los párrafos. Solo mueve o cambia las etiquetas <>.`);
 
   paragraphs.forEach((para, pi) => {
     const tag = tagAtPara[pi];
+    lines.push(''); // blank line separator between blocks
     if (tag) {
       const st = typeMap[tag.screen_type] || {};
       const fmt = st.tag_format || `<${tag.screen_type}>`;
-      lines.push('');
-      lines.push('─'.repeat(60));
       lines.push(fmt);
-      lines.push('─'.repeat(60));
     }
     if (para.text && para.text.trim()) {
       lines.push(para.text.trim());
@@ -2502,12 +2504,129 @@ function estExportBase() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   const safe = (S.activeClass?.title || 'clase').replace(/[^a-zA-Z0-9_\-]/g, '_');
-  const date = new Date().toISOString().slice(0,10);
+  const date = new Date().toISOString().slice(0, 10);
   a.href     = url;
   a.download = `estructura_${safe}_${date}.txt`;
   a.click();
   URL.revokeObjectURL(url);
   toast('✅ Estructura base exportada');
+}
+
+/* ─── IMPORT BASE STRUCTURE ────────────────────────────────── */
+async function estImportBase(input) {
+  const file = input.files[0];
+  input.value = ''; // reset so same file can be re-selected
+  if (!file || !_estData) return;
+
+  // Load screen-type map: tag_format → name and fallback <name> → name
+  let allTypes;
+  try { allTypes = await api('GET', '/api/screen-types'); }
+  catch(e) { return toast('Error cargando tipos de pantalla: ' + e.message, false); }
+
+  const tagFormatToName = {};
+  allTypes.forEach(t => {
+    if (t.tag_format) tagFormatToName[t.tag_format.trim()] = t.name;
+    tagFormatToName[`<${t.name}>`] = t.name; // fallback
+  });
+  // A line is a tag line if it matches any known tag_format or <name>
+  const isTagLine = line => line.trim() in tagFormatToName;
+
+  const rawText = await file.text();
+  const rawLines = rawText.split('\n');
+
+  // Skip comment/header lines (starting with #)
+  const contentLines = rawLines.filter(l => !l.trimStart().startsWith('#'));
+
+  // Split by blank lines into blocks
+  const blocks = [];
+  let current = [];
+  for (const line of contentLines) {
+    if (line.trim() === '') {
+      if (current.length) { blocks.push(current.join('\n').trim()); current = []; }
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.length) blocks.push(current.join('\n').trim());
+
+  // Parse blocks into [{tag_name, text}]
+  // A block can be: just a tag line, just text, or tag-line + text on next line(s)
+  const parsed = []; // {tag_name: str|null, text: str}
+  let pendingTag = null;
+
+  for (const block of blocks) {
+    const firstLine = block.split('\n')[0].trim();
+    if (isTagLine(firstLine)) {
+      // The rest of the block (if any) is the paragraph text
+      const rest = block.split('\n').slice(1).join('\n').trim();
+      if (rest) {
+        parsed.push({ tag_name: tagFormatToName[firstLine], text: rest });
+      } else {
+        // tag alone, next block will be the text
+        pendingTag = tagFormatToName[firstLine];
+      }
+    } else {
+      parsed.push({ tag_name: pendingTag, text: block.trim() });
+      pendingTag = null;
+    }
+  }
+
+  // Now match against actual paragraphs (exact text match)
+  const actualParas = _estData.paragraphs;
+
+  if (parsed.length !== actualParas.length) {
+    return toast(
+      `❌ Número de párrafos no coincide: el archivo tiene ${parsed.length}, la clase tiene ${actualParas.length}.`,
+      false
+    );
+  }
+
+  const mismatches = [];
+  parsed.forEach((item, i) => {
+    const actual = actualParas[i].text.trim();
+    if (item.text !== actual) {
+      mismatches.push(i + 1);
+    }
+  });
+
+  if (mismatches.length > 0) {
+    const preview = mismatches.slice(0, 3).join(', ');
+    const more = mismatches.length > 3 ? ` y ${mismatches.length - 3} más` : '';
+    return toast(
+      `❌ El texto no coincide en párrafo${mismatches.length > 1 ? 's' : ''} ${preview}${more}. No se puede importar.`,
+      false
+    );
+  }
+
+  // All texts match — build new tags array
+  const newTags = [];
+  parsed.forEach((item, i) => {
+    if (item.tag_name) {
+      newTags.push({ para_idx: i, screen_type: item.tag_name, params: {} });
+    }
+  });
+
+  if (newTags.length === 0) {
+    return toast('❌ No se encontraron etiquetas válidas en el archivo.', false);
+  }
+
+  // Confirm and apply
+  openConfirm({
+    title: '⬆ Importar estructura',
+    msg: `Se detectaron <strong>${newTags.length}</strong> etiqueta${newTags.length !== 1 ? 's' : ''} válida${newTags.length !== 1 ? 's' : ''} con texto 100% verificado.<br><br>Esto reemplazará la estructura actual. ¿Deseas continuar?`,
+    confirmLabel: '✅ Aplicar y guardar',
+    onConfirm: async () => {
+      _estTags = newTags;
+      _estUnlocked = true; // allow save even if locked
+      _estDirty  = true;
+      try {
+        await saveEstructura();
+        toast(`✅ Estructura importada: ${newTags.length} pantalla${newTags.length !== 1 ? 's' : ''} cargadas.`);
+      } catch(e) {
+        toast('❌ Error al guardar: ' + e.message, false);
+      }
+    }
+  });
 }
 
 /* ─── SHOW TAGS REFERENCE MODAL ────────────────────────────── */
