@@ -2424,6 +2424,10 @@ function _buildEstUI(area) {
       <button class="est-btn-unlock" onclick="estUnlock()">⚠ Editar arquitectura</button>
     </div>` : '';
 
+  const utilBtns = `
+    <button class="est-btn-discard" style="color:var(--acc)" onclick="estShowTags()" title="Ver guía de etiquetas disponibles">🏷 Etiquetas</button>
+    <button class="est-btn-discard" onclick="estExportBase()">⬇ Exportar estructura base</button>`;
+
   const toolbar = !locked ? `
     <div class="est-toolbar">
       <div class="est-toolbar-info">
@@ -2431,6 +2435,7 @@ function _buildEstUI(area) {
         ${!has_segments ? ' · <span style="color:var(--tx3)">sin segmentación previa</span>' : ''}
       </div>
       <div class="est-toolbar-actions">
+        ${utilBtns}
         <button class="est-btn-discard" onclick="renderEstructura(document.getElementById('contentArea'))">↺ Descartar</button>
         <button class="est-btn-save${_estDirty ? ' dirty' : ''}" id="estSaveBtn" onclick="saveEstructura()">💾 Guardar</button>
       </div>
@@ -2439,6 +2444,7 @@ function _buildEstUI(area) {
       <div class="est-toolbar-info">
         <strong>${tagCount}</strong> pantalla${tagCount !== 1 ? 's' : ''}
       </div>
+      <div class="est-toolbar-actions">${utilBtns}</div>
     </div>`;
 
   area.innerHTML = `
@@ -2457,6 +2463,127 @@ function estUnlock() {
       _estUnlocked = true;
       _buildEstUI(document.getElementById('contentArea'));
     }
+  });
+}
+
+/* ─── EXPORT BASE STRUCTURE ────────────────────────────────── */
+function estExportBase() {
+  if (!_estData) return;
+  const { paragraphs, screen_types } = _estData;
+  const typeMap = {};
+  screen_types.forEach(st => { typeMap[st.name] = st; });
+
+  // Build para_idx → tag map
+  const tagAtPara = {};
+  _estTags.forEach(t => { tagAtPara[t.para_idx] = t; });
+
+  let lines = [];
+  const className = S.activeClass?.title || 'clase';
+  lines.push(`# ESTRUCTURA BASE — ${className}`);
+  lines.push(`# Exportado: ${new Date().toLocaleString('es-MX')}`);
+  lines.push('');
+
+  paragraphs.forEach((para, pi) => {
+    const tag = tagAtPara[pi];
+    if (tag) {
+      const st = typeMap[tag.screen_type] || {};
+      const fmt = st.tag_format || `<${tag.screen_type}>`;
+      lines.push('');
+      lines.push('─'.repeat(60));
+      lines.push(fmt);
+      lines.push('─'.repeat(60));
+    }
+    if (para.text && para.text.trim()) {
+      lines.push(para.text.trim());
+    }
+  });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const safe = (S.activeClass?.title || 'clase').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const date = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `estructura_${safe}_${date}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ Estructura base exportada');
+}
+
+/* ─── SHOW TAGS REFERENCE MODAL ────────────────────────────── */
+async function estShowTags() {
+  let types;
+  try {
+    types = await api('GET', '/api/screen-types');
+  } catch(e) {
+    return toast('Error cargando etiquetas: ' + e.message, false);
+  }
+
+  // Group by category
+  const cats = {};
+  types.forEach(t => {
+    const c = t.category || 'General';
+    if (!cats[c]) cats[c] = [];
+    cats[c].push(t);
+  });
+
+  const catColors = {
+    'NAR':   '#7c3aed',
+    'FLOW':  '#0ea5e9',
+    'CLASS': '#10b981',
+    'FULL':  '#f59e0b',
+    'General': '#6b7280',
+  };
+
+  const rows = Object.entries(cats).map(([cat, items]) => {
+    const catColor = catColors[cat] || '#6b7280';
+    const itemRows = items.map(t => {
+      const tagFmt = t.tag_format
+        ? `<code style="background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-size:12px;color:${t.color || catColor};font-family:monospace;display:inline-block;margin-bottom:2px">${esc(t.tag_format)}</code>`
+        : `<code style="background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-size:12px;color:${t.color || catColor};font-family:monospace;display:inline-block;margin-bottom:2px">&lt;${esc(t.name)}&gt;</code>`;
+
+      const paramsFmt = t.params_syntax
+        ? `<div style="font-size:11px;color:var(--tx3);margin-top:3px;font-family:monospace">${esc(t.params_syntax)}</div>`
+        : '';
+
+      const limits = [];
+      if (t.max_items) limits.push(`máx ${t.max_items} ítems`);
+      if (t.max_words) limits.push(`máx ${t.max_words} palabras`);
+      if (t.max_chars) limits.push(`máx ${t.max_chars} chars`);
+      const limitsStr = limits.length ? `<div style="font-size:10px;color:var(--tx3);margin-top:3px">${limits.join(' · ')}</div>` : '';
+
+      return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;padding:10px 0;border-bottom:1px solid var(--border1)">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:16px">${t.icon || '▪'}</span>
+            <span style="font-size:13px;font-weight:600;color:var(--tx1)">${esc(t.label || t.name)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--tx2);line-height:1.5">${esc(t.description || '')}</div>
+          ${limitsStr}
+        </div>
+        <div style="text-align:right">${tagFmt}${paramsFmt}</div>
+      </div>`;
+    }).join('');
+
+    return `
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${catColor};margin-bottom:8px;padding:4px 0;border-bottom:2px solid ${catColor}40">${esc(cat)}</div>
+      ${itemRows}
+    </div>`;
+  }).join('');
+
+  openModal({
+    wide: true,
+    html: `
+    <div class="modal-title">🏷 Guía de Etiquetas de Pantalla</div>
+    <p style="font-size:12px;color:var(--tx3);margin:0 0 16px">Todas las etiquetas que el sistema reconoce. Úsalas al comienzo de cada bloque para indicar qué tipo de pantalla renderizar.</p>
+    <div style="max-height:65vh;overflow-y:auto;padding-right:4px">
+      ${rows}
+    </div>
+    <div class="modal-foot" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+    </div>`
   });
 }
 
