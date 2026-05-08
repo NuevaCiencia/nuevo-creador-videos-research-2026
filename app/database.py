@@ -85,17 +85,19 @@ def _migrate():
 
 
 def _migrate_audio_paths(conn):
-    """Convert stale absolute file_path values in class_audio to relative (assets/...)."""
+    """Convert stale absolute file_path values in class_audio to relative (assets/...).
+    Searches both the legacy app/ location and the new data/ location."""
     import os
-    app_dir = os.path.dirname(os.path.abspath(__file__))
+    app_dir  = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.abspath(os.path.join(app_dir, "..", "data"))
     try:
         rows = conn.execute("SELECT id, file_path FROM class_audio").fetchall()
         for row_id, fp in rows:
             if not fp or not os.path.isabs(fp):
                 continue  # already relative or empty
             if os.path.exists(fp):
-                # Absolute but valid on this machine — make relative
-                rel = os.path.relpath(fp, app_dir)
+                # Absolute but valid on this machine — make relative to data/
+                rel = os.path.relpath(fp, data_dir)
                 conn.execute("UPDATE class_audio SET file_path=? WHERE id=?", (rel, row_id))
                 print(f"  migration: class_audio.{row_id} path made relative")
             else:
@@ -106,11 +108,14 @@ def _migrate_audio_paths(conn):
                     try:
                         idx = parts.index(marker)
                         rel = str(Path(*parts[idx:]))
-                        candidate = os.path.join(app_dir, rel)
-                        if os.path.exists(candidate):
-                            conn.execute("UPDATE class_audio SET file_path=? WHERE id=?", (rel, row_id))
-                            print(f"  migration: class_audio.{row_id} path resolved from {fp} → {rel}")
-                            break
+                        # Check in data/ first (new location), then app/ (legacy)
+                        for base in (data_dir, app_dir):
+                            candidate = os.path.join(base, rel)
+                            if os.path.exists(candidate):
+                                conn.execute("UPDATE class_audio SET file_path=? WHERE id=?", (rel, row_id))
+                                print(f"  migration: class_audio.{row_id} path resolved from {fp} → {rel}")
+                                break
+                        break
                     except ValueError:
                         continue
         conn.commit()

@@ -2729,7 +2729,7 @@ def _parse_font_file(filename: str) -> dict:
 
 @app.get("/api/fonts")
 def list_fonts():
-    """List all installed font files from app/fonts/."""
+    """List all installed font files from data/fonts/."""
     files = []
     for fname in sorted(os.listdir(FONTS_DIR)):
         if os.path.splitext(fname)[1].lower() in FONT_EXTS:
@@ -2748,7 +2748,7 @@ def list_fonts():
 
 @app.post("/api/fonts", status_code=201)
 async def upload_font(file: UploadFile = File(...)):
-    """Upload a TTF or OTF font file to app/fonts/."""
+    """Upload a TTF or OTF font file to data/fonts/."""
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in FONT_EXTS:
         raise HTTPException(400, f"Solo se aceptan archivos TTF u OTF. Recibido: {ext or 'sin extensión'}")

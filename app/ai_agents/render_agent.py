@@ -51,19 +51,25 @@ def _get_system_info() -> str:
     return f"{os_name} ({cpu})"
 
 
-def _resolve_path(stored_path: str, app_dir: Path) -> str:
+def _resolve_path(stored_path: str, app_dir: Path, data_dir: Path | None = None) -> str:
     """
     Resolve a file path that may have been stored as an absolute path on a
     different machine. Strategy:
-    1. If not absolute, join with app_dir.
+    1. If not absolute, try data_dir first, then app_dir.
     2. If absolute and exists, use it.
-    3. If absolute and missing, find the 'assets/' subtree portion and
-       rebuild relative to app_dir (handles DB migration across machines).
+    3. If absolute and missing, find the 'assets/' subtree and rebuild
+       relative to data_dir then app_dir (handles DB migration across machines).
     """
     # Normalize Windows backslashes → forward slashes (cross-platform safety)
     stored_path = stored_path.replace("\\", "/")
     if not os.path.isabs(stored_path):
-        return str(app_dir / stored_path)
+        # Try data_dir first (new location), then app_dir (legacy)
+        for base in filter(None, [data_dir, app_dir]):
+            candidate = str(base / stored_path)
+            if os.path.exists(candidate):
+                return candidate
+        # Return data_dir path as best guess
+        return str((data_dir or app_dir) / stored_path)
     if os.path.exists(stored_path):
         return stored_path
     # Try to salvage by finding 'assets/' in the stored path
@@ -73,13 +79,14 @@ def _resolve_path(stored_path: str, app_dir: Path) -> str:
         try:
             idx = parts.index(marker)
             rel = Path(*parts[idx:])
-            candidate = str(app_dir / rel)
-            if os.path.exists(candidate):
-                return candidate
+            for base in filter(None, [data_dir, app_dir]):
+                candidate = str(base / rel)
+                if os.path.exists(candidate):
+                    return candidate
         except ValueError:
             continue
-    # Last resort: use basename under expected folder
-    return str(app_dir / "assets" / p.name)
+    # Last resort: use basename under data/assets
+    return str((data_dir or app_dir) / "assets" / p.name)
 
 
 def _update_render(class_id: int, status: str, pct: int, msg: str, error=None, output_path=None,
@@ -178,7 +185,7 @@ def run_render(class_id: int):
         cfg["FILES_FOLDER"] = assets_dir
 
         # Resolve audio — stored path may be absolute from a different machine
-        audio_abs = _resolve_path(audio_path, app_dir)
+        audio_abs = _resolve_path(audio_path, app_dir, data_dir)
         if not os.path.exists(audio_abs):
             raise FileNotFoundError(f"Audio no encontrado: {audio_abs}")
 
