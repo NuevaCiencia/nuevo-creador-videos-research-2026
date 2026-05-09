@@ -5,6 +5,23 @@ de trabajo coherente sobre la app web (`app/`).
 
 ---
 
+## v1.22 — Feat: Herramientas de Estructura (Exportar / Importar / Guía de Etiquetas)
+
+### Feat — Exportar Estructura Base
+- **Botón en fase Estructura**: Genera un `.txt` limpio con todo el texto de la clase organizado por bloques, precedidos por su etiqueta `<TAG>` correspondiente y separados por líneas en blanco. No incluye separadores visuales que confundan al sistema.
+- **Formato portable**: El archivo está pensado para ser editado externamente (reorganizar etiquetas) y luego reimportado.
+
+### Feat — Importar Estructura Base
+- **Validación por texto total**: El sistema no compara párrafo por párrafo sino el **texto completo** del archivo contra el texto completo de la BD. Si coinciden al 100%, importa sin importar cómo estén organizados los párrafos en el archivo.
+- **Mapeo por offset de caracteres**: Una vez validado el texto, las etiquetas se ubican en el `para_idx` correcto usando su posición en el texto concatenado, lo que tolera reorganizaciones de párrafos.
+- **Modal de error preciso**: Si el texto no coincide, muestra exactamente el carácter donde difiere con un snippet del archivo vs. la BD, y cuántos caracteres sobran o faltan.
+
+### Feat — Guía de Etiquetas
+- **Botón 🏷 Etiquetas**: Abre un modal con todas las etiquetas que el sistema reconoce, agrupadas por categoría, con su ícono, descripción, formato de etiqueta en `monospace`, sintaxis de parámetros y límites de ítems/palabras.
+- Los botones de exportar, importar y guía están disponibles tanto en modo **edición** como en modo **bloqueado**.
+
+---
+
 ## v1.21 — Refactor: Separación de Motor y Datos + Exportación ZIP
 
 ### Arch — Desacoplamiento del Sistema
