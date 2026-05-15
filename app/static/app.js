@@ -1357,20 +1357,15 @@ function _buildVisualesUI(area, guion, visual, extra = null) {
   const renderStatus   = extra?.renderStatus   || null;
   const remotionStatus = extra?.remotionStatus || null;
 
-  // If resources are empty (e.g. just cleared), try to estimate from guion.content
   let splits = 0, fulls = 0, videos = 0, remotion = 0, totalAssets = 0;
-  if (recursos?.recursos) {
-    splits   = recursos.recursos.filter(r => r.tipo === 'split' || r.tipo === 'imagen_split').length;
-    fulls    = recursos.recursos.filter(r => r.tipo === 'full' || r.tipo === 'imagen_completa').length;
-    videos   = recursos.recursos.filter(r => r.tipo === 'video' && r.tipo_contenido !== 'remotion').length;
-    remotion = recursos.recursos.filter(r => r.tipo_contenido === 'remotion').length;
-    totalAssets = recursos.recursos.length;
-  } else if (guion?.content) {
-    totalAssets = guion.content.split('#SEGMENT').length - 1;
-    fulls    = (guion.content.match(/TYPE=FULL_IMAGE/g) || []).length;
-    videos   = (guion.content.match(/TYPE=VIDEO/g) || []).length;
-    remotion = (guion.content.match(/TYPE=REMOTION/g) || []).length;
-    splits   = (guion.content.match(/TYPE=SPLIT_/g) || []).length;
+  const contentToCount = visual?.content || guion?.content || '';
+  
+  if (contentToCount) {
+    splits   = (contentToCount.match(/TYPE=SPLIT_/g) || []).length;
+    fulls    = (contentToCount.match(/TYPE=FULL_IMAGE/g) || []).length;
+    videos   = (contentToCount.match(/TYPE=VIDEO/g) || []).length;
+    remotion = (contentToCount.match(/TYPE=REMOTION/g) || []).length;
+    totalAssets = splits + fulls + videos + remotion;
   }
 
   const missingCount  = assetsStatus?.missing ?? 0;
@@ -2215,6 +2210,9 @@ async function vizUpdateType(i, newType) {
 
 async function vizSyncParams(i) {
   const seg = _vizData.segments[i];
+  const oldParams = seg.params;
+  const oldText   = seg.text_on_screen;
+
   let parts = [];
   if (seg.screen_type === 'LIST') {
     const titleEl = document.querySelector(`#viz-card-${i} input[placeholder^="@ Título"]`);
@@ -2232,20 +2230,24 @@ async function vizSyncParams(i) {
     const tpl = document.getElementById(`viz-rt-${i}`)?.value;
     if (tpl) parts.push(`$${tpl}`);
   }
-  seg.params = parts.join(' // ');
-
+  
+  const newParams = parts.join(' // ');
   const tosEl = document.getElementById(`viz-tos-${i}`);
-  const oldText = seg.text_on_screen;
-  if (tosEl) {
-    seg.text_on_screen = tosEl.value;
+  const newText = tosEl ? tosEl.value : oldText;
+
+  // 1. If visual content (TEXT=) changed
+  if (newText !== oldText) {
+    seg.text_on_screen = newText;
+    try { await api('PUT', `/api/segments/${seg.id}/text`, { text_on_screen: newText }); } catch(e) {}
+  }
+
+  // 2. If structural params changed (this is what marks 'stale' in backend)
+  if (newParams !== oldParams) {
+    seg.params = newParams;
+    try { await api('PUT', `/api/segments/${seg.id}/type`, { screen_type: seg.screen_type, params: newParams }); } catch(e) {}
   }
 
   vizRenderPreview(i);
-  try { await api('PUT', `/api/segments/${seg.id}/type`, { screen_type: seg.screen_type, params: seg.params }); } catch(e) {}
-  
-  if (tosEl && oldText !== seg.text_on_screen) {
-    try { await api('PUT', `/api/segments/${seg.id}/text`, { text_on_screen: seg.text_on_screen }); } catch(e) {}
-  }
 }
 
 function vizRenderPreview(i) {

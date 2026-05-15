@@ -1363,25 +1363,12 @@ def update_segment_type(segment_id: int, payload: dict, db: Session = Depends(ge
     if "params" in payload:
         seg.params = payload["params"]
 
-    # Cascade invalidation
+    # Cascade invalidation — ONLY visuals, alignment remains valid
     class_id = seg.class_id
-    guion_base = db.query(models.ClassGuionBase).filter(models.ClassGuionBase.class_id == class_id).first()
-    if guion_base:
-        guion_base.status = "stale"
-        guion_base.phase  = "⚠️ Tipo de pantalla editado — re-ejecuta Alineación"
-    else:
-        guion_base = models.ClassGuionBase(
-            class_id=class_id, 
-            status="stale", 
-            phase="⚠️ Tipo de pantalla editado — re-ejecuta Alineación", 
-            content=""
-        )
-        db.add(guion_base)
-
     guion_consolidado = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
     if guion_consolidado:
         guion_consolidado.status = "stale"
-        guion_consolidado.phase  = "⚠️ Tipo de pantalla editado — re-ejecuta Alineación"
+        guion_consolidado.phase  = "⚠️ Cambios visuales — re-genera Visuales (Phase 3b)"
         
     db.commit()
     return {"id": seg.id, "screen_type": seg.screen_type, "params": seg.params}
@@ -1523,11 +1510,10 @@ def ai_fill_segment_params(segment_id: int, payload: dict, db: Session = Depends
     # Save to DB
     seg.params = params
     class_id = seg.class_id
-    for model_cls in (models.ClassGuionBase, models.ClassGuionConsolidado):
-        row = db.query(model_cls).filter(model_cls.class_id == class_id).first()
-        if row:
-            row.status = "stale"
-            row.phase  = "⚠️ Params editados por IA — re-ejecuta Alineación"
+    row = db.query(models.ClassGuionConsolidado).filter(models.ClassGuionConsolidado.class_id == class_id).first()
+    if row:
+        row.status = "stale"
+        row.phase  = "⚠️ Params editados por IA — re-genera Visuales (Phase 3b)"
     db.commit()
     return {"id": seg.id, "params": params}
 
