@@ -1117,7 +1117,7 @@ def get_visualizador(class_id: int, db: Session = Depends(get_db)):
     ).first()
 
     guion_segments: list = []
-    if guion_row and guion_row.content and guion_row.status == "done":
+    if guion_row and guion_row.content:
         import re as _re
         cur = None
         for raw in guion_row.content.splitlines():
@@ -1218,6 +1218,7 @@ def get_estructura(class_id: int, db: Session = Depends(get_db)):
     # Map segment narrations to paragraph indices (best-effort prefix match)
     tags = []
     search_from = 0
+    seen_paras = set()
     for seg in segs:
         first = (seg.narration or "").split("\n")[0].strip()[:40]
         matched = search_from
@@ -1225,6 +1226,16 @@ def get_estructura(class_id: int, db: Session = Depends(get_db)):
             if first and paragraphs[pi]["text"].strip().startswith(first):
                 matched = pi
                 break
+        
+        if paragraphs:
+            matched = min(matched, len(paragraphs) - 1)
+        else:
+            matched = 0
+
+        if matched in seen_paras:
+            continue
+            
+        seen_paras.add(matched)
         
         type_key = seg.screen_type
         if seg.screen_type == "REMOTION" and seg.remotion_template:
@@ -1394,7 +1405,7 @@ def update_segment_text(segment_id: int, payload: dict, db: Session = Depends(ge
         models.ClassGuionConsolidado.class_id == class_id
     ).first()
 
-    if guion_row and guion_row.content and guion_row.status == "done":
+    if guion_row and guion_row.content:
         lines = guion_row.content.splitlines()
         new_lines = []
         current_idx = -1
