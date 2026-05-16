@@ -2267,8 +2267,9 @@ function vizRenderPreview(i) {
 
   const text   = seg.text_on_screen || '';
   const params = (seg.params||'').split('//').map(p => p.trim()).filter(Boolean);
-  const assetUrl = seg.asset ? `/assets/${_vizData.class_id}/${seg.asset}` : '';
-  const isVid    = assetUrl.endsWith('.mp4');
+  const cacheBuster = Date.now();
+  const assetUrl = seg.asset ? `/assets/${_vizData.class_id}/${seg.asset}?v=${cacheBuster}` : '';
+  const isVid    = assetUrl.includes('.mp4');
 
   const placeholder = (msg) =>
     `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3.5cqh;color:#475569;border:2px dashed #334155;background:#1e293b;">${msg}</div>`;
@@ -2276,7 +2277,7 @@ function vizRenderPreview(i) {
   const mediaEl = assetUrl
     ? (isVid
        ? `<video src="${assetUrl}#t=0.001" preload="metadata" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0"></video>`
-       : `<img src="${assetUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" loading="lazy">`)
+       : `<img src="${assetUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0">`)
     : '';
 
   let html = '';

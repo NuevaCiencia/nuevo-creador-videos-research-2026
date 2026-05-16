@@ -1170,6 +1170,7 @@ def get_visualizador(class_id: int, db: Session = Depends(get_db)):
     st_rows = db.query(models.ScreenType).order_by(models.ScreenType.sort_order).all()
 
     return {
+        "class_id": class_id,
         "segments": result,
         "has_guion": bool(guion_segments),
         "course": {
