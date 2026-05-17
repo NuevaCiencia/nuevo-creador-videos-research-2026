@@ -1758,10 +1758,17 @@ async def import_class_data(class_id: int, file: UploadFile = File(...), db: Ses
     # Audio
     if "audio" in data and data["audio"]:
         audio_data = data["audio"]
+        audio_filename = audio_data.get("filename", "original.mp3")
+        expected_audio_dir = os.path.join(ASSETS_DIR, str(class_id), "audio")
+        expected_file_path_rel = os.path.relpath(os.path.join(expected_audio_dir, audio_filename), os.path.dirname(__file__))
+
         audio = db.query(models.ClassAudio).filter(models.ClassAudio.class_id == class_id).first()
         if not audio:
-            audio = models.ClassAudio(class_id=class_id, filename=audio_data.get("filename", "imported.mp3"), file_path="imported")
+            audio = models.ClassAudio(class_id=class_id, filename=audio_filename, file_path=expected_file_path_rel)
             db.add(audio)
+        else:
+            if audio.file_path == "imported":
+                audio.file_path = expected_file_path_rel
         audio.duration = audio_data.get("duration")
         audio.tx_status = audio_data.get("tx_status", "done")
         audio.tx_raw_text = audio_data.get("tx_raw_text")
@@ -2702,7 +2709,9 @@ def download_render(class_id: int, db: Session = Depends(get_db)):
     if not row or not row.output_path:
         raise HTTPException(404, "No hay video renderizado")
 
-    abs_path = os.path.join(os.path.dirname(__file__), row.output_path)
+    abs_path = row.output_path
+    if not os.path.isabs(abs_path):
+        abs_path = os.path.join(DATA_DIR, abs_path)
     if not os.path.exists(abs_path):
         raise HTTPException(404, "Archivo no encontrado en disco")
 

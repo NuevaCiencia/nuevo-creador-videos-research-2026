@@ -187,7 +187,12 @@ def run_render(class_id: int):
         # Resolve audio — stored path may be absolute from a different machine
         audio_abs = _resolve_path(audio_path, app_dir, data_dir)
         if not os.path.exists(audio_abs):
-            raise FileNotFoundError(f"Audio no encontrado: {audio_abs}")
+            # Fallback for "imported" or broken paths if the file is in the expected assets folder
+            fallback_abs = data_dir / "assets" / str(class_id) / "audio" / (audio_row.filename or "original.mp3")
+            if fallback_abs.exists():
+                audio_abs = str(fallback_abs)
+            else:
+                raise FileNotFoundError(f"Audio no encontrado: {audio_abs}")
 
         _update_render(class_id, "rendering", 8, "📄 Parseando guion…")
 
